@@ -1,0 +1,29 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+# No trailing slash on .venv: `.venv/` matches only a directory, so a
+# symlink named .venv would slip through.
+.venv
+venv/
+build/
+dist/
+*.egg-info/
+*.log
+
+# Per-machine assistant configuration and agent worktrees.
+.claude
+
+# Run files written while testing locally. Real runs belong outside the
+# checkout; a single map can run to gigabytes.
+runs/
+
+# The documentation site's build output.
+/site/
+
+# graphify's cache and machine-specific dotfiles.
+graphify-out/cache/
+graphify-out/.graphify_python
+graphify-out/.graphify_root
