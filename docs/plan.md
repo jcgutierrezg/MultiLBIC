@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phase 0 in review (0.1.0); trying it on the real Pi is still owed |
-| next | Phase 1 bench probes, once SSH to the Pi is set up |
+| status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
+| next | Phase 1 bench probes and Phase 2's hardware runs, once SSH to the Pi is set up; or Phase 3 in simulation |
 
 ## Phases
 
@@ -62,6 +62,11 @@ numbers, and the stream rate and A/B speed are chosen.
 
 **Done when** every device runs in simulation in CI and on the real
 machine from a script.
+
+**State (0.1.1):** drivers, simulators and the check script
+(`python -m multilbic.hardware.check`) work in simulation. Still owed:
+compile and flash laser firmware 2.0.0, then `--real` and
+`pytest --hardware` on the Pi.
 
 ### Phase 3: scan core
 

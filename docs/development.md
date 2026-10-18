@@ -50,6 +50,17 @@ the tests on:
 
 A failure that appears only there is a Pi problem found early.
 
+## Without the machine
+
+Every device has a simulator, so the whole device layer runs on Windows:
+
+```bash
+uv run python -m multilbic.hardware.check --sim --home --move --lasers
+```
+
+Tests marked `hardware` are skipped unless pytest gets `--hardware`,
+which is only for the Pi. See [devices](devices.md).
+
 ## Workflow
 
 - Work on a branch. The PR is merged on GitHub; nothing is merged to

@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.1.0"
+version = "0.1.1"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -76,6 +76,10 @@ ignore = [
     "S101",   # assert, used throughout the tests
 ]
 
+[tool.ruff.lint.per-file-ignores]
+# S311: `random` drives simulated noise, not anything security-relevant.
+"multilbic/sim/*" = ["S311"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["multilbic"]
 
@@ -84,6 +88,15 @@ known-first-party = ["multilbic"]
 # every Tk widget attribute. `uv run mypy` checks exactly this list.
 files = [
     "multilbic/config/machine.py",
+    # time, and the line-of-text contract every serial driver uses
+    "multilbic/clock.py",
+    "multilbic/hardware/link.py",
+    # the three device contracts the scan will be built on
+    "multilbic/hardware/marlin.py",
+    "multilbic/hardware/laser.py",
+    "multilbic/hardware/smu.py",
+    # the simulator's motion model, which the sync tests lean on
+    "multilbic/sim/motion.py",
 ]
 python_version = "3.14"
 ignore_missing_imports = true

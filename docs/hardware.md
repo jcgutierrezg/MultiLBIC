@@ -69,22 +69,24 @@ run.
 
 ### Laser board firmware
 
-[`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino),
-as found:
+[`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino)
+is now **version 2.0.0** (Phase 2). Its protocol is in
+[devices](devices.md#laser-board-protocol-20). Pins and angles are
+unchanged: laser enables on pins 1, 2, 3, 4, 5, 8, servo on pin 9, and
+pins 0, 6, 7 and 10 free.
 
-- Laser enables on pins 1, 2, 3, 4, 5, 8; servo on pin 9. Pins 0, 6, 7
-  and 10 are free.
-- `LASER n` turns every laser off, moves the servo, **busy-waits 2 s**,
-  then turns laser *n* on. `LASER 0` (or any out-of-range n) parks the
-  servo at 90° and also waits 2 s.
-- Replies are free text (`Servo moved to: 90`, `Laser 2 ON (all others
-  OFF)`). There is no ack/error convention, no identify and no state
-  query.
+What changed from the 1.x sketch, which is **still the one on the board**:
 
-The builder has agreed this firmware may change. Planned: a reply
-protocol, a state query, a settle time that can be set instead of the
-fixed 2 s, and no servo park on `LASER 0`. A laser gate input driven by
-Marlin comes later, and only if software sync is not good enough (see
+- 1.x replied in free text (`Servo moved to: 90`), with no ack/error
+  convention, no identify and no state query. 2.0 sends one reply line
+  per command.
+- 1.x always busy-waited 2 s. In 2.0 the settle time can be set, and is
+  skipped when the servo is already at the angle.
+- 1.x parked the servo at 90° on `LASER 0`. 2.0 leaves it where it is.
+
+**2.0.0 has not been compiled or flashed.** Until it is, the driver
+refuses the board at `open()`. A laser gate input driven by Marlin comes
+later, and only if software sync is not good enough (see
 [architecture](architecture.md#position-sync)).
 
 ## Motion controller (Marlin)
@@ -120,6 +122,13 @@ Other relevant options:
   from the compiled values above if anything was ever saved with `M500`
   (for example a backlash correction set with `M425`). The first bench
   probe dumps them with `M503`.
+- Plain `M114` reports the last **commanded** position, not a live
+  one (see [devices](devices.md#marlin)).
+- **Releasing the motors loses the position.** Marlin cannot see a
+  stage pushed by hand, so after `M18` its coordinates mean nothing
+  until the next home. The old workflow (torque off, push the stage to
+  the corner, read `M114`) would have recorded the position from
+  before the push. Corner calibration has to jog with the motors on.
 - Marlin waits **100 ms** before starting the first move after its queue
   was empty (`BLOCK_DELAY_FOR_1ST_MOVE` in `planner.cpp`). This is one of
   the timing offsets the old script ignored.

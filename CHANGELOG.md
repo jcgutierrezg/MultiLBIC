@@ -2,6 +2,33 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.1 - Phase 2: device layer and simulators
+
+- `multilbic/hardware/marlin.py`: Marlin client.
+  - Line numbers and checksums, with each `ok` matched to its command;
+    resend handling.
+  - `busy:` keepalives extend waits, and Stop (`M410`) jumps the queue.
+  - Feed and range limits are enforced before Marlin would silently
+    clamp them; absolute moves need a trusted (homed) position.
+- `multilbic/hardware/laser.py` and laser firmware 2.0.0:
+  - one reply per command, identification, state and angle queries;
+  - a settle time that can be set, skipped when the servo is already
+    in place; no servo park on `LASER 0`.
+  - The firmware is not compiled or flashed yet.
+- `multilbic/hardware/smu.py`: SMUniversal's miniSMU driver for setup,
+  and streaming straight from `minismu_py`. Samples keep both the
+  instrument's timestamp and the host's.
+- Simulators for all three (`multilbic/sim/`), driven through the real
+  drivers over the same text. The fake Marlin models planner timing
+  (per-axis limits, trapezoids, 100 ms first-move delay) and injects
+  faults.
+- `multilbic/clock.py`: one time source, scaled in tests so simulated
+  moves run 100× faster.
+- `python -m multilbic.hardware.check` (`--sim` / `--real`) and
+  `--hardware` pytest tests for the Pi.
+- Docs: `docs/devices.md`. Hardware notes on `M114` and on releasing the
+  motors.
+
 ## 0.1.0 - Phase 0: foundations
 
 - uv project on Python 3.14. SMUniversal is pinned to a commit as a git
