@@ -1,0 +1,5 @@
+# LF in the repository and in every checkout: the Pi and CI are Linux,
+# and a CRLF in a shell script or udev rule breaks it there.
+* text=auto eol=lf
+*.pdf binary
+*.png binary

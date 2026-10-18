@@ -2,10 +2,46 @@
 
 Kept here so the Pi can be rebuilt if its microSD card fails.
 
+**Not yet tried on the Pi.** These steps match what CI's ARM job does,
+which is the closest stand-in available until SSH access is set up.
+
+## Install
+
+Raspberry Pi OS ships a Python older than 3.14, so uv provides one.
+
+1. Install uv:
+   ```bash
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/jcgutierrezg/MultiLBIC.git
+   ```
+3. From inside the clone, install a uv-managed Python 3.14 and the
+   dependencies:
+   ```bash
+   uv sync --managed-python
+   ```
+4. Check that Tk works on the Pi's display:
+   ```bash
+   uv run python -c "import tkinter; tkinter.Tk().destroy(); print('tk ok')"
+   ```
+5. Run the tests:
+   ```bash
+   uv run pytest
+   ```
+
+## Serial devices
+
 - `Serials.txt`: the USB serial numbers the udev rules match on, to give
   the boards fixed names (`/dev/SKR`, `/dev/S_LASER`, `/dev/TFT35`).
   Which number belongs to which board is not recorded yet.
 - **Owed:** the udev rules file itself, copied from the Pi
   (`/etc/udev/rules.d/`).
-- **Owed:** SSH access and the install steps (uv, Python 3.14, Tk),
-  written in Phase 0/1.
+- The user running the app needs to be in the `dialout` group to open
+  serial ports.
+
+## Owed
+
+- SSH access for remote bench work (Phase 1).
+- A desktop launcher (Phase 7).

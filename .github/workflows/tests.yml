@@ -1,0 +1,93 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  gates:
+    # ruff and mypy don't read the operating system, so one cell is enough.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --locked --python python
+      - name: Lint
+        run: uv run ruff check .
+      - name: Types at the boundaries
+        run: uv run mypy
+
+  test:
+    # windows-latest: where development happens.
+    # ubuntu-latest: path separators and case sensitivity.
+    # ubuntu-24.04-arm with a uv-managed interpreter: the closest stand-in
+    #   for the Raspberry Pi, which runs aarch64 Linux and gets its Python
+    #   3.14 from uv because Raspberry Pi OS ships an older one.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            python: "3.14"
+            managed: false
+          - os: ubuntu-latest
+            python: "3.14"
+            managed: false
+          - os: ubuntu-24.04-arm
+            python: "3.14"
+            managed: true
+
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python (system interpreter)
+        if: ${{ !matrix.managed }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Install a uv-managed Python (as on the Pi)
+        if: ${{ matrix.managed }}
+        run: uv python install ${{ matrix.python }}
+
+      - name: Install a display (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb
+
+      - name: Install dependencies
+        run: >
+          uv sync --locked
+          --python ${{ matrix.managed && format('cpython-{0}', matrix.python) || 'python' }}
+          ${{ matrix.managed && '--managed-python' || '' }}
+
+      - name: Check tkinter before anything else
+        # Its own step, so a broken Tcl/Tk is reported as that rather than
+        # as a puzzling test failure later.
+        run: >
+          ${{ runner.os == 'Linux' && 'xvfb-run -a' || '' }}
+          uv run python -c "import sys, tkinter; r=tkinter.Tk(); r.withdraw(); print(sys.version, tkinter.TkVersion); r.destroy()"
+
+      - name: Run tests
+        run: >
+          ${{ runner.os == 'Linux' && 'xvfb-run -a' || '' }}
+          uv run pytest

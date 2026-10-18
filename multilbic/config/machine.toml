@@ -1,0 +1,92 @@
+# MultiLBIC machine description.
+#
+# Values that are calibrated or measured live here, not in the code.
+# Lengths are millimetres and speeds mm/s, because G-code speaks
+# millimetres and every name carries its unit.
+#
+# Where each value comes from is in docs/hardware.md. "measured = false"
+# marks a value that is a placeholder until commissioning (Phase 6).
+
+name = "MultiLBIC"
+
+[ab]
+# Raster stage: 1 mm lead screws, 16 microsteps.
+steps_per_mm = 3200
+travel_mm = 40.0
+centre_mm = [17.5, 17.5]
+# Near the back edge the motor struggles or the grub screw slips.
+safe_min_mm = 0.0
+safe_max_mm = 35.0
+# Compiled-in Marlin limits. The EEPROM may hold others: check with M503.
+max_feed_mm_s = 2.0
+max_accel_mm_s2 = 50.0
+
+[xy]
+# Carries the whole AB gantry: 2 mm lead screws, 16 microsteps.
+steps_per_mm = 400
+travel_mm = [100.0, 120.0]
+max_feed_mm_s = 20.0
+max_accel_mm_s2 = 100.0
+
+# Two groups of three on a 180-degree servo revolver: lasers 1/4, 2/5 and
+# 3/6 share an angle, and XY picks the group. xy_centre_mm is where XY
+# puts the AB centre under that beam.
+[[lasers]]
+number = 1
+wavelength_nm = 444
+servo_angle_deg = 150
+xy_centre_mm = [79.6, 71.3]
+measured = true
+
+[[lasers]]
+number = 2
+wavelength_nm = 519
+servo_angle_deg = 90
+xy_centre_mm = [75.6, 71.7]
+measured = true
+
+[[lasers]]
+number = 3
+wavelength_nm = 652
+servo_angle_deg = 30
+xy_centre_mm = [75.0, 70.0]
+measured = true
+
+[[lasers]]
+number = 4
+wavelength_nm = 676
+servo_angle_deg = 150
+xy_centre_mm = [49.4, 43.0]
+measured = false
+
+[[lasers]]
+number = 5
+wavelength_nm = 785
+servo_angle_deg = 90
+xy_centre_mm = [49.4, 43.0]
+measured = false
+
+[[lasers]]
+number = 6
+wavelength_nm = 848
+servo_angle_deg = 30
+xy_centre_mm = [50.0, 50.0]
+measured = false
+
+# Serial ports per platform (sys.platform). On the Pi, udev rules give
+# the boards fixed names; see deploy/pi/. An empty string means "not
+# configured", which is normal for a development machine.
+[ports.linux]
+skr = "/dev/SKR"
+laser = "/dev/S_LASER"
+tft = "/dev/TFT35"
+smu = ""
+
+[ports.win32]
+skr = ""
+laser = ""
+tft = ""
+smu = ""
+
+[serial]
+baud = 115200
