@@ -1,0 +1,101 @@
+# Why the dependency list looks the way it does:
+# docs/architecture.md, "What comes from SMUniversal".
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "multilbic"
+version = "0.1.0"
+description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
+# Matches SMUniversal's floor, which this project imports from. It must
+# agree with `.python-version` and the CI matrix;
+# tests/test_python_floor.py fails if the three drift apart.
+requires-python = ">=3.14"
+dependencies = [
+    # The miniSMU driver, its transport adapter and the shared run
+    # infrastructure. Pinned to a commit in [tool.uv.sources] below.
+    "smuniversal-lab-suite",
+    # Imported directly as well: streaming is used only here, and
+    # SMUniversal's driver does not wrap it.
+    "minismu-py>=0.4.0",
+    # Marlin and the laser board are plain serial devices.
+    "pyserial>=3.5",
+]
+
+[tool.uv.sources]
+# A commit, not a branch: an upstream push must never change what a
+# fresh `uv sync` installs. Move it deliberately, and let the import
+# guard (tests/test_dependencies.py) say whether the new pin still works.
+smuniversal-lab-suite = { git = "https://github.com/jcgutierrezg/SMUniversal_Lab_Suite", rev = "b7da18f01a4bfaa90202becf2b4ff42747f307d4" }
+
+[tool.uv]
+# SMUniversal installs every instrument library it supports. MultiLBIC
+# uses only the miniSMU, so the rest are dropped here: a marker that is
+# never true removes a package from the resolution. The SMUniversal
+# modules we import do not touch any of them, and
+# tests/test_dependencies.py checks both halves of that claim.
+override-dependencies = [
+    "pyvisa; sys_platform == 'never'",
+    "pyvisa-py; sys_platform == 'never'",
+    "pyusb; sys_platform == 'never'",
+    "libusb-package; sys_platform == 'never'",
+    "ni-gpib-usb-hs; sys_platform == 'never'",
+    "scipy; sys_platform == 'never'",
+    # Not pillow: an override replaces *every* requirement on a package,
+    # and matplotlib needs pillow too.
+]
+# Prefer an interpreter already on the machine (SMUniversal's Windows
+# TclError lesson). "system" rather than "only-system", because Raspberry
+# Pi OS ships an older Python and the Pi falls back to a uv-managed 3.14.
+python-preference = "system"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.16.5",
+    "mypy>=1.11",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["multilbic"]
+
+[tool.ruff]
+line-length = 79
+target-version = "py314"
+extend-exclude = [".venv", "legacy"]
+
+[tool.ruff.lint]
+# SMUniversal's rule set, which was chosen because it is green there.
+select = [
+    "E9", "F", "I",
+    "E711", "E712", "E713", "E714", "E721", "E722",
+    "B", "S", "PLE", "T10",
+]
+ignore = [
+    "S101",   # assert, used throughout the tests
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["multilbic"]
+
+[tool.mypy]
+# Boundaries only, as in SMUniversal: the contracts between modules, not
+# every Tk widget attribute. `uv run mypy` checks exactly this list.
+files = [
+    "multilbic/config/machine.py",
+]
+python_version = "3.14"
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+follow_imports = "silent"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "hardware: needs the real machine; never run in CI",
+    "gui: builds a real Tk window (needs a display, or Xvfb on CI)",
+]

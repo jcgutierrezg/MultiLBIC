@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | planning agreed, no code yet |
-| next | Phase 0, on a branch |
+| status | Phase 0 in review (0.1.0); trying it on the real Pi is still owed |
+| next | Phase 1 bench probes, once SSH to the Pi is set up |
 
 ## Phases
 
