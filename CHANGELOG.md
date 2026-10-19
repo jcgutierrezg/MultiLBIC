@@ -2,6 +2,21 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.5 - Bulk stream reader for the miniSMU
+
+- `SmuStream` reads the miniSMU's serial port itself: everything waiting
+  in one call, split into packets by `parse_packet()`. The library's
+  per-line `readline()` read one byte per system call and fell behind
+  the stream on the Pi; a bulk read kept up at 1190 packets/s on the
+  bench. The per-line path stays for network connections only.
+- `StreamSample.extra` keeps fields after the fourth (1.4.6 already
+  sends a fifth). `StreamStats` records which reader ran and any port
+  failure.
+- The fake miniSMU now streams bytes through a fake serial port in the
+  measured format, with whole-millisecond stamps and an optional rate
+  error. Tests cover packets split across reads, the per-line fallback,
+  and a delivered rate that differs from the requested one.
+
 ## 0.1.4 - SSH setup fixes in the runbook
 
 - `docs/bench.md` explains `ssh-keygen`'s questions: keep the default

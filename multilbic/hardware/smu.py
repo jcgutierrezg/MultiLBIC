@@ -55,16 +55,24 @@ class StreamSample:
     voltage_v: float
     current_a: float
     #: When the host received it, in the driver's clock seconds. Used to
-    #: map the instrument's clock onto the host's (Phase 3).
+    #: map the instrument's clock onto the host's (Phase 3). Every
+    #: sample in one bulk read shares the same value.
     host_s: float
+    #: Fields after the fourth, as text. Firmware 1.4.6 already sends a
+    #: fifth, probably the active current range (unverified).
+    extra: tuple[str, ...] = ()
 
 
 @dataclass
 class StreamStats:
     samples: dict[int, int] = field(default_factory=dict)
     parse_errors: int = 0
-    #: Reads that returned nothing within the library's 1 s timeout.
+    #: Reads that returned nothing within the port's 1 s timeout.
     idle_reads: int = 0
+    #: "bulk" (serial port read directly) or "per-line" (the library).
+    reader: str = ""
+    #: The port failed mid-stream (unplugged, closed). Reading stops.
+    read_error: str | None = None
     first_device_ms: dict[int, float] = field(default_factory=dict)
     last_device_ms: dict[int, float] = field(default_factory=dict)
 
@@ -75,6 +83,23 @@ class StreamStats:
             return None
         span_ms = self.last_device_ms[channel] - self.first_device_ms[channel]
         return (n - 1) / (span_ms / 1000.0) if span_ms > 0 else None
+
+
+def parse_packet(line: bytes, host_s: float) -> StreamSample | None:
+    """`b"1,1792432988369,7.1335e-04,-1.5365e-09,0"` -> a sample, or
+    None if the line is not a data packet."""
+    fields = line.strip().split(b",")
+    if len(fields) < 4:
+        return None
+    try:
+        channel = int(fields[0])
+        device_ms = float(fields[1])
+        volts = float(fields[2])
+        amps = float(fields[3])
+    except ValueError:
+        return None
+    extra = tuple(f.decode("ascii", "replace") for f in fields[4:])
+    return StreamSample(channel, device_ms, volts, amps, host_s, extra)
 
 
 def _is_idle_read(error: Exception) -> bool:
@@ -171,6 +196,60 @@ class SmuStream:
                 return samples
 
     def _read_loop(self) -> None:
+        port = getattr(self._client, "_connection", None)
+        if port is not None and hasattr(port, "in_waiting"):
+            self.stats.reader = "bulk"
+            self._read_bulk(port)
+        else:
+            # A network connection has no serial port to read in bulk.
+            self.stats.reader = "per-line"
+            self._read_lines()
+
+    def _read_bulk(self, port) -> None:
+        """Read everything waiting, then split it into packets.
+
+        `minismu_py` reads a packet with pyserial's `readline()`, one
+        byte per system call. On the Pi that tops out around 750
+        packets/s and falls behind the stream, while reading whatever is
+        waiting in one call kept up at 1190/s with a flat backlog
+        (bench, 2026-10-19). The library still owns the port; this only
+        reads it while nothing else does.
+        """
+        stats = self.stats
+        counts, first, last = (
+            stats.samples, stats.first_device_ms, stats.last_device_ms,
+        )
+        emit = self._sink if self._sink is not None else self._queue.put
+        pending = b""
+        while not self._stop.is_set():
+            try:
+                chunk = port.read(port.in_waiting or 1)
+            except (OSError, TypeError, AttributeError) as exc:
+                # pyserial: SerialException (an OSError) when unplugged,
+                # TypeError/AttributeError when closed under a read.
+                stats.read_error = f"{type(exc).__name__}: {exc}"
+                return
+            if not chunk:
+                stats.idle_reads += 1
+                continue
+            host_s = self._clock.now()
+            lines = (pending + chunk).split(b"\n")
+            pending = lines.pop()
+            for line in lines:
+                if not line.strip():
+                    continue
+                sample = parse_packet(line, host_s)
+                if sample is None:
+                    stats.parse_errors += 1
+                    continue
+                channel = sample.channel
+                counts[channel] = counts.get(channel, 0) + 1
+                if channel not in first:
+                    first[channel] = sample.device_ms
+                last[channel] = sample.device_ms
+                emit(sample)
+
+    def _read_lines(self) -> None:
         while not self._stop.is_set():
             try:
                 channel, t_ms, volts, amps = self._client.read_streaming_data()

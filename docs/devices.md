@@ -114,8 +114,17 @@ two-channel tests catch a regression.
 **Reading speed.** On the Pi, the library's per-line read (pyserial's
 `readline()`, one byte per system call) cannot keep up with streaming,
 while a bulk read can (measured in
-[hardware](hardware.md#streaming-measured-2026-10-19)). Replacing it is
-the next change to `SmuStream`.
+[hardware](hardware.md#streaming-measured-2026-10-19)). So `SmuStream`
+reads the library's serial port itself: everything waiting in one call,
+split into lines, parsed by `parse_packet()`. Every sample in one read
+shares its `host_s`. Fields after the fourth are kept in `extra`. The
+library's per-line read remains only for a network connection, which has
+no serial port (`stats.reader` says which was used).
+
+The fake miniSMU streams real bytes through a fake serial port, in the
+measured format: whole-millisecond stamps, a fifth field, and an
+optional rate error. Both read paths are tested against the same bytes,
+including packets split across reads.
 
 Firmware 1.5.0+ adds the active current range to each packet.
 `firmware_streams_range` says whether the connected unit has it.

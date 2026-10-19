@@ -60,7 +60,7 @@ the requested one), and a two-channel stop bug, now fixed. Still owed:
 the motion, speed and laser steps (at the machine), and the miniSMU
 probe with a stated load.
 
-**State (0.1.4):** the probes are written and tested against the
+**State (0.1.5):** the probes are written and tested against the
 simulators (`multilbic/bench/`). The runbook is [bench](bench.md).
 Nothing has run on the machine yet.
 

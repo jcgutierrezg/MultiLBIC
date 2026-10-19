@@ -8,9 +8,11 @@ MultiLBIC does, and the streaming methods. `tests/test_smu.py` checks
 that each one exists on the real `minismu_py.SMU` with the same
 parameter names, so the two cannot drift apart silently.
 
-Streaming is paced by the clock: packets are produced at the set rate in
-simulated time, stamped by a device clock that can be given an offset
-and a drift, and carry `signal(channel, t)` plus noise as the current.
+Streaming is paced by the clock. Packets are written as bytes into a
+fake serial port (`FakeSerial`, the library's `_connection`), in the
+format the bench showed: `channel,ms,volts,amps,0`, with whole-
+millisecond stamps from a device clock that can be given an offset, a
+drift and a rate error. The current is `signal(channel, t)` plus noise;
 Phase 3 plugs the stage position and a synthetic sample into `signal`.
 """
 
@@ -40,6 +42,7 @@ class FakeMiniSMU:
         noise_a: float = 0.0,
         device_offset_ms: float = 0.0,
         drift_ppm: float = 0.0,
+        rate_error: float = 0.0,
         seed: int = 0,
     ):
         self._clock = clock
@@ -48,6 +51,9 @@ class FakeMiniSMU:
         self.noise_a = noise_a
         self.device_offset_ms = device_offset_ms
         self.drift_ppm = drift_ppm
+        #: Delivered rate = requested * (1 + rate_error). The real one
+        #: misses the requested rate by up to ~19% (bench, 2026-10-19).
+        self.rate_error = rate_error
         self._random = random.Random(seed)
         self._lock = threading.Lock()
         self._base_ms = 0.0
@@ -61,7 +67,10 @@ class FakeMiniSMU:
         self.current_range: dict[int, int | None] = {1: None, 2: None}
         self.rate_hz = {1: 1000.0, 2: 1000.0}
         self._next_due: dict[int, float] = {}
-        #: Raise one unparseable packet on the next streaming read.
+        self._buffer = bytearray()
+        #: The port the library reads, as `minismu_py.SMU._connection`.
+        self._connection = FakeSerial(self)
+        #: Put one unparseable line into the stream.
         self.garble_next = False
         self.closed = False
 
@@ -164,35 +173,111 @@ class FakeMiniSMU:
                 "Device still sending data after 2s; another channel may "
                 "still be streaming"
             )
+        self._drain_input()
 
     def _write_command(self, command: str):
         """The library's raw write, with no reply read. Only the stream
-        switch-off is modelled, since that is all it is used for here."""
+        switch-off is modelled, since that is all it is used for here.
+        Packets already sent stay in the port's buffer, as on the wire."""
         text = command.strip().upper()
         if text.startswith("SOUR") and text.endswith(":DATA:STREAM OFF"):
             channel = int(text[4 : text.index(":")])
             with self._lock:
                 self._next_due.pop(channel, None)
 
-    def read_streaming_data(self) -> tuple[int, float, float, float]:
+    def _drain_input(self):
         with self._lock:
+            self._produce_locked()
+            self._buffer.clear()
+
+    def read_streaming_data(self) -> tuple[int, float, float, float]:
+        """As `minismu_py` does it: one `readline()`, the first four
+        fields, `SMUException` for anything that doesn't parse."""
+        data = self._connection.readline().decode("utf-8", "replace").strip()
+        parts = data.split(",")
+        try:
+            if len(parts) < 4:
+                raise ValueError
+            channel, timestamp, voltage, current = parts[:4]
+            return int(channel), float(timestamp), float(voltage), float(current)
+        except ValueError:
+            raise SMUException(
+                f"Failed to parse streaming data: {data!r}"
+            ) from None
+
+    # ---- packet production, shared by both read paths ----
+
+    def _produce_locked(self) -> None:
+        """Append every packet due by now to the port's buffer."""
+        now = self._clock.now()
+        while self._next_due:
+            channel = min(self._next_due, key=self._next_due.__getitem__)
+            due = self._next_due[channel]
+            if due > now:
+                return
             if self.garble_next:
                 self.garble_next = False
-                raise SMUException("Failed to parse streaming data: 'Z,?'")
-            if not self._next_due:
-                due = None
-            else:
-                channel = min(self._next_due, key=self._next_due.__getitem__)
-                due = self._next_due[channel]
-                self._next_due[channel] = due + 1.0 / self.rate_hz[channel]
-        if due is None:
-            self._clock.sleep(READ_TIMEOUT_S)
-            raise SMUException("Failed to parse streaming data: ''")
-        wait = due - self._clock.now()
-        if wait > 0:
-            self._clock.sleep(wait)
-        volts = self.voltage[channel] if self.enabled[channel] else 0.0
-        return channel, self.device_ms(due), volts, self._current(channel, due)
+                self._buffer.extend(b"Z,?\n")
+            interval = 1.0 / (self.rate_hz[channel] * (1 + self.rate_error))
+            self._next_due[channel] = due + interval
+            volts = self.voltage[channel] if self.enabled[channel] else 0.0
+            # Whole milliseconds and a fifth field, as the bench showed.
+            stamp = int(round(self.device_ms(due)))
+            amps = self._current(channel, due)
+            self._buffer.extend(
+                f"{channel},{stamp},{volts:.4e},{amps:.4e},0\n".encode()
+            )
+
+    def _next_due_time(self) -> float | None:
+        return min(self._next_due.values()) if self._next_due else None
+
+
+class FakeSerial:
+    """The USB serial port `minismu_py` holds as `_connection`.
+
+    Bytes appear in it as the fake instrument streams, paced by the
+    clock. `read()` and `in_waiting` behave like pyserial's, so the bulk
+    reader in `SmuStream` and the library's per-line read are tested
+    against the same bytes.
+    """
+
+    def __init__(self, device: FakeMiniSMU):
+        self._device = device
+        self.timeout = READ_TIMEOUT_S
+
+    @property
+    def in_waiting(self) -> int:
+        with self._device._lock:
+            self._device._produce_locked()
+            return len(self._device._buffer)
+
+    def read(self, size: int = 1) -> bytes:
+        return self._read_until(lambda buffer: len(buffer) > 0, size)
+
+    def readline(self) -> bytes:
+        return self._read_until(lambda buffer: b"\n" in buffer, None)
+
+    def reset_input_buffer(self) -> None:
+        self._device._drain_input()
+
+    def _read_until(self, ready, size: int | None) -> bytes:
+        device, clock = self._device, self._device._clock
+        deadline = clock.now() + self.timeout
+        while True:
+            with device._lock:
+                device._produce_locked()
+                buffer = device._buffer
+                now = clock.now()
+                if ready(buffer) or now >= deadline:
+                    if size is None:
+                        end = buffer.find(b"\n")
+                        size = end + 1 if end >= 0 else len(buffer)
+                    taken = bytes(buffer[:size])
+                    del buffer[:size]
+                    return taken
+                next_due = device._next_due_time()
+            wake = deadline if next_due is None else min(deadline, next_due)
+            clock.sleep(max(wake - now, 1e-4))
 
 
 class FakeMiniSMUTransport:

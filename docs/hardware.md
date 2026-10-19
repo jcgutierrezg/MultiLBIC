@@ -217,8 +217,8 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   the backlog grew 0.3 → 1.1 s in 20 s at 1000 Hz. Through `SmuStream`
   (more per-sample work), even 500 Hz fell up to 1.7 s behind over
   60 s. **Reading in bulk** (everything waiting, split into lines) kept
-  up at 1190/s with a flat backlog. The streaming reader has to read in
-  bulk (open item in the plan).
+  up at 1190/s with a flat backlog. `SmuStream` reads in bulk since
+  0.1.5.
 - **Two channels**: stopping one channel's stream while the other still
   streamed made the library wait for silence and raise, leaving channel 2
   streaming with its output on. Fixed in `SmuStream.stop()` (commit
