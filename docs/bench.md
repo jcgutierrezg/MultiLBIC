@@ -41,8 +41,14 @@ was installed.
    ```bash
    sudo systemctl enable --now ssh
    ```
-   Note the address with `hostname -I`. `<hostname>.local` also works
-   if `avahi-daemon` is running, which it is on Ubuntu Desktop.
+   **Address the Pi by name, not by IP.** `hostname` prints its name,
+   and `<name>.local` finds it on whatever network it is on, as long as
+   `avahi-daemon` is running (`systemctl is-active avahi-daemon`; it is
+   on Ubuntu Desktop, otherwise `sudo apt install avahi-daemon`).
+   `hostname -I` lists IP addresses instead, one for every interface
+   (Wi-Fi, Ethernet, IPv6, Docker...), and they change with the network.
+   That is why it can show several. Use one only if `.local` fails: the
+   IPv4 address on the same network as the PC (compare with `ipconfig`).
 2. On Windows, make a key if there isn't one, in PowerShell:
    ```powershell
    ssh-keygen -t ed25519
@@ -59,14 +65,16 @@ was installed.
    If it says the file already exists, a key is already there. Answer
    `n` and use that one.
 3. Copy the public key to the Pi, with your Ubuntu user and the Pi's
-   address in place of `<user>@<address>`:
+   name in place of `<user>@<name>.local`:
    ```powershell
-   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <user>@<address> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <user>@<name>.local "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
    ```
+   The first connection asks you to confirm the Pi's fingerprint (`yes`),
+   then for your Ubuntu password. That is the last time it should ask.
 4. Add a short name in `C:\Users\<you>\.ssh\config`:
    ```
    Host multilbic
-       HostName <address>
+       HostName <name>.local
        User <user>
    ```
    `ssh multilbic` should now log in without a password, and that is

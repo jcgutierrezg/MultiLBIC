@@ -2,11 +2,14 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
-## 0.1.4 - SSH key prompts in the runbook
+## 0.1.4 - SSH setup fixes in the runbook
 
 - `docs/bench.md` explains `ssh-keygen`'s questions: keep the default
   file, leave the passphrase empty (Claude connects without a terminal
   to type one), and keep an existing key.
+- It also addresses the Pi as `<name>.local` (avahi) rather than by IP,
+  which changes between networks, and explains why `hostname -I` shows
+  several addresses.
 
 ## 0.1.3 - The Pi runs Ubuntu 24.04
 
