@@ -26,6 +26,8 @@ from multilbic.clock import Clock
 
 #: The library's serial timeout: how long an empty read blocks.
 READ_TIMEOUT_S = 1.0
+#: How long the library waits for the line to go quiet after STREAM OFF.
+DRAIN_TIMEOUT_S = 2.0
 
 
 class FakeMiniSMU:
@@ -150,8 +152,27 @@ class FakeMiniSMU:
             self._next_due[channel] = self._clock.now()
 
     def stop_streaming(self, channel: int):
+        # The real library sends STREAM OFF, then waits up to 2 s for the
+        # line to go quiet. If another channel is still streaming it never
+        # does, and the library raises (bench, 2026-10-19).
         with self._lock:
             self._next_due.pop(channel, None)
+            still_streaming = bool(self._next_due)
+        if still_streaming:
+            self._clock.sleep(DRAIN_TIMEOUT_S)
+            raise SMUException(
+                "Device still sending data after 2s; another channel may "
+                "still be streaming"
+            )
+
+    def _write_command(self, command: str):
+        """The library's raw write, with no reply read. Only the stream
+        switch-off is modelled, since that is all it is used for here."""
+        text = command.strip().upper()
+        if text.startswith("SOUR") and text.endswith(":DATA:STREAM OFF"):
+            channel = int(text[4 : text.index(":")])
+            with self._lock:
+                self._next_due.pop(channel, None)
 
     def read_streaming_data(self) -> tuple[int, float, float, float]:
         with self._lock:

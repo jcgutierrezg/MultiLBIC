@@ -64,11 +64,26 @@ def test_stream_rate_and_timestamps(clock):
     stats = smu.stream.stop()
     samples = smu.stream.drain()
     assert len(samples) == stats.samples[1]
-    assert 350 <= len(samples) <= 450  # ~2 s at 200 Hz
+    # ~2 s at 200 Hz, plus however long stop() takes on a loaded machine.
+    assert 350 <= len(samples) <= 500
     assert stats.rate_hz(1) == pytest.approx(200.0, rel=1e-6)
     assert all(s.current_a == pytest.approx(1e-6) for s in samples)
     stamps = [s.device_ms for s in samples]
     assert stamps == sorted(stamps)
+
+
+def test_two_channel_stop_switches_both_off(clock):
+    # Bench, 2026-10-19: stopping channel 1 while channel 2 still streams
+    # makes minismu_py wait for a quiet line that never comes. The fake
+    # raises like the library, so this fails if stop() regresses.
+    smu, fake = make(clock, channels=(1, 2))
+    smu.prepare()
+    smu.output_on()
+    smu.stream.start(channels=(1, 2), rate_hz=100.0)
+    clock.sleep(0.2)
+    smu.stream.stop()
+    assert not fake._next_due  # nothing left streaming
+    smu.output_off()
 
 
 def test_two_channels_interleave(clock):

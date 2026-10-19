@@ -139,9 +139,27 @@ class SmuStream:
         if self._thread.is_alive():
             raise SmuError("stream reader did not stop")
         self._thread = None
-        for channel in self._channels:
-            self._client.stop_streaming(channel)
+        self._stop_instrument()
         return self.stats
+
+    def _stop_instrument(self) -> None:
+        """Switch every streaming channel off, then wait for quiet once.
+
+        `minismu_py`'s `stop_streaming(n)` sends `STREAM OFF` for channel
+        n and then waits for the line to go quiet. With two channels
+        streaming, channel 2 keeps talking while channel 1 is stopped, so
+        the wait gives up after 2 s and raises, leaving channel 2
+        streaming with its output on. Found on the bench 2026-10-19. So
+        every other channel is switched off first with the library's own
+        write, and only the last goes through `stop_streaming()` and its
+        wait.
+        """
+        if not self._channels:
+            return
+        *first, last = self._channels
+        for channel in first:
+            self._client._write_command(f"SOUR{channel}:DATA:STREAM OFF")
+        self._client.stop_streaming(last)
 
     def drain(self) -> list[StreamSample]:
         """Every sample received so far that has not been drained yet."""

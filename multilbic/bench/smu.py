@@ -81,7 +81,12 @@ def step_stats(samples: list[StreamSample], channel: int, rate: float) -> dict:
         "smallest_step_ms": min(positive) if positive else None,
         "distinct_steps_ms": sorted({round(d, 4) for d in steps})[:20],
         "repeated_stamps": sum(1 for d in steps if d == 0),
-        "gaps_over_1.5x": sum(1 for d in steps if d > 1.5 * nominal_ms),
+        # A gap is a step at least two clock ticks (ms) late as well as
+        # 1.5x nominal: stamps are whole milliseconds, so at 500 Hz a 3 ms
+        # step is rounding, not a lost sample (bench, 2026-10-19).
+        "gaps": sum(
+            1 for d in steps if d > 1.5 * nominal_ms and d >= nominal_ms + 2
+        ),
         "backwards": sum(1 for d in steps if d < 0),
     }
 
@@ -122,7 +127,7 @@ def rate_sweep(smu, clock, report: Report, rates, seconds) -> None:
             f"{rate:>6.0f} Hz: got {by_device:8.1f} Hz by device clock, "
             f"smallest step {row['smallest_step_ms']} ms, "
             f"jitter {row['step_ms'].get('stdev') or 0:.3f} ms, "
-            f"gaps {row['gaps_over_1.5x']}, errors {stats.parse_errors}"
+            f"gaps {row['gaps']}, errors {stats.parse_errors}"
         )
     report["rate_sweep"] = rows
 
