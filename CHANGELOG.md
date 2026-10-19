@@ -10,6 +10,10 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - It also addresses the Pi as `<name>.local` (avahi) rather than by IP,
   which changes between networks, and explains why `hostname -I` shows
   several addresses.
+- Laser firmware 2.0.0 compiled and flashed. The board answers
+  `MultiLBIC-Laser,2.0.0` over SSH.
+- All four USB devices identified by serial number. The laser Xiao is
+  line 3 of `Serials.txt`; line 1 is the retired instrumentation Xiao.
 - First SSH check of the Pi recorded:
   - the SKR and the TFT35's FTDI adapter identified;
   - there are no udev rules on the Ubuntu install;

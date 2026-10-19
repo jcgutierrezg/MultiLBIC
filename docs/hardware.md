@@ -23,18 +23,24 @@ Raspberry Pi 4, Ubuntu 24.04 (monitor attached, runs the GUI)
 The `/dev/...` names came from udev rules on an earlier install. The
 current Ubuntu install (checked over SSH on 2026-10-19) has **no such
 rules**, so the boards appear as plain `/dev/ttyACM*` and `/dev/ttyUSB*`.
-What was identified then:
+All four identified over SSH on 2026-10-19. Port numbers depend on
+plug-in order, so the serial number is what identifies a board:
 
 | Board | Port then | USB id | Serial number |
 |---|---|---|---|
 | SKR 1.4 Turbo (Marlin) | `/dev/ttyACM0` | `1d50:6029` "Marlin_USB_Device" | `1602400395D510E961DB1B78F50020C1` (line 2 of `Serials.txt`) |
+| Laser Xiao | `/dev/ttyACM1` | `2886:802f` "Seeed_XIAO_M0" | `AC5401405154315432202020FF102436` (line 3 of `Serials.txt`) |
+| miniSMU | `/dev/ttyACM2` | `303a:82a6` "miniSMU_MS01" | `lunar-tuvok-7966` (lower case over USB) |
 | TFT35 adapter | `/dev/ttyUSB0` | `0403:6001` FTDI TTL232R-3V3 | `FTDKEIR6` (not in `Serials.txt`) |
-| Laser Xiao | not connected | | probably one of the other two in `Serials.txt` |
-| miniSMU | not connected | | `LUNAR-TUVOK-7966` (SMUniversal's record) |
 
-The other two serials in [`deploy/pi/Serials.txt`](../deploy/pi/Serials.txt)
-share the `5154315432202020FF` pattern of SAMD21 chip ids: most likely
-the laser Xiao and the retired instrumentation Xiao.
+The laser Xiao answered `ID?` with `MultiLBIC-Laser,2.0.0`. That proves
+the firmware, not the wiring: that this is the board driving the lasers
+and servo is confirmed only when the laser probe's `--lasers` stage
+lights them.
+
+Line 1 of [`deploy/pi/Serials.txt`](../deploy/pi/Serials.txt)
+(`C17AF51C5154315432202020FF110F18`) is the other SAMD21. By
+elimination it is the retired instrumentation Xiao. It was not connected.
 
 The second Xiao, the "instrumentation" board, is gone. The miniSMU
 replaced it, and nothing should still refer to it.
@@ -86,7 +92,7 @@ is now **version 2.0.0** (Phase 2). Its protocol is in
 unchanged: laser enables on pins 1, 2, 3, 4, 5, 8, servo on pin 9, and
 pins 0, 6, 7 and 10 free.
 
-What changed from the 1.x sketch, which is **still the one on the board**:
+What changed from the 1.x sketch:
 
 - 1.x replied in free text (`Servo moved to: 90`), with no ack/error
   convention, no identify and no state query. 2.0 sends one reply line
@@ -95,8 +101,9 @@ What changed from the 1.x sketch, which is **still the one on the board**:
   skipped when the servo is already at the angle.
 - 1.x parked the servo at 90° on `LASER 0`. 2.0 leaves it where it is.
 
-**2.0.0 has not been compiled or flashed.** Until it is, the driver
-refuses the board at `open()`. A laser gate input driven by Marlin comes
+**2.0.0 is on the board** (flashed 2026-10-19; `ID?` answers
+`MultiLBIC-Laser,2.0.0`, `STATE?` answers `STATE 0 90`). The driver
+refuses 1.x firmware at `open()`. A laser gate input driven by Marlin comes
 later, and only if software sync is not good enough (see
 [architecture](architecture.md#position-sync)).
 

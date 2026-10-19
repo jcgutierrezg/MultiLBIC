@@ -29,7 +29,8 @@ the code.
 2. Flash the laser board with
    [`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino)
    (2.0.0): Arduino IDE, Seeed SAMD boards package, board "Seeeduino
-   XIAO". Not compiled anywhere yet, so the first build may need a fix.
+   XIAO". Done 2026-10-19: it compiled as written, and the board
+   answers as `MultiLBIC-Laser,2.0.0`.
 3. Marlin stays as it is.
 
 **SSH, once**

@@ -84,9 +84,8 @@ going from laser 1 to 4 (both 150°) is immediate. After a timeout the
 driver refuses commands until `resync()`, because a late reply would
 otherwise be read as the answer to the next command.
 
-**Firmware 2.0.0 has not been compiled or flashed yet.** The 1.x sketch
-on the board answers in free text, and the driver refuses it at
-`open()`.
+Firmware 2.0.0 is on the board (flashed 2026-10-19). 1.x firmware
+answers in free text, and the driver refuses it at `open()`.
 
 ## miniSMU
 
