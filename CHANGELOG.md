@@ -2,6 +2,12 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.4 - SSH key prompts in the runbook
+
+- `docs/bench.md` explains `ssh-keygen`'s questions: keep the default
+  file, leave the passphrase empty (Claude connects without a terminal
+  to type one), and keep an existing key.
+
 ## 0.1.3 - The Pi runs Ubuntu 24.04
 
 Docs and `deploy/pi/setup.sh` assumed Raspberry Pi OS. Now:

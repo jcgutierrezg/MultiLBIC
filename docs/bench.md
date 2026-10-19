@@ -47,6 +47,17 @@ was installed.
    ```powershell
    ssh-keygen -t ed25519
    ```
+   It asks three things:
+   - **the file to save the key in:** press Enter for the default,
+     `C:\Users\<you>\.ssh\id_ed25519`, which the next steps assume;
+   - **a passphrase, then the same again:** press Enter both times to
+     leave it empty. Claude connects without a terminal to type a
+     passphrase into, so a key with one would lock it out. The trade:
+     anyone who can read your Windows user folder could use the key to
+     reach the Pi.
+
+   If it says the file already exists, a key is already there. Answer
+   `n` and use that one.
 3. Copy the public key to the Pi, with your Ubuntu user and the Pi's
    address in place of `<user>@<address>`:
    ```powershell
