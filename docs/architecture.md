@@ -222,6 +222,13 @@ and its harmonics along each row, or by averaging each pixel over whole
 20 ms cycles. Both belong in Phase 3's binning, and the mains frequency
 goes into `machine.toml`.
 
+**A dark baseline in every scan.** A covered cell can't be measured
+while contacted, and room conditions vary anyway. So each laser's map
+starts with a few seconds of streaming with the laser off and the stage
+still, written to the run file. That gives the offset to subtract and
+the noise floor the map has to clear, under that run's real conditions
+(room light, mains, cabling).
+
 **The file is appended after every completed row** and flushed to disk
 (D1). Until the run finishes, the header says `status: incomplete`. A
 Stop or a crash leaves every finished row readable.

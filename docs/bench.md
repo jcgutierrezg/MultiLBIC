@@ -157,8 +157,8 @@ running any of them, and someone should be watching.
 | 6 | `python -m multilbic.bench.marlin --real --home --motion --speeds 3,4,5` | **at the machine** | whether A/B can go faster than 2 mm/s; **note what you see and hear at each speed** |
 | 7 | `python -m multilbic.bench.laser --real` | no | firmware, angles, settle time |
 | 8 | `python -m multilbic.bench.laser --real --lasers` | **at the machine** | switching times; **note whether the servo had stopped before the laser lit, at 2000, 1000 and 500 ms** |
-| 9 | `python -m multilbic.bench.smu --real --port <port> --load open` | no | packet format, achieved stream rates, timestamp resolution, clock drift, open-circuit noise per range |
-| 10 | same with `--load dark-cell` | no | the noise floor with a covered cell connected: what an LBIC signal has to clear |
+| 9 | `python -m multilbic.bench.smu --real --port <port> --load open` (done 2026-10-19) | no | packet format, achieved stream rates, timestamp resolution, clock drift, open-circuit noise per range |
+| 10 | same with the cell contacted: `--load "cell, lights on"`, then `--load "cell, lights off"` | no | the floor with a cell instead of open leads, and the room-light background (DC and 100 Hz flicker) a scan sits on until the enclosure exists |
 
 The miniSMU port comes from step 1. Step 2 also reads it from
 `MULTILBIC_SMU_PORT`:
@@ -190,7 +190,7 @@ Decisions these numbers feed:
 
 - the stream rate and the A/B scan speed (sync budget, run times);
 - the current range for scans (autorange glitches against fixed-range
-  resolution at the dark-cell floor);
+  resolution at the floor measured with a cell connected);
 - the laser settle time;
 - whether `machine.toml` needs the miniSMU port, or a lookup by USB
   serial number instead of udev names.

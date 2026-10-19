@@ -2,10 +2,10 @@
 The miniSMU on the bench: what streaming really delivers.
 
     python -m multilbic.bench.smu --real --port /dev/ttyACM2 --load open
-    python -m multilbic.bench.smu --real --port /dev/ttyACM2 --load dark-cell
+    python -m multilbic.bench.smu --real --port /dev/ttyACM2 --load "cell, lights off"
 
-`--load` says what is connected to channel 1 (`open`, `dark-cell`, or
-anything else, e.g. `10Mohm`) and goes into the report. The output
+`--load` says what is connected to channel 1 (`open`, `cell, lights
+off`, or anything else, e.g. `10Mohm`) and goes into the report. The output
 sources 0 V with a 1 mA limit throughout, which is safe for anything
 plausibly attached.
 
@@ -27,7 +27,7 @@ Stages:
    see through.
 6. **Noise at 0 V** per current range (auto, then 1 µA, 25 µA and
    650 µA fixed), at `--noise-rate`: mean (the offset), standard
-   deviation and peak-to-peak. With `--load dark-cell` this is the floor
+   deviation and peak-to-peak. With a cell connected, this is the floor
    an LBIC signal has to clear.
 """
 
@@ -219,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = base_parser(__doc__.strip().split("\n")[0])
     parser.add_argument("--port", default="", help="miniSMU serial port")
     parser.add_argument(
-        "--load", default="", help="what is on channel 1: open, dark-cell..."
+        "--load", default="", help="what is on channel 1: open, 'cell, lights off'..."
     )
     parser.add_argument("--rates", default="100,250,500,1000,2000")
     parser.add_argument("--seconds", type=float, default=5.0)

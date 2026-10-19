@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | resume the bench ([bench](bench.md)): miniSMU noise with a covered cell (`--load dark-cell`), then the at-the-machine steps (home + motion, speed trials, `--lasers`), then decide the A/B speed (EEPROM 6 mm/s vs 2 mm/s). No PR until those pass. |
+| next | resume the bench ([bench](bench.md)): miniSMU noise with a contacted cell, lights on and off (a covered cell isn't possible: the top contact needs access), then the at-the-machine steps (home + motion, speed trials, `--lasers`), then decide the A/B speed (EEPROM 6 mm/s vs 2 mm/s). No PR until those pass. |
 
 ## Phases
 
@@ -46,7 +46,8 @@ Small scripts in `tools/`, independent of the app. Their output goes into
 - **miniSMU, after upgrading to firmware 1.5+:**
   - achieved stream rate at 100–1000 Hz, one and two channels;
   - timestamp resolution and jitter, clock drift against the host;
-  - noise floor and offset at 0 V, open circuit and on a dark cell;
+  - noise floor and offset at 0 V, open circuit and with a contacted
+    cell, lights on and off;
   - range switching while streaming.
 
 **Done when** the sync error budget can be checked against measured

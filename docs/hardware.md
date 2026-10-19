@@ -263,7 +263,8 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
 - **What this means for scanning**:
   - mains will dominate nA-level signals unless dealt with;
   - a cell connected instead of open leads should pick up much less
-    (next measurement, with `--load dark-cell`);
+    (next measurement: a contacted cell, lights on and off. A covered
+    cell is not possible, because contacting needs the top surface);
   - because raw samples are kept with their timestamps, a 50 Hz (and
     harmonics) notch can be applied along each row before binning, or a
     pixel's averaging window made a whole number of 20 ms cycles;
@@ -287,8 +288,8 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
 
   About **1.5 nA RMS per sample** on the low ranges. An nA-level LBIC
   signal needs averaging over samples per pixel, or more oversampling
-  (fewer samples per second). Re-run with `--load open` and then a
-  covered cell to know what these numbers describe.
+  (fewer samples per second). The load was not recorded for this run;
+  the open-lead runs below were.
 
 ### Is it the fastest SMU available?
 
