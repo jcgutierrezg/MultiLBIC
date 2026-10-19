@@ -15,6 +15,7 @@ photocurrent while the sample is rastered under the beam.
 | How the software talks to each device; the simulators | [docs/devices.md](docs/devices.md) |
 | Phases, what's next, decisions | [docs/plan.md](docs/plan.md) |
 | Setting up, running the gates, the workflow | [docs/development.md](docs/development.md) |
+| Running the probes on the machine over SSH | [docs/bench.md](docs/bench.md) |
 | What changed and when | [CHANGELOG.md](CHANGELOG.md) |
 | The old scripts | [legacy/](legacy/) |
 | Marlin and laser board firmware | [firmware/](firmware/) |

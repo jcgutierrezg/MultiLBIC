@@ -7,6 +7,10 @@ which is the closest stand-in available until SSH access is set up.
 
 ## Install
 
+`setup.sh` does all of the steps below and is safe to re-run; the bench
+runbook ([`docs/bench.md`](../../docs/bench.md)) shows how to fetch and
+run it. By hand:
+
 Raspberry Pi OS ships a Python older than 3.14, so uv provides one.
 
 1. Install uv:
@@ -43,5 +47,5 @@ Raspberry Pi OS ships a Python older than 3.14, so uv provides one.
 
 ## Owed
 
-- SSH access for remote bench work (Phase 1).
+- SSH access for remote bench work: steps in [`docs/bench.md`](../../docs/bench.md).
 - A desktop launcher (Phase 7).

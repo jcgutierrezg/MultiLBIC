@@ -2,6 +2,26 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.2 - Bench probes for the first session
+
+- `multilbic/bench/`: one probe per device (`ports`, `marlin`, `laser`,
+  `smu`), each writing a JSON report stamped with commit and firmware.
+  Motion and lasers only with explicit flags.
+  - Marlin: running settings, round-trip time, a time-against-distance
+    fit for real speed and fixed overhead, how quickly `M410` acts,
+    keepalive spacing, and optional runtime speed trials (restored
+    afterwards, never saved).
+  - Laser board: switching and settle times.
+  - miniSMU: raw packet format, achieved rates, timestamp resolution,
+    two channels, clock drift and arrival latency, noise at 0 V per
+    current range.
+- Every probe also runs against the simulators, tested in CI.
+- `deploy/pi/setup.sh` sets up or updates the Pi checkout.
+  `docs/bench.md` covers SSH setup and the session order.
+- `Marlin.use_limits()` for probes that change limits at runtime. The
+  fake Marlin learned `M203` and `M122`, and the fake miniSMU learned
+  current ranges.
+
 ## 0.1.1 - Phase 2: device layer and simulators
 
 - `multilbic/hardware/marlin.py`: Marlin client.

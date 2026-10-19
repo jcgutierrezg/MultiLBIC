@@ -198,6 +198,15 @@ class Marlin:
         self.position()
         return info
 
+    def use_limits(self, machine: MachineConfig) -> None:
+        """Check moves against `machine` from now on.
+
+        For bench probes that change Marlin's limits at runtime (`M203`)
+        and need this client to agree. Not for scans: those use the
+        configured limits.
+        """
+        self._machine = machine
+
     def close(self) -> None:
         self._running = False
         self._link.close()

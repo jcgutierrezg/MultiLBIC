@@ -59,7 +59,9 @@ uv run python -m multilbic.hardware.check --sim --home --move --lasers
 ```
 
 Tests marked `hardware` are skipped unless pytest gets `--hardware`,
-which is only for the Pi. See [devices](devices.md).
+which is only for the Pi. See [devices](devices.md). The bench probes
+(`multilbic/bench/`) also run with `--sim`; on the machine they follow
+[bench](bench.md).
 
 ## Workflow
 

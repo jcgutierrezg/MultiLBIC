@@ -421,6 +421,22 @@ class FakeMarlin:
     def _cmd_M117(self, command: str) -> None:
         pass
 
+    def _cmd_M203(self, command: str) -> None:
+        words = self._words(command)
+        for axis in AXES:
+            if axis in words:
+                old = self.limits[axis]
+                self.limits[axis] = AxisLimits(words[axis], old.max_accel_mm_s2)
+
+    def _cmd_M122(self, command: str) -> None:
+        # A short stand-in for the TMC driver status table.
+        self._send("\t\tX\tY\tZ\tA\tB")
+        self._send("Enabled\t\t" + "\t".join(
+            "true" if self.motors_on else "false" for _ in AXES
+        ))
+        self._send("Driver registers:")
+        self._send("Testing X connection... OK")
+
     def _cmd_M503(self, command: str) -> None:
         def row(prefix: str, values: dict[str, float]) -> str:
             return "echo:  " + prefix + " " + " ".join(

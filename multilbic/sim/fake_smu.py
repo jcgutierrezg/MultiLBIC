@@ -55,6 +55,8 @@ class FakeMiniSMU:
         self.mode = {1: "FVMI", 2: "FVMI"}
         self.current_limit = {1: 0.0, 2: 0.0}
         self.osr = {1: 0, 2: 0}
+        self.autorange = {1: True, 2: True}
+        self.current_range: dict[int, int | None] = {1: None, 2: None}
         self.rate_hz = {1: 1000.0, 2: 1000.0}
         self._next_due: dict[int, float] = {}
         #: Raise one unparseable packet on the next streaming read.
@@ -102,7 +104,10 @@ class FakeMiniSMU:
         pass
 
     def set_autorange(self, channel: int, enabled: bool):
-        pass
+        self.autorange[channel] = enabled
+
+    def set_current_range(self, channel: int, range_index: int):
+        self.current_range[channel] = range_index
 
     def set_oversampling_ratio(self, channel: int, osr: int):
         self.osr[channel] = osr

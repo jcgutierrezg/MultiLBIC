@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | Phase 1 bench probes and Phase 2's hardware runs, once SSH to the Pi is set up; or Phase 3 in simulation |
+| next | first bench session ([bench](bench.md)): firmware updates, then Phase 1 probes and Phase 2's hardware runs over SSH. No PR until those pass. |
 
 ## Phases
 
@@ -51,6 +51,10 @@ Small scripts in `tools/`, independent of the app. Their output goes into
 
 **Done when** the sync error budget can be checked against measured
 numbers, and the stream rate and A/B speed are chosen.
+
+**State (0.1.2):** the probes are written and tested against the
+simulators (`multilbic/bench/`). The runbook is [bench](bench.md).
+Nothing has run on the machine yet.
 
 ### Phase 2: device layer and fakes
 
