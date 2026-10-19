@@ -52,7 +52,7 @@ Small scripts in `tools/`, independent of the app. Their output goes into
 **Done when** the sync error budget can be checked against measured
 numbers, and the stream rate and A/B speed are chosen.
 
-**State (0.1.2):** the probes are written and tested against the
+**State (0.1.3):** the probes are written and tested against the
 simulators (`multilbic/bench/`). The runbook is [bench](bench.md).
 Nothing has run on the machine yet.
 

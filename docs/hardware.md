@@ -13,7 +13,7 @@ is a claim waiting for its Phase 1 bench probe (see [plan](plan.md)).
 ## Topology
 
 ```
-Raspberry Pi 4 (monitor attached, runs the GUI)
+Raspberry Pi 4, Ubuntu 24.04 (monitor attached, runs the GUI)
  ├── USB  BTT SKR 1.4 Turbo, Marlin 2.1.2.4    /dev/SKR       motion: X Y (Z) A B
  ├── USB  Seeeduino Xiao "laser board"          /dev/S_LASER   servo revolver + 6 laser enables
  ├── USB  Undalogic miniSMU MS01                (by serial)    photocurrent, ch1 (ch2 free)

@@ -2,6 +2,9 @@
 
 Kept here so the Pi can be rebuilt if its microSD card fails.
 
+The Pi is a Raspberry Pi 4 running **Ubuntu 24.04** (not Raspberry Pi
+OS), with a monitor attached.
+
 **Not yet tried on the Pi.** These steps match what CI's ARM job does,
 which is the closest stand-in available until SSH access is set up.
 
@@ -11,8 +14,12 @@ which is the closest stand-in available until SSH access is set up.
 runbook ([`docs/bench.md`](../../docs/bench.md)) shows how to fetch and
 run it. By hand:
 
-Raspberry Pi OS ships a Python older than 3.14, so uv provides one.
+Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
 
+0. Install git and curl, which Ubuntu does not always include:
+   ```bash
+   sudo apt install git curl
+   ```
 1. Install uv:
    ```bash
    curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -43,7 +50,11 @@ Raspberry Pi OS ships a Python older than 3.14, so uv provides one.
 - **Owed:** the udev rules file itself, copied from the Pi
   (`/etc/udev/rules.d/`).
 - The user running the app needs to be in the `dialout` group to open
-  serial ports.
+  serial ports. Ubuntu does not add it by default; `setup.sh` does.
+- **ModemManager** probes every new `/dev/ttyACM*` device (the SKR, the
+  Xiao and the miniSMU all are), and **brltty** claims CH340/CH341
+  USB-serial adapters. Both are covered in
+  [`docs/bench.md`](../../docs/bench.md#before-the-first-session).
 
 ## Owed
 

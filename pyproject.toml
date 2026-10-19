@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.1.2"
+version = "0.1.3"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -46,8 +46,8 @@ override-dependencies = [
     # and matplotlib needs pillow too.
 ]
 # Prefer an interpreter already on the machine (SMUniversal's Windows
-# TclError lesson). "system" rather than "only-system", because Raspberry
-# Pi OS ships an older Python and the Pi falls back to a uv-managed 3.14.
+# TclError lesson). "system" rather than "only-system", because the Pi's
+# Ubuntu 24.04 ships Python 3.12, so the Pi falls back to a uv-managed 3.14.
 python-preference = "system"
 
 [dependency-groups]

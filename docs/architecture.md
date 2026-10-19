@@ -92,7 +92,8 @@ experiments). MultiLBIC needs none of them.
   fingerprints, so it is not the first choice.
 
 **Python 3.14** is SMUniversal's floor and becomes MultiLBIC's.
-Raspberry Pi OS ships an older Python, so the Pi gets a uv-managed 3.14.
+The Pi runs Ubuntu 24.04, which ships Python 3.12, so it gets a
+uv-managed 3.14.
 Phase 0 confirms that it runs there and that Tk works under it.
 
 ## Position sync

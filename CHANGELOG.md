@@ -2,6 +2,16 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.3 - The Pi runs Ubuntu 24.04
+
+Docs and `deploy/pi/setup.sh` assumed Raspberry Pi OS. Now:
+
+- SSH setup is `openssh-server` + `systemctl`, with no default `pi` user;
+- git and curl are installed first, and `setup.sh` checks for them;
+- `setup.sh` warns about ModemManager (probes `/dev/ttyACM*`) and brltty
+  (claims CH340 adapters), without changing either;
+- Python 3.12 is what Ubuntu ships, so the Pi uses a uv-managed 3.14.
+
 ## 0.1.2 - Bench probes for the first session
 
 - `multilbic/bench/`: one probe per device (`ports`, `marlin`, `laser`,

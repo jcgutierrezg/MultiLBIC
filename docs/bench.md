@@ -30,27 +30,44 @@ the code.
 
 **SSH, once**
 
-1. On the Pi, enable SSH (`sudo raspi-config` → Interface Options → SSH)
-   and note the address (`hostname -I`, or `<hostname>.local`).
+The Pi runs **Ubuntu 24.04**. The SSH server is not always installed,
+and there is no default `pi` user: use the account created when Ubuntu
+was installed.
+
+1. On the Pi, install and start the SSH server:
+   ```bash
+   sudo apt install openssh-server
+   ```
+   ```bash
+   sudo systemctl enable --now ssh
+   ```
+   Note the address with `hostname -I`. `<hostname>.local` also works
+   if `avahi-daemon` is running, which it is on Ubuntu Desktop.
 2. On Windows, make a key if there isn't one, in PowerShell:
    ```powershell
    ssh-keygen -t ed25519
    ```
-3. Copy the public key to the Pi (replace `pi@raspberrypi.local` with
-   the real user and address):
+3. Copy the public key to the Pi, with your Ubuntu user and the Pi's
+   address in place of `<user>@<address>`:
    ```powershell
-   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh pi@raspberrypi.local "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <user>@<address> "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
    ```
 4. Add a short name in `C:\Users\<you>\.ssh\config`:
    ```
    Host multilbic
-       HostName raspberrypi.local
-       User pi
+       HostName <address>
+       User <user>
    ```
    `ssh multilbic` should now log in without a password, and that is
    how Claude reaches the Pi too.
 
 **Software on the Pi**
+
+git and curl are not always installed on Ubuntu:
+
+```bash
+sudo apt install git curl
+```
 
 ```bash
 git clone https://github.com/jcgutierrezg/MultiLBIC.git ~/MultiLBIC
@@ -65,6 +82,28 @@ from the clone rather than downloaded.
 
 After the first run, `bash ~/MultiLBIC/deploy/pi/setup.sh <branch>`
 updates the checkout to the branch's latest commit.
+
+**Serial ports on Ubuntu**
+
+Two Ubuntu services interfere with USB serial devices. `setup.sh`
+checks for both and prints the fix, but changes neither itself:
+
+- **ModemManager** probes every new `/dev/ttyACM*` device with modem
+  commands. The SKR, the laser Xiao and the miniSMU all appear as
+  `ttyACM`, so it can hold a port or garble its first seconds. Nothing
+  on the Pi needs a modem, so turn it off:
+  ```bash
+  sudo systemctl disable --now ModemManager
+  ```
+- **brltty**, the braille display service, claims CH340/CH341 USB-serial
+  adapters, and the port disappears. If the TFT35's adapter is one (step
+  1 below says), and nothing on the Pi uses a braille display:
+  ```bash
+  sudo apt remove brltty
+  ```
+
+`setup.sh` also adds the user to the `dialout` group, which Ubuntu does
+not do by default. Log out and back in afterwards (for SSH, reconnect).
 
 ## A session, in order
 

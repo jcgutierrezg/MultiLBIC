@@ -30,7 +30,7 @@ jobs:
     # ubuntu-latest: path separators and case sensitivity.
     # ubuntu-24.04-arm with a uv-managed interpreter: the closest stand-in
     #   for the Raspberry Pi, which runs aarch64 Linux and gets its Python
-    #   3.14 from uv because Raspberry Pi OS ships an older one.
+    #   3.14 from uv because its Ubuntu 24.04 ships 3.12.
     strategy:
       fail-fast: false
       matrix:
