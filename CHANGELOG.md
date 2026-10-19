@@ -17,6 +17,9 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - `machine.toml` names the Pi's ports by `/dev/serial/by-id/` path,
   which is stable across replugging and needs no udev rules, instead of
   the old rules' `/dev/SKR`-style names.
+- Runbook: clone with `--branch` (a plain clone lands on `main`, which
+  has no `setup.sh` yet). Warns that the first install downloads over
+  100 MB.
 - First SSH check of the Pi recorded:
   - the SKR and the TFT35's FTDI adapter identified;
   - there are no udev rules on the Ubuntu install;

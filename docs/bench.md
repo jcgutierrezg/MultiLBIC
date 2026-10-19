@@ -94,15 +94,21 @@ sudo apt install git curl
 ```
 
 ```bash
-git clone https://github.com/jcgutierrezg/MultiLBIC.git ~/MultiLBIC
+git clone --branch phase-2-devices https://github.com/jcgutierrezg/MultiLBIC.git ~/MultiLBIC
 ```
 
 ```bash
 bash ~/MultiLBIC/deploy/pi/setup.sh phase-2-devices
 ```
 
-The script exists on a branch before it reaches `main`, so it is run
-from the clone rather than downloaded.
+The script exists on a branch before it reaches `main`, so the clone
+starts on that branch (a plain clone lands on `main`, without it).
+
+**The first run downloads well over 100 MB** (uv, Python 3.14 and the
+packages), so give the Pi a good internet connection for it. A phone
+hotspot with poor signal stalled on the first 20 MB. Later runs fetch
+only what changed. The bench steps themselves only need the PC and the
+Pi on the same network, which a hotspot handles even with weak internet.
 
 After the first run, `bash ~/MultiLBIC/deploy/pi/setup.sh <branch>`
 updates the checkout to the branch's latest commit.
