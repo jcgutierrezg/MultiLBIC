@@ -52,6 +52,14 @@ Small scripts in `tools/`, independent of the app. Their output goes into
 **Done when** the sync error budget can be checked against measured
 numbers, and the stream rate and A/B speed are chosen.
 
+**First session, 2026-10-19 (no motion, no lasers):** every device
+answers on the Pi; findings are in [hardware](hardware.md). It found the
+EEPROM running settings (A/B at 6 mm/s), the streaming limits (bulk
+reads needed above a few hundred Hz on the Pi; the device's rate is not
+the requested one), and a two-channel stop bug, now fixed. Still owed:
+the motion, speed and laser steps (at the machine), and the miniSMU
+probe with a stated load.
+
 **State (0.1.4):** the probes are written and tested against the
 simulators (`multilbic/bench/`). The runbook is [bench](bench.md).
 Nothing has run on the machine yet.

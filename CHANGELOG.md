@@ -20,6 +20,15 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - Runbook: clone with `--branch` (a plain clone lands on `main`, which
   has no `setup.sh` yet). Warns that the first install downloads over
   100 MB.
+- First bench session over SSH (no motion, no lasers):
+  - all four devices answer, and the hardware tests pass;
+  - the running Marlin settings differ from compiled: A/B at 6 mm/s,
+    600 mA, StallGuard 130;
+  - the miniSMU streams up to ~1.2 kHz with whole-millisecond stamps,
+    but its delivered rate is not the requested one, and per-line
+    reads can't keep up on the Pi (bulk reads can);
+  - noise at 0 V is ~1.5 nA RMS on the low ranges.
+  - Findings are in `docs/hardware.md`.
 - First SSH check of the Pi recorded:
   - the SKR and the TFT35's FTDI adapter identified;
   - there are no udev rules on the Ubuntu install;

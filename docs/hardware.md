@@ -123,7 +123,7 @@ Compiled-in values that matter to the software:
 | Setting | X / Y | A / B | Note |
 |---|---|---|---|
 | steps/mm | 400 | 3200 | 16 microsteps, TMC2209 |
-| max feedrate | 20 mm/s | **2 mm/s** | the old script's `F360` was silently clamped to 2 mm/s |
+| max feedrate | 20 mm/s | **2 mm/s** | but the board runs **6 mm/s** from EEPROM: see below |
 | max acceleration | 100 mm/s² | 50 mm/s² | reaching 2 mm/s takes 0.04 s over 0.04 mm |
 | travel | 0–100 / 0–120 | 0–40 | software endstops on |
 | homing | sensorless | sensorless, stall sensitivity 8 | drives into the hard stop |
@@ -138,10 +138,24 @@ Other relevant options:
 - `AUTO_REPORT_POSITION`, `M114_DETAIL`, `M115_GEOMETRY_REPORT`,
   `HOST_ACTION_COMMANDS`, `HOST_PROMPT_SUPPORT`.
 - `SERIAL_PORT_2 -1`: a second serial console on USB, unused.
-- **`EEPROM_SETTINGS` is on.** The values running on the board can differ
-  from the compiled values above if anything was ever saved with `M500`
-  (for example a backlash correction set with `M425`). The first bench
-  probe dumps them with `M503`.
+- **`EEPROM_SETTINGS` is on, and the board does not run the compiled
+  values.** `M503`, read on the bench 2026-10-19 (firmware built
+  20 May 2025):
+
+  | Setting | Compiled | Running (EEPROM) |
+  |---|---|---|
+  | A/B max feedrate, `M203` | 2 mm/s | **6 mm/s** |
+  | A/B motor current, `M906` | 800 mA | **600 mA** |
+  | A/B StallGuard threshold, `M914` | 8 | **130** |
+  | X/Y StallGuard threshold | 96 | 96 |
+  | backlash, `M425` | X/Y 0.2 mm, correction 0 | the same, so compensation is effectively off |
+  | stepping mode, `M569` | | stealthChop (S1) on every axis |
+
+  So the old script's `F360` really did run A/B at 6 mm/s. The
+  client still checks moves against `machine.toml`'s 2 mm/s, which is
+  the cautious side. Which value is right is open until the speed
+  trials (bench step 6). `tests/test_hardware.py` fails on the
+  mismatch on purpose, until it is resolved.
 - Plain `M114` reports the last **commanded** position, not a live
   one (see [devices](devices.md#marlin)).
 - **Releasing the motors loses the position.** Marlin cannot see a
@@ -153,9 +167,13 @@ Other relevant options:
   was empty (`BLOCK_DELAY_FOR_1ST_MOVE` in `planner.cpp`). This is one of
   the timing offsets the old script ignored.
 
-The builder chose 2 mm/s as the smoothest and fastest speed in an
-earlier test. It is worth repeating that test, because A/B speed is what
-sets the run time (see [architecture](architecture.md#run-time)).
+The builder remembers choosing 2 mm/s as the smoothest and fastest
+speed in an earlier test, yet the EEPROM holds 6 mm/s. The speed trials
+settle it, and A/B speed is what sets the run time (see
+[architecture](architecture.md#run-time)).
+
+Measured 2026-10-19: an `M114` round trip takes **1.7 ms** median
+(2.1 ms max). The board was unhomed at power-up, all axes at 0.
 
 ## Source-measure unit
 
@@ -169,14 +187,58 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
   of the AB stage, outside the sample area.
 - **Streaming** (`SOUR<n>:DATA:STREAM`, rate set with
   `SOUR<n>:DATA:SRATE`, packets timestamped by the SMU's own clock) is
-  what makes continuous scanning possible. **SMUniversal has never
-  tested it.** Its achieved rate, timestamp resolution, jitter and
-  clock drift are all Phase 1 probes.
+  what makes continuous scanning possible. First measured on this
+  bench, 2026-10-19; findings below.
 - SMUniversal measured **150–180 nA open-circuit current at 0.1 V** on
-  this unit. The noise floor and offset at 0 V while streaming must be
-  measured before nA-level maps can be trusted.
-- Firmware **1.5.0+** adds the active current range to every streamed
-  packet. Agreed: upgrade before the streaming probes.
+  this unit.
+- Firmware is still **1.4.6**: Undalogic's update server returned HTTP
+  500. The library says 1.5.0+ adds the active current range to each
+  packet.
+
+### Streaming, measured 2026-10-19
+
+Report `bench-results/20261019T180307Z_smu_real.json` (commit
+`fe17a93`), plus a read-speed experiment with the output off.
+
+- **Packet format**: `1,1792432988369,7.1335e-04,-1.5365e-09,0`, which is
+  channel, timestamp, volts, amps, and a **fifth field**, already on
+  1.4.6. It read `0` at nA currents, so it is probably the range index;
+  *unverified*. The timestamp is Unix time in **whole milliseconds**,
+  set by `set_time()`.
+- **Delivered rate is not the requested rate, and not repeatable.** 100
+  Hz requested gave 100.7 Hz in one run and 114 Hz in the next; 500 gave
+  500 and 567; 1000 gave 938 and 1194. The device's timestamps have to
+  be the reference, never the requested rate.
+- **The instrument can stream above 1 kHz**: 1194 Hz on one channel,
+  read cleanly for 20 s.
+- **Reading one line at a time cannot keep up on the Pi.** `minismu_py`
+  reads each packet with pyserial's `readline()`, which fetches one byte
+  per system call. In a bare loop that reached about 750 packets/s, and
+  the backlog grew 0.3 → 1.1 s in 20 s at 1000 Hz. Through `SmuStream`
+  (more per-sample work), even 500 Hz fell up to 1.7 s behind over
+  60 s. **Reading in bulk** (everything waiting, split into lines) kept
+  up at 1190/s with a flat backlog. The streaming reader has to read in
+  bulk (open item in the plan).
+- **Two channels**: stopping one channel's stream while the other still
+  streamed made the library wait for silence and raise, leaving channel 2
+  streaming with its output on. Fixed in `SmuStream.stop()` (commit
+  `fe17a93`), which turns every channel off first. Rates read through
+  the per-line path under-delivered (536 / 407 Hz of 500), which the
+  bulk reader should fix too.
+- **Noise at 0 V**, about 1 kHz, default oversampling, channel 1 with
+  *whatever was connected at the time (not recorded)*:
+
+  | Range | Mean (offset) | Std. dev. | Peak-to-peak |
+  |---|---|---|---|
+  | auto | +0.04 nA | 1.5 nA | 5.5 nA |
+  | 1 µA | +0.2 nA | 1.5 nA | 5.5 nA |
+  | 25 µA | +3.3 nA | 2.1 nA | 10.6 nA |
+  | 650 µA | +92 nA | 27 nA | 150 nA |
+
+  About **1.5 nA RMS per sample** on the low ranges. An nA-level LBIC
+  signal needs averaging over samples per pixel, or more oversampling
+  (fewer samples per second). Re-run with `--load open` and then a
+  covered cell to know what these numbers describe.
 
 ### Is it the fastest SMU available?
 
@@ -185,7 +247,8 @@ B2901A 5.7 ms, miniSMU 6.0 ms, the Keithley 2600-series and GSM-20H10
 12–14 ms, the rest 35–77 ms. At 6 ms per reading and 2 mm/s that is a
 point every 12 µm, which is not good enough. The miniSMU's real advantage
 is streaming, nominally up to 1 kHz, which at 2 mm/s is a sample every
-2 µm. The bench instruments' buffered, triggered acquisition was not
+2 µm, and the instrument was measured streaming at up to ~1.2 kHz
+(below). The bench instruments' buffered, triggered acquisition was not
 compared. They live on another bench and the miniSMU is already
 installed here.
 

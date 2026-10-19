@@ -104,6 +104,19 @@ exception: it stops the stream first, because it is the safe-state path.
 A garbled packet is counted, not fatal. An empty read (the library's 1 s
 timeout) is counted as idle.
 
+**Two-channel stop.** `minismu_py`'s `stop_streaming(n)` waits for the
+line to go quiet, which never happens while the other channel is still
+streaming. `SmuStream.stop()` therefore switches every other channel off
+with a raw write first, and calls `stop_streaming()` once for the last
+one. The fake miniSMU raises the way the library does, so the
+two-channel tests catch a regression.
+
+**Reading speed.** On the Pi, the library's per-line read (pyserial's
+`readline()`, one byte per system call) cannot keep up with streaming,
+while a bulk read can (measured in
+[hardware](hardware.md#streaming-measured-2026-10-19)). Replacing it is
+the next change to `SmuStream`.
+
 Firmware 1.5.0+ adds the active current range to each packet.
 `firmware_streams_range` says whether the connected unit has it.
 
