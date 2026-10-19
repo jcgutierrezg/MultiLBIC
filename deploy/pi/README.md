@@ -49,9 +49,11 @@ Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
   Ubuntu install has **no udev rules**, so there are no `/dev/SKR`-style
   names; which boards are identified so far is in
   [`docs/hardware.md`](../../docs/hardware.md#topology).
-- **Open:** fixed names come back either as new udev rules or as a
-  lookup by USB serial number in the software. The second needs no root
-  and also works on Windows. Decide after the ports probe.
+- **Fixed names without udev rules:** Linux already makes
+  `/dev/serial/by-id/usb-<vendor>_<model>_<serial>...` links from each
+  board's USB serial number, and `machine.toml` uses those. A replaced
+  board has a new serial, so its path in `machine.toml` changes with it
+  (`python -m multilbic.bench.ports --real` shows the new one).
 - The user running the app needs to be in the `dialout` group to open
   serial ports. Ubuntu does not add it by default; `setup.sh` does.
 - **ModemManager** probes every new `/dev/ttyACM*` device (the SKR, the

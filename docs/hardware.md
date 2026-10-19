@@ -24,7 +24,9 @@ The `/dev/...` names came from udev rules on an earlier install. The
 current Ubuntu install (checked over SSH on 2026-10-19) has **no such
 rules**, so the boards appear as plain `/dev/ttyACM*` and `/dev/ttyUSB*`.
 All four identified over SSH on 2026-10-19. Port numbers depend on
-plug-in order, so the serial number is what identifies a board:
+plug-in order, so the serial number is what identifies a board.
+`machine.toml` uses the names Linux builds from it under
+`/dev/serial/by-id/`, which need no udev rules:
 
 | Board | Port then | USB id | Serial number |
 |---|---|---|---|

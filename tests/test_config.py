@@ -69,7 +69,8 @@ def test_config_is_immutable():
 
 def test_ports_by_platform():
     config = load()
-    assert config.ports("linux").skr == "/dev/SKR"
+    assert config.ports("linux").skr.startswith("/dev/serial/by-id/")
+    assert "1602400395D510E961DB1B78F50020C1" in config.ports("linux").skr
     assert config.ports("win32").skr == ""
     # A platform with no entry gets empty ports rather than an error.
     assert config.ports("darwin").laser == ""

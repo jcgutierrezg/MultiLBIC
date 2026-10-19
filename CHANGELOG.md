@@ -14,6 +14,9 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
   `MultiLBIC-Laser,2.0.0` over SSH.
 - All four USB devices identified by serial number. The laser Xiao is
   line 3 of `Serials.txt`; line 1 is the retired instrumentation Xiao.
+- `machine.toml` names the Pi's ports by `/dev/serial/by-id/` path,
+  which is stable across replugging and needs no udev rules, instead of
+  the old rules' `/dev/SKR`-style names.
 - First SSH check of the Pi recorded:
   - the SKR and the TFT35's FTDI adapter identified;
   - there are no udev rules on the Ubuntu install;

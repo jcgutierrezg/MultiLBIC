@@ -73,14 +73,17 @@ servo_angle_deg = 30
 xy_centre_mm = [50.0, 50.0]
 measured = false
 
-# Serial ports per platform (sys.platform). On the Pi, udev rules give
-# the boards fixed names; see deploy/pi/. An empty string means "not
+# Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.
+#
+# On the Pi these are the names Linux makes on its own under
+# /dev/serial/by-id, from each board's USB serial number: they survive
+# replugging and reboots, and need no udev rules (docs/hardware.md).
 [ports.linux]
-skr = "/dev/SKR"
-laser = "/dev/S_LASER"
-tft = "/dev/TFT35"
-smu = ""
+skr = "/dev/serial/by-id/usb-marlinfw.org_Marlin_USB_Device_1602400395D510E961DB1B78F50020C1-if00"
+laser = "/dev/serial/by-id/usb-Seeed_Seeed_XIAO_M0_AC5401405154315432202020FF102436-if00"
+tft = "/dev/serial/by-id/usb-FTDI_TTL232R-3V3_FTDKEIR6-if00-port0"
+smu = "/dev/serial/by-id/usb-Undalogic_Inc_miniSMU_MS01_lunar-tuvok-7966-if00"
 
 [ports.win32]
 skr = ""
