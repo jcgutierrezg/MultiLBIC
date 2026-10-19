@@ -16,6 +16,14 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
   measured format, with whole-millisecond stamps and an optional rate
   error. Tests cover packets split across reads, the per-line fallback,
   and a delivered rate that differs from the requested one.
+- On the bench, the bulk reader:
+  - read 1009 Hz at 1000 requested, and 1409 Hz (the instrument's
+    ceiling) at 2000;
+  - kept the 60 s backlog flat (52 ms median arrival latency);
+  - streamed both channels cleanly.
+- Found while running it: periodic stamp bunching (~every 100 ms), a
+  +306 ppm clock offset to the Pi, and noise that differed 10× between
+  two runs with no load stated. All recorded in `docs/hardware.md`.
 
 ## 0.1.4 - SSH setup fixes in the runbook
 

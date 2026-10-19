@@ -219,6 +219,37 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   60 s. **Reading in bulk** (everything waiting, split into lines) kept
   up at 1190/s with a flat backlog. `SmuStream` reads in bulk since
   0.1.5.
+
+**With the bulk reader** (0.1.5, report
+`bench-results/20261019T181449Z_smu_real.json`, commit `c0da98f`):
+
+| Requested | Delivered (device clock) | Step jitter | Repeated stamps |
+|---|---|---|---|
+| 100 Hz | 100.0 Hz | 0.31 ms | 0 |
+| 250 Hz | 250.0 Hz | 0.49 ms | 0 |
+| 500 Hz | 504.0 Hz | 0.51 ms | 0 |
+| 1000 Hz | 1008.6 Hz | 0.65 ms | 332 of 4900 |
+| 2000 Hz | **1408.6 Hz**, the instrument's ceiling | 0.92 ms | 2533 of 6930 |
+
+- **Two channels** at 500 Hz each: 563 and 500 Hz, no parse errors, and
+  both stopped cleanly.
+- **Bunching, not loss.** At 500 Hz and above, about every 100 ms the
+  stamps skip 5–8 ms, then catch up with a burst of repeated stamps. The
+  average rate is kept, so samples are not lost. That suggests the
+  instrument stamps a packet when it **sends** it rather than when it
+  measures, which would put several ms of timing error on samples near
+  each skip (10–15 µm at 2 mm/s). *Unverified*: checking it needs a
+  known light edge, e.g. the channel-2 photodiode.
+- **Clocks**: over 60 s at 500 Hz, the instrument's clock ran
+  **+306 ppm** against the Pi's (18 ms per minute). Arrival latency,
+  above the fastest packet: median **52 ms**, max **109 ms**, with no
+  growth. A sample's time has to come from its device stamp, mapped
+  through a tracked offset and drift. When it arrived says little.
+- **Noise changed 10× between two runs 12 minutes apart**: RMS 1.5 nA
+  (18:03) and then 14 nA (18:14) on the auto and 1 µA ranges, with
+  everything else the same except the reader. The load on channel 1 was
+  not recorded either time, so these numbers can't be interpreted until
+  the probe runs with a stated load.
 - **Two channels**: stopping one channel's stream while the other still
   streamed made the library wait for silence and raise, leaving channel 2
   streaming with its output on. Fixed in `SmuStream.stop()` (commit
