@@ -245,11 +245,30 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   above the fastest packet: median **52 ms**, max **109 ms**, with no
   growth. A sample's time has to come from its device stamp, mapped
   through a tracked offset and drift. When it arrived says little.
-- **Noise changed 10× between two runs 12 minutes apart**: RMS 1.5 nA
-  (18:03) and then 14 nA (18:14) on the auto and 1 µA ranges, with
-  everything else the same except the reader. The load on channel 1 was
-  not recorded either time, so these numbers can't be interpreted until
-  the probe runs with a stated load.
+- **Noise at 0 V, channel 1 open** (nothing connected; reports
+  `20261019T181817Z` and `20261019T181857Z`, back to back) is
+  repeatable: **14.3 and 14.8 nA RMS**, p-p ≈ 53 nA, on the auto and
+  1 µA ranges; 15.8 nA on 25 µA; 32 nA RMS around a **+94 nA offset**
+  on 650 µA.
+- **It is mains pickup.** At 1 kHz, **89 % of the noise power is at
+  50 Hz** (± 2 Hz), and the next strongest line is 150 Hz. Open leads are
+  an antenna, so this is not the instrument's own floor. Against stream
+  rate: 100 Hz gives 4.3 nA RMS (43 nA p-p), and 250–1000 Hz give
+  14–15 nA. Sampling at 100 Hz lands on the same few points of each
+  50 Hz cycle, which hides much of it.
+- The one quiet run (1.5 nA RMS, 18:03) was the only one read through
+  the old per-line reader, which could not keep up. Why it was quieter
+  is not known: possibly the instrument averaging longer while it waited
+  to send, possibly the leads lying differently.
+- **What this means for scanning**:
+  - mains will dominate nA-level signals unless dealt with;
+  - a cell connected instead of open leads should pick up much less
+    (next measurement, with `--load dark-cell`);
+  - because raw samples are kept with their timestamps, a 50 Hz (and
+    harmonics) notch can be applied along each row before binning, or a
+    pixel's averaging window made a whole number of 20 ms cycles;
+  - shielded or twisted leads and the planned enclosure help at the
+    source. The mains frequency here is **50 Hz**.
 - **Two channels**: stopping one channel's stream while the other still
   streamed made the library wait for silence and raise, leaving channel 2
   streaming with its output on. Fixed in `SmuStream.stop()` (commit

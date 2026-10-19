@@ -214,6 +214,14 @@ One CSV per run, using SMUniversal's convention:
 Per-row anchors go in as `#row` comment lines, so
 `pd.read_csv(path, comment="#")` still returns the plain sample table.
 
+**Mains pickup** (measured, see
+[hardware](hardware.md#streaming-measured-2026-10-19)): about 90 % of the
+0 V noise on open leads is at 50 Hz. Raw samples are kept with their
+timestamps, so the map can be cleaned afterwards with a notch at 50 Hz
+and its harmonics along each row, or by averaging each pixel over whole
+20 ms cycles. Both belong in Phase 3's binning, and the mains frequency
+goes into `machine.toml`.
+
 **The file is appended after every completed row** and flushed to disk
 (D1). Until the run finishes, the header says `status: incomplete`. A
 Stop or a crash leaves every finished row readable.

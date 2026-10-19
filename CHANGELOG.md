@@ -21,9 +21,14 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
     ceiling) at 2000;
   - kept the 60 s backlog flat (52 ms median arrival latency);
   - streamed both channels cleanly.
-- Found while running it: periodic stamp bunching (~every 100 ms), a
-  +306 ppm clock offset to the Pi, and noise that differed 10× between
-  two runs with no load stated. All recorded in `docs/hardware.md`.
+- Found while running it:
+  - periodic stamp bunching (~every 100 ms);
+  - a clock offset to the Pi: +306 ppm over 60 s, but about −95 ppm in
+    two 10 s fits, so it needs longer runs to pin down;
+  - open-lead noise of ~14.5 nA RMS, repeatable, of which **89 % is
+    50 Hz mains pickup**.
+  - All recorded in `docs/hardware.md`. Architecture: notch or
+    whole-cycle averaging in Phase 3's binning.
 
 ## 0.1.4 - SSH setup fixes in the runbook
 
