@@ -115,14 +115,20 @@ checks for both and prints the fix, but changes neither itself:
   sudo systemctl disable --now ModemManager
   ```
 - **brltty**, the braille display service, claims CH340/CH341 USB-serial
-  adapters, and the port disappears. If the TFT35's adapter is one (step
-  1 below says), and nothing on the Pi uses a braille display:
+  adapters, and the port disappears. The TFT35's adapter is an FTDI
+  (checked 2026-10-19), which it leaves alone, so nothing is needed
+  unless a CH340 device is added later:
   ```bash
   sudo apt remove brltty
   ```
 
 `setup.sh` also adds the user to the `dialout` group, which Ubuntu does
 not do by default. Log out and back in afterwards (for SSH, reconnect).
+
+**`sudo` needs a password on the Pi, and Claude has none.** Every
+`sudo` step (installing curl, the `dialout` group, ModemManager) is
+done at the Pi by you, before Claude runs `setup.sh` over SSH. With
+those done, `setup.sh` needs no `sudo`.
 
 ## A session, in order
 

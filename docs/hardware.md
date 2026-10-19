@@ -20,10 +20,21 @@ Raspberry Pi 4, Ubuntu 24.04 (monitor attached, runs the GUI)
  └── USB-TTL  BTT TFT35 touchscreen             /dev/TFT35     wired, currently unused
 ```
 
-The `/dev/...` names come from udev rules on the Pi that are not in this
-repository yet. The three USB serial numbers they match on are in
-[`deploy/pi/Serials.txt`](../deploy/pi/Serials.txt). Which number belongs
-to which board is not recorded yet.
+The `/dev/...` names came from udev rules on an earlier install. The
+current Ubuntu install (checked over SSH on 2026-10-19) has **no such
+rules**, so the boards appear as plain `/dev/ttyACM*` and `/dev/ttyUSB*`.
+What was identified then:
+
+| Board | Port then | USB id | Serial number |
+|---|---|---|---|
+| SKR 1.4 Turbo (Marlin) | `/dev/ttyACM0` | `1d50:6029` "Marlin_USB_Device" | `1602400395D510E961DB1B78F50020C1` (line 2 of `Serials.txt`) |
+| TFT35 adapter | `/dev/ttyUSB0` | `0403:6001` FTDI TTL232R-3V3 | `FTDKEIR6` (not in `Serials.txt`) |
+| Laser Xiao | not connected | | probably one of the other two in `Serials.txt` |
+| miniSMU | not connected | | `LUNAR-TUVOK-7966` (SMUniversal's record) |
+
+The other two serials in [`deploy/pi/Serials.txt`](../deploy/pi/Serials.txt)
+share the `5154315432202020FF` pattern of SAMD21 chip ids: most likely
+the laser Xiao and the retired instrumentation Xiao.
 
 The second Xiao, the "instrumentation" board, is gone. The miniSMU
 replaced it, and nothing should still refer to it.

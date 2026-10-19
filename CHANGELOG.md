@@ -10,6 +10,10 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - It also addresses the Pi as `<name>.local` (avahi) rather than by IP,
   which changes between networks, and explains why `hostname -I` shows
   several addresses.
+- First SSH check of the Pi recorded:
+  - the SKR and the TFT35's FTDI adapter identified;
+  - there are no udev rules on the Ubuntu install;
+  - the `sudo` steps are yours, because `sudo` needs a password.
 
 ## 0.1.3 - The Pi runs Ubuntu 24.04
 

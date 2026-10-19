@@ -44,11 +44,14 @@ Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
 
 ## Serial devices
 
-- `Serials.txt`: the USB serial numbers the udev rules match on, to give
-  the boards fixed names (`/dev/SKR`, `/dev/S_LASER`, `/dev/TFT35`).
-  Which number belongs to which board is not recorded yet.
-- **Owed:** the udev rules file itself, copied from the Pi
-  (`/etc/udev/rules.d/`).
+- `Serials.txt`: the USB serial numbers the old udev rules matched on.
+  Line 2 is the SKR. The other two look like the two Xiaos. The current
+  Ubuntu install has **no udev rules**, so there are no `/dev/SKR`-style
+  names; which boards are identified so far is in
+  [`docs/hardware.md`](../../docs/hardware.md#topology).
+- **Open:** fixed names come back either as new udev rules or as a
+  lookup by USB serial number in the software. The second needs no root
+  and also works on Windows. Decide after the ports probe.
 - The user running the app needs to be in the `dialout` group to open
   serial ports. Ubuntu does not add it by default; `setup.sh` does.
 - **ModemManager** probes every new `/dev/ttyACM*` device (the SKR, the
