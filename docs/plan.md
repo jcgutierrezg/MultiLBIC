@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | first bench session ([bench](bench.md)): firmware updates, then Phase 1 probes and Phase 2's hardware runs over SSH. No PR until those pass. |
+| next | resume the bench ([bench](bench.md)): miniSMU noise with a covered cell (`--load dark-cell`), then the at-the-machine steps (home + motion, speed trials, `--lasers`), then decide the A/B speed (EEPROM 6 mm/s vs 2 mm/s). No PR until those pass. |
 
 ## Phases
 
