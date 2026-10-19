@@ -14,6 +14,9 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
   - the SKR and the TFT35's FTDI adapter identified;
   - there are no udev rules on the Ubuntu install;
   - the `sudo` steps are yours, because `sudo` needs a password.
+- The miniSMU firmware upgrade is optional for the first session.
+  Undalogic's updater fails server-side (HTTP 500), and 1.4.6 streams,
+  just without the current range in each packet.
 
 ## 0.1.3 - The Pi runs Ubuntu 24.04
 

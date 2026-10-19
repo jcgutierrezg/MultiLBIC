@@ -18,10 +18,14 @@ the code.
 
 **Firmware**
 
-1. Upgrade the miniSMU to firmware 1.5.0 or later, which adds the
-   current range to streamed packets. (SMUniversal's bench record for
-   this unit says 1.4.6. Its next checkup there will record the new
-   version.)
+1. *If the updater works,* upgrade the miniSMU to firmware 1.5.0 or
+   later, which adds the current range to streamed packets. **Not a
+   blocker:** everything runs on 1.4.6, and the probe notes the missing
+   field. On 2026-10-19 Undalogic's updater failed with an HTTP 500 from
+   their server, so the first session runs on 1.4.6. After a later
+   upgrade, re-run the miniSMU probe for a before/after comparison.
+   (SMUniversal's bench record for this unit says 1.4.6. Its next
+   checkup there will record the new version.)
 2. Flash the laser board with
    [`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino)
    (2.0.0): Arduino IDE, Seeed SAMD boards package, board "Seeeduino
