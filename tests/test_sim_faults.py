@@ -99,3 +99,42 @@ def test_synthetic_edges_sit_at_the_half_way_point():
     finger = sample.patches[2]
     middle = (finger.u0 + finger.u1) / 2
     assert sample.current(650, middle, v) < 0.05 * inside
+
+
+class TickingClock:
+    """Moves on 10 ms every time it is read, as if each read came after
+    a stall: any code that reads it twice sees two different instants."""
+
+    def __init__(self):
+        self.t = 0.0
+
+    def now(self):
+        self.t += 0.01
+        return self.t
+
+    def sleep(self, seconds):
+        pass
+
+    def to_real(self, seconds):
+        return seconds
+
+    def wall_ms(self):
+        return int(self.t * 1000)
+
+
+def test_quickstop_stops_motors_and_stage_at_one_instant(machine):
+    fake = FakeMarlin(machine, backlash_mm={"A": 0.02})
+    clock = TickingClock()
+    fake.attach(lambda line: None, clock)
+    try:
+        fake._cmd_G1("G1 A30 F120")  # 15 s at 2 mm/s
+        clock.t += 2.0  # well into the move
+        fake._quickstop()
+        assert 3.0 < fake.commanded["A"] < 5.0
+        # M114 reports the motors; the stage trails them by half the
+        # backlash. Both must describe the same moment.
+        assert fake.stage_position()["A"] == pytest.approx(
+            fake.commanded["A"] - 0.01, abs=1e-9
+        )
+    finally:
+        fake.shutdown()
