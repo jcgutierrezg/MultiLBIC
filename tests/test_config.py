@@ -167,3 +167,12 @@ def test_negative_feed(raw):
 
 def test_no_lasers(raw):
     _breaks(raw, lambda d: d.update(lasers=[]), "no \\[\\[lasers\\]\\]")
+
+
+def test_laser_board_settle(raw):
+    assert load().laser_board.settle_ms == 2000
+    _breaks(
+        raw,
+        lambda d: d["laser_board"].update(settle_ms=20000),
+        "settle_ms",
+    )

@@ -57,8 +57,9 @@ class LaserBoard:
         self.settle_ms: int | None = None
 
     def open(self) -> str:
-        """Identify the board and check its servo angles. Returns the
-        firmware id, e.g. `MultiLBIC-Laser,2.0.0`."""
+        """Identify the board, check its servo angles and apply the
+        configured settle time. Returns the firmware id, e.g.
+        `MultiLBIC-Laser,2.0.0`."""
         self.resync()
         ident = self.query("ID?")
         if not ident.startswith(FIRMWARE_PREFIX):
@@ -78,6 +79,11 @@ class LaserBoard:
                 f"machine.toml {expected}"
             )
         self.settle_ms = int(self.query("SETTLE?").split()[1])
+        wanted = self._machine.laser_board.settle_ms
+        if self.settle_ms != wanted:
+            # The firmware forgets a runtime value on power-up, so the
+            # configured one is applied every time.
+            self.set_settle(wanted)
         return ident
 
     def close(self) -> None:

@@ -135,9 +135,10 @@ builder watching.
   swaps, where one laser goes off and the next comes on within 1 ms.
 - **Servo settle, worst case** (120° swing, 30° → 150°, onto laser 1):
   **1000 ms: the spot appeared and stayed put**, twice. **500 ms: the
-  spot slid a little after appearing**, so too short. The firmware
-  default stays 2000 ms; the settle time a scan should use is decision
-  D10.
+  spot slid a little after appearing**, so too short. Decision D10
+  keeps **2000 ms**, set from `machine.toml` (`[laser_board] settle_ms`)
+  at every `open()`, since the firmware forgets a runtime value on
+  power-up.
 
 ## Motion controller (Marlin)
 

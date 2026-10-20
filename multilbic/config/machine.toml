@@ -76,6 +76,14 @@ servo_angle_deg = 30
 xy_centre_mm = [50.0, 50.0]
 measured = false
 
+[laser_board]
+# Wait after the servo turns, before the laser comes on. On the worst
+# 120-degree swing, 1000 ms was stable and 500 ms slid (bench,
+# 2026-10-20); 2000 keeps a wide margin for a few seconds per run
+# (decision D10). The driver sets it at every open(), because the
+# firmware forgets a runtime value on power-up.
+settle_ms = 2000
+
 # Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.
 #

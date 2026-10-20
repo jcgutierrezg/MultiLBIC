@@ -2,7 +2,7 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
-## Unreleased
+## 0.1.8 - Lasers checked; settle time from machine.toml
 
 - Lasers checked on the bench:
   - each of the six lights alone, the right colour, at the right servo
@@ -10,8 +10,12 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
   - the "two at once" seen in the fast probe never showed up one at a
     time;
   - servo settle on the worst 120° swing is stable at 1000 ms and slides
-    at 500 ms;
-  - open decision D10: which settle time, kept in `machine.toml`.
+    at 500 ms.
+- Decision D10: the settle stays **2000 ms**, now in `machine.toml`
+  (`[laser_board] settle_ms`, validated to the firmware's 0–10000 ms).
+  `LaserBoard.open()` applies it whenever the board reports something
+  else, because the firmware forgets a runtime value on power-up. The
+  fake laser board records what it receives; tests cover both cases.
 
 ## 0.1.7 - A/B ceiling raised to 6 mm/s
 

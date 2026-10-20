@@ -36,6 +36,8 @@ DEFAULT_RESOURCE = "machine.toml"
 #: The laser board drives six enables and a servo that turns 180 degrees.
 LASER_NUMBERS = range(1, 7)
 SERVO_RANGE_DEG = (0, 180)
+#: What the laser board firmware accepts for `SETTLE <ms>`.
+SETTLE_RANGE_MS = (0, 10000)
 
 
 class MachineConfigError(ValueError):
@@ -86,11 +88,20 @@ class Ports:
 
 
 @dataclass(frozen=True)
+class LaserBoardSettings:
+    #: Wait after the servo turns before a laser comes on. The firmware
+    #: forgets a value set at runtime on power-up, so the driver applies
+    #: this one at every open().
+    settle_ms: int
+
+
+@dataclass(frozen=True)
 class MachineConfig:
     name: str
     ab: AbStage
     xy: XyStage
     lasers: tuple[Laser, ...]
+    laser_board: LaserBoardSettings
     #: Keyed by `sys.platform` ("linux", "win32", ...).
     ports_by_platform: dict[str, Ports]
     baud: int
@@ -134,6 +145,7 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
         ab=_parse_ab(top.table("ab")),
         xy=_parse_xy(top.table("xy")),
         lasers=tuple(_parse_laser(t) for t in top.tables("lasers")),
+        laser_board=_parse_laser_board(top.table("laser_board")),
         ports_by_platform={
             platform: _parse_ports(table)
             for platform, table in top.table("ports").subtables()
@@ -204,6 +216,17 @@ def _parse_laser(t: _Table) -> Laser:
             f"{laser.servo_angle_deg} is outside {low}..{high}"
         )
     return laser
+
+
+def _parse_laser_board(t: _Table) -> LaserBoardSettings:
+    settings = LaserBoardSettings(settle_ms=t.read_int("settle_ms"))
+    t.done()
+    low, high = SETTLE_RANGE_MS
+    if not low <= settings.settle_ms <= high:
+        raise t.error(
+            f"settle_ms {settings.settle_ms} is outside {low}..{high}"
+        )
+    return settings
 
 
 def _parse_ports(t: _Table) -> Ports:

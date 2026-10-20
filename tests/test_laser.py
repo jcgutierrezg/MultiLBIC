@@ -87,3 +87,21 @@ def test_timeout_puts_the_link_out_of_step(rig):
     fake.silent = False
     board.resync()
     assert board.state().laser == 0
+
+
+def test_open_applies_the_configured_settle(machine, clock):
+    # The firmware forgets a runtime settle on power-up; open() puts the
+    # machine.toml value back whatever the board starts with.
+    fake = FakeLaserBoard(settle_ms=500)
+    board = LaserBoard(connect(fake, clock), machine, clock)
+    board.open()
+    assert machine.laser_board.settle_ms == 2000
+    assert board.settle_ms == 2000
+    assert fake.settle_ms == 2000
+
+
+def test_open_leaves_a_matching_settle_alone(machine, clock):
+    fake = FakeLaserBoard(settle_ms=2000)
+    board = LaserBoard(connect(fake, clock), machine, clock)
+    board.open()
+    assert not [line for line in fake.received if line.startswith("SETTLE ")]

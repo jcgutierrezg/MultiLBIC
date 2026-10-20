@@ -36,6 +36,8 @@ class FakeLaserBoard:
         #: (clock time, laser) every time the lit laser changes.
         self.history: list[tuple[float, int]] = []
         self.silent = False
+        #: Every command line from the host, in order.
+        self.received: list[str] = []
         self._inbox: queue.Queue[str | None] = queue.Queue()
         self._emit = None
         self._clock: Clock | None = None
@@ -49,6 +51,7 @@ class FakeLaserBoard:
         emit(f"READY {self.firmware_id}")
 
     def receive(self, line: str) -> None:
+        self.received.append(line.strip())
         self._inbox.put(line)
 
     def shutdown(self) -> None:
