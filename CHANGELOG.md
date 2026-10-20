@@ -2,6 +2,22 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.10 - USB boot check for the laser Xiao
+
+- `deploy/pi/usb-check.sh`, with `multilbic-usb-check.service` and
+  `install-usb-check.sh`: at every boot, if the laser Xiao has not
+  appeared on USB within 15 s, the Pi's USB power is switched off and on
+  with `uhubctl` (a software replug), then checked again. Every boot is
+  logged (`journalctl -t multilbic-usb-check`). `--force` cycles even
+  when the Xiao is present, as a test.
+- `tests/test_deploy.py` runs the real script on Linux against a fake
+  by-id folder and a fake `uhubctl`: present, recovered, still missing,
+  forced.
+- Findings: the miniSMU was simply switched off; the Xiao failure is
+  intermittent, not tied to reboots or power order so far. 0.3 V leaks
+  onto its 3V3 from the servo/laser supply. Recorded in
+  `docs/hardware.md`.
+
 ## 0.1.9 - Speed trials on either axis
 
 - `python -m multilbic.bench.marlin --speeds ... --speed-axis b` runs the

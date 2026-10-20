@@ -410,18 +410,38 @@ installed here.
 
 ## USB at boot
 
-On both bench days the laser Xiao and the miniSMU were **missing after
-the Pi booted**: the kernel made no attempt to connect them and logged
-no error. Both appeared as soon as their cables were replugged. The SKR
-and the TFT's FTDI adapter came up normally each time. All four are on
-the Pi's own ports (the Xiao on port 2, the miniSMU on port 4) or on a
-hub off port 1.
+On both bench days (2026-10-19 and -20) the laser Xiao and the miniSMU
+were **missing after the Pi booted**: the kernel made no attempt to
+connect them and logged no error. The SKR and the TFT's FTDI adapter
+came up normally each time. All four are on the Pi's own ports (the
+Xiao on port 2, the miniSMU on port 4) or on a hub off port 1.
 
-Suspected, not verified: the two boards stay powered while the Pi
-restarts and then miss the Pi's USB reset. Ways to fix it without
-touching cables: power-cycle the Pi's USB ports at start-up (`uhubctl`,
-needs root) or unbind and rebind the two devices in sysfs. First,
-compare a cold start against a reboot.
+What was found out (2026-10-20):
+
+- **The miniSMU was simply switched off.** It is not a bug: switch it on
+  before starting the software.
+- **The Xiao is the real case**, and it is **intermittent**:
+  - On the failing mornings it came back only when its cable was
+    replugged. The 20 Oct failure followed a cold start (the Pi was off
+    at the wall overnight), so it is not about reboots.
+  - No under-voltage in any boot the journal keeps.
+  - The Xiao has no external power; only the servo and lasers do. With
+    its USB unplugged and that supply on, its 3V3 pin reads **0.3 V**: a
+    small leak back through the signal lines, probably too little to
+    block a clean reset by itself.
+  - Two cold starts that same day both brought it up normally, one of
+    them with the supply on a minute before the Pi. So power order alone
+    does not explain it. A supply left on for hours is untested.
+
+**The fix is a safety net, not a cure:** `deploy/pi/usb-check.sh`, run
+as a root service at every boot. If the Xiao has not appeared after 15 s,
+it switches the Pi's USB power off and on with `uhubctl` (the same as a
+replug, all ports together on a Pi 4), then checks again. It logs every
+boot (`journalctl -t multilbic-usb-check`), so the next failure is
+recorded with what else was present. Install steps are in
+[`deploy/pi/`](../deploy/pi/README.md). If the log shows it failing
+often, the hardware option is 1–10 kΩ resistors in series on the
+Xiao's signal lines.
 
 ## TFT35
 

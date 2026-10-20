@@ -3,10 +3,8 @@
 Kept here so the Pi can be rebuilt if its microSD card fails.
 
 The Pi is a Raspberry Pi 4 running **Ubuntu 24.04** (not Raspberry Pi
-OS), with a monitor attached.
-
-**Not yet tried on the Pi.** These steps match what CI's ARM job does,
-which is the closest stand-in available until SSH access is set up.
+OS), with a monitor attached. It is reached over SSH as `multilbic`;
+setting that up is in [`docs/bench.md`](../../docs/bench.md).
 
 ## Install
 
@@ -42,13 +40,48 @@ Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
    uv run pytest
    ```
 
+## USB boot check
+
+The laser Xiao sometimes fails to appear on USB after the Pi starts, and
+used to need its cable replugged (what is known is in
+[`docs/hardware.md`](../../docs/hardware.md#usb-at-boot)). A small root
+service checks at every boot and, only if the Xiao is missing, switches
+the Pi's USB power off and on, the same as a replug.
+
+- `usb-check.sh`: the check, installed as `/usr/local/sbin/multilbic-usb-check`.
+- `multilbic-usb-check.service`: runs it once at boot.
+- `install-usb-check.sh`: installs or updates both.
+
+Install, once (needs `uhubctl`):
+
+```bash
+sudo apt install uhubctl
+```
+
+```bash
+sudo bash ~/MultiLBIC/deploy/pi/install-usb-check.sh
+```
+
+Test the power cycle now. Every USB device drops for a few seconds and
+comes back:
+
+```bash
+sudo multilbic-usb-check --force
+```
+
+What it did at each boot:
+
+```bash
+journalctl -t multilbic-usb-check
+```
+
 ## Serial devices
 
 - `Serials.txt`: the USB serial numbers the old udev rules matched on.
-  Line 2 is the SKR. The other two look like the two Xiaos. The current
-  Ubuntu install has **no udev rules**, so there are no `/dev/SKR`-style
-  names; which boards are identified so far is in
-  [`docs/hardware.md`](../../docs/hardware.md#topology).
+  Line 2 is the SKR, line 3 the laser Xiao, line 1 the retired
+  instrumentation Xiao. The current Ubuntu install has **no udev
+  rules**, so there are no `/dev/SKR`-style names; the boards are listed
+  in [`docs/hardware.md`](../../docs/hardware.md#topology).
 - **Fixed names without udev rules:** Linux already makes
   `/dev/serial/by-id/usb-<vendor>_<model>_<serial>...` links from each
   board's USB serial number, and `machine.toml` uses those. A replaced
@@ -60,8 +93,9 @@ Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
   Xiao and the miniSMU all are), and **brltty** claims CH340/CH341
   USB-serial adapters. Both are covered in
   [`docs/bench.md`](../../docs/bench.md#before-the-first-session).
+- **The miniSMU has its own power switch.** Switch it on before starting
+  the software; switched off, it is simply absent from USB.
 
 ## Owed
 
-- SSH access for remote bench work: steps in [`docs/bench.md`](../../docs/bench.md).
 - A desktop launcher (Phase 7).

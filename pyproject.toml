@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.1.9"
+version = "0.1.10"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -79,6 +79,8 @@ ignore = [
 [tool.ruff.lint.per-file-ignores]
 # S311: `random` drives simulated noise, not anything security-relevant.
 "multilbic/sim/*" = ["S311"]
+# S603: runs this repository's own deploy scripts with bash.
+"tests/test_deploy.py" = ["S603"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["multilbic"]

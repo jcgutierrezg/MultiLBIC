@@ -1,0 +1,14 @@
+# Power-cycles the Pi's USB once at boot if the laser Xiao is missing.
+# Installed by deploy/pi/install-usb-check.sh; see docs/hardware.md,
+# "USB at boot".
+[Unit]
+Description=MultiLBIC: recover the laser board if it is missing at boot
+After=systemd-udev-trigger.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/multilbic-usb-check
+SyslogIdentifier=multilbic-usb-check
+
+[Install]
+WantedBy=multi-user.target
