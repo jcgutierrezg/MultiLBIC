@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phase 0 (0.1.0) and Phase 2 (0.1.11, bench-tested) merged. Phase 3, the scan core, done in simulation (0.1.12, branch `phase-3-scan-core`): the agreed test case passes ([scan](scan.md#the-simulated-scan)). |
-| next | Pushed, no PR yet: `run/rows.py` drives the real devices and has only run in simulation. Phase 4 gives it a command-line run on the machine (corner calibration, then a small map of a test target); Phase 3 goes to PR either then or as simulation-only, as decided. |
+| status | Phase 0 (0.1.0) and Phase 2 (0.1.11, bench-tested) merged. Phase 3, the scan core, done in simulation (0.2.0, branch `phase-3-scan-core`): the agreed test case passes ([scan](scan.md#the-simulated-scan)). |
+| next | Phase 3's PR, as simulation-only (decided 2026-10-20): `run/rows.py` drives the real devices but has only run in simulation. Phase 4 gives it its first machine run: a command-line run with corner calibration, then a small map of a test target. |
 
 ## Phases
 
@@ -96,7 +96,7 @@ A and B, the SMU clock 100 ppm fast. Edges within 5 µm or one pixel,
 whichever is larger; the forward/reverse shift estimated within 2 µm of
 the one present.
 
-**State (0.1.12): done in simulation.** Worst A edge 3.8 µm, worst B
+**State (0.2.0): done in simulation.** Worst A edge 3.8 µm, worst B
 edge 9.4 µm (pitch 50 µm), shift 9.93 µm measured against 9.68 µm
 present, every on-sample position within 0.52 µm of the true stage
 ([scan](scan.md#the-simulated-scan)). Slow drift is left in the map

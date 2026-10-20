@@ -2,7 +2,10 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
-## 0.1.12 - Phase 3: the scan core, in simulation
+## 0.2.0 - Phase 3: the scan core, in simulation
+
+A new session, so the second number moves. The first push of this
+work was labelled 0.1.12 by mistake; it is the same change.
 
 - **The scan core** (`multilbic/scan/`, no I/O): sample frame, row plan
   (serpentine, run-up from the acceleration, stream rate from the pixel
