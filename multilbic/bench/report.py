@@ -28,7 +28,7 @@ from multilbic.config.machine import MachineConfig
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = REPO_ROOT / "bench-results"
 #: Simulated probes run this much faster than real time.
-SIM_SPEED = 50.0
+SIM_SPEED = 20.0  # see tests/conftest.py for why not faster
 
 
 def say(text: str = "") -> None:

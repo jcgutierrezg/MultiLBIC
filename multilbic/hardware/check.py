@@ -151,7 +151,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     machine = load(args.machine)
-    args.clock = ScaledClock(50.0) if args.sim else SYSTEM_CLOCK
+    # 20x: fast enough for CI, slow enough that a stalled thread on a
+    # busy runner doesn't trip a simulated timeout (tests/conftest.py).
+    args.clock = ScaledClock(20.0) if args.sim else SYSTEM_CLOCK
     if args.sim:
         makers = _sim_devices(machine, args.clock)
     else:

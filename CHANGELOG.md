@@ -2,6 +2,16 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.11 - Simulators slowed for busy CI runners
+
+- Windows CI failed `test_jog_before_homing` with a spurious
+  `MarlinTimeout`. At 100× simulated speed a 5 s timeout lasts only
+  50 ms of real time, and a contended runner stalled the fake Marlin's
+  thread for longer than that. Device tests now run at 20×, and the
+  probes' and device check's simulations at 20× instead of 50×: a 5 s
+  timeout is 250 ms real, and timing tolerances are 5× more forgiving of
+  scheduling jitter. The suite takes ~22 s instead of ~9 s.
+
 ## 0.1.10 - USB boot check for the laser Xiao
 
 - `deploy/pi/usb-check.sh`, with `multilbic-usb-check.service` and

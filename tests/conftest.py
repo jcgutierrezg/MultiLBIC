@@ -9,10 +9,12 @@ import pytest
 from multilbic.clock import ScaledClock
 from multilbic.config import load
 
-#: Simulated seconds per real second in device tests. High enough that a
-#: 15 s simulated row takes 0.15 s; low enough that thread scheduling
-#: jitter (~1 ms real) stays ~0.1 s simulated.
-SIM_SPEED = 100.0
+#: Simulated seconds per real second in device tests. At 100 a Windows
+#: CI runner once stalled the fake Marlin's thread for over 40 ms real,
+#: which is 4 s simulated, and a 5 s timeout fired (2026-10-20). At 20 a
+#: 5 s timeout is 250 ms of real time and 1 ms of scheduling jitter is
+#: 20 ms simulated; a 15 s simulated row still takes only 0.75 s.
+SIM_SPEED = 20.0
 
 
 def pytest_addoption(parser):
