@@ -169,8 +169,8 @@ Other relevant options:
 
 The builder remembers choosing 2 mm/s as the smoothest and fastest
 speed in an earlier test, yet the EEPROM holds 6 mm/s. The speed trials
-settle it, and A/B speed is what sets the run time (see
-[architecture](architecture.md#run-time)).
+(below) ran A smoothly up to 6 mm/s. A/B speed is what sets the run time
+(see [architecture](architecture.md#run-time)).
 
 Measured 2026-10-19: an `M114` round trip takes **1.7 ms** median
 (2.1 ms max). The board was unhomed at power-up, all axes at 0.
@@ -200,6 +200,26 @@ Report `bench-results/20261020T123740Z_marlin_real.json` (commit
   happened. The client now waits that second out with `M400` before the
   next move (0.1.6).
 - `busy:` keepalives arrive every 2.000 s during long waits.
+- **Repeatable**: a second run 10 minutes later (report
+  `20261020T124649Z`, commit `503f2a1`) gave the same per-move overheads
+  (115–135 ms), the same stop at 3.763 mm, and homing in 25.5 s.
+
+**A speed trials** (same report): A only, three 20 mm round trips per
+speed, with `M203` raised for the run and restored to 6 mm/s afterwards.
+X, Y and B did not move.
+
+| Speed | Per 20 mm move | Model, without the 0.1 s first-move delay |
+|---|---|---|
+| 3 mm/s | 6.83 s | 6.73 s |
+| 4 mm/s | 5.17 s | 5.08 s |
+| 5 mm/s | 4.20 s | 4.10 s |
+| 6 mm/s | 3.55 s | 3.45 s |
+
+Every speed was reached: each move is the model plus Marlin's 0.1 s
+delay. **By eye and ear, all four were smooth, with no clicking,
+grinding or overshoot** (the builder, watching). Lost steps would not
+show in the timings; there is no encoder. **B was not tested above
+2 mm/s.**
 
 ## Source-measure unit
 

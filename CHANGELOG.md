@@ -16,6 +16,10 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
   lockout and keeps its reported and planned positions apart; two tests
   cover it.
 
+- Speed trials on A at 3, 4, 5 and 6 mm/s: every speed was reached
+  (model plus 0.1 s), and by eye and ear all were smooth. B was not
+  tested above 2 mm/s. The motion run repeated within a few ms.
+
 ## Earlier on 0.1.5
 
 - Contacted-cell noise measured:
