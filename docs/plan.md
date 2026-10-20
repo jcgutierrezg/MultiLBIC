@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | bench ([bench](bench.md)): cell noise, homing, motion and A speed trials done (2026-10-20; A/B ceiling 6 mm/s, D9). Lasers checked too (each alone; settle 1000 ms stable, 500 ms not; D10: keep 2000 ms). Left: optionally a B speed trial; the USB-at-boot issue. Then the PR for Phase 2. |
+| next | bench ([bench](bench.md)): cell noise, homing, motion and A speed trials done (2026-10-20; A/B ceiling 6 mm/s, D9). Lasers checked too (each alone; settle 1000 ms stable, 500 ms not; D10: keep 2000 ms). B speed trial done (no missed steps; 6 mm/s noisier, so scans ≤5 mm/s). Left: the USB-at-boot issue. Then the PR for Phase 2. |
 
 ## Phases
 
@@ -141,6 +141,6 @@ desktop launcher), and the Zensical docs site.
 | D5 | Channel-2 photodiode | On an AB corner. What it gives is in [architecture](architecture.md#the-channel-2-reference-photodiode). |
 | D6 | How the GUI on the Pi is reached during development | Open; decided in Phase 5. |
 | D7 | SMUniversal dependency | Pinned git dependency, installing only what the miniSMU needs. |
-| D9 | A/B speed ceiling in `machine.toml` | **6 mm/s**: matches the board's EEPROM, and A ran smoothly at 3–6 mm/s (2026-10-20). A and B share it, being mechanically identical. The scan speed itself is chosen per run in Phase 3. |
+| D9 | A/B speed ceiling in `machine.toml` | **6 mm/s**: matches the board's EEPROM; A and B both reached 3–6 mm/s with no missed steps (2026-10-20). A and B share it, being mechanically identical. B was noisier and vibrated more at 6 mm/s, so **scans should use 5 mm/s or less**. The scan speed is chosen per run in Phase 3. |
 | D10 | Laser settle time | **2000 ms**, in `machine.toml` (`[laser_board] settle_ms`), applied by the driver at every `open()` because the firmware forgets a runtime value on power-up. 1000 ms was stable on the worst swing and 500 ms was not; 2000 ms keeps a wide margin and costs only seconds per run. |
 | D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. |

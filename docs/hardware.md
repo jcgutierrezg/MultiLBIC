@@ -247,9 +247,14 @@ X, Y and B did not move.
 Every speed was reached: each move is the model plus Marlin's 0.1 s
 delay. **By eye and ear, all four were smooth, with no clicking,
 grinding or overshoot** (the builder, watching). Lost steps would not
-show in the timings; there is no encoder. B was not tested above
-2 mm/s. It is mechanically identical to A and shares its limits, so a B
-trial is optional; each axis's own grub screw is the one difference.
+show in the timings; there is no encoder.
+
+**B speed trials** (report `20261020T141756Z`, commit `339c84c`, B only):
+6.82, 5.18, 4.20 and 3.55 s per 20 mm move at 3, 4, 5 and 6 mm/s, which
+matches A to within 10 ms. By eye and ear: **no missed steps, but 6 mm/s
+was noticeably noisier and vibrated more than 3–5 mm/s.** Vibration
+moves the beam spot relative to the sample, so scans should stay at
+**5 mm/s or below** unless a map shows otherwise (D9).
 
 ## Source-measure unit
 

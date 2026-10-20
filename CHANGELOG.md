@@ -9,6 +9,9 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - `--speeds` now needs only `--home`, not the full motion run, and each
   trial starts from a fixed position, so every timed move is a full
   20 mm.
+- B speed trial on the bench: the same timings as A at 3–6 mm/s and no
+  missed steps, but 6 mm/s was noisier with more vibration. The plan
+  notes scans should use 5 mm/s or less (D9).
 
 ## 0.1.8 - Lasers checked; settle time from machine.toml
 
