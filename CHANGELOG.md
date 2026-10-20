@@ -1,6 +1,53 @@
 # Changelog
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
+From Phase 4 on, the middle number is the phase.
+
+## 0.4.0 - Phase 4: calibrate and run from the command line
+
+Built and tested against the simulated machine; the bench session is
+owed (`docs/bench.md`, "Phase 4: first maps").
+
+- **`multilbic calibrate`** (`multilbic/run/calibrate.py`): homes, puts
+  the reference laser over the AB centre, and gives a prompt to jog XY
+  and AB, light lasers, read the photocurrent, record the corner, give
+  the size, trace the outline with the laser, and save a calibration
+  file. `--check FILE` puts a saved corner back under the beam.
+- **`multilbic run`** (`multilbic/run/session.py`): checks everything
+  before moving (lasers exist and are measured, XY reach, AB safe range,
+  pixel against speed), homes, then per laser: XY under it, baseline,
+  rows, run file, PNG. One folder per run with `run.json`,
+  `calibration.json`, `events.jsonl` (SMUniversal's EventLog) and a file
+  and map per laser. Runs on a worker thread; Ctrl+C, SIGINT or SIGTERM
+  is Stop. `--sim` for either command.
+- **XY placement** (D11, `scan/geometry.py`): calibration in XY under
+  the reference laser; each laser's XY centres the sample on AB.
+  `machine.toml` gains `[geometry]`: reference laser, which AB axis X
+  and Y move along (`x_along`, `y_along`, not yet measured, so `run`
+  refuses the machine until the bench checks them), take-up distances,
+  and `ab_backlash_mm` (0 until measured).
+- **Every placing move ends moving up** (`run/motion.py`), so backlash
+  is always taken up the same way: calibration jogs, XY under each
+  laser, AB to the first row.
+- **Stop and faults** (`run/rows.py`): Stop is checked before every row
+  and after every wait, and stops motion at once; a row in progress is
+  not written. Marlin timeouts and halts, a silent laser board, and a
+  stream that stalls, errors or under-delivers end the run the same way.
+  However it ends: motion stopped, laser off, SMU off, file marked
+  `complete`, `stopped` or `failed: <why>`.
+- **Maps agree with calibration**: aligned maps are shifted by half the
+  known A/B backlash, since calibration reads AB after moving up.
+- **Simulator**: the rig is XY-aware (true sample position on the
+  carriage, true axis directions and laser positions, 0.1 mm XY
+  backlash), can produce the calibration a perfect operator would
+  record, and the fake SMU can stall. `python -m multilbic.sim.scan` now
+  goes through the same session as a real run.
+- Tests: XY geometry for all eight axis arrangements; scripted
+  calibration; two lasers lining up with swapped and reversed axes;
+  Stop mid-run; the three faults; refusals; the command line end to
+  end. The suite takes ~65 s.
+- Docs: [run](docs/run.md) is new; bench, plan (D11–D14), architecture,
+  README and development updated.
 
 ## 0.2.2 - Fake Marlin stops motors and stage at one instant
 

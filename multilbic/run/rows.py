@@ -7,15 +7,26 @@ move along A at the scan speed, and anchor the row on the `M400` that
 ends it. The SMU streams throughout; after each row the samples taken
 while it moved are written out with its anchor.
 
-What it does not do yet is Phase 4: homing and corner calibration, the
-loop over lasers, a Stop button, and fault handling beyond the basics.
-It does make sure that however it ends, the laser is off, the stream is
-stopped, the SMU output is off and the file says whether it finished.
+Homing, calibration, XY placement and the loop over lasers are the
+session's (`multilbic.run.session`). This module owns one laser's map
+and how it ends:
+
+* **Stop** is a `threading.Event`, checked before every row and after
+  every wait. Whoever sets it also calls `Marlin.quickstop()`, so a row
+  in progress stops at once; that row is not written, since its end is
+  no longer where the motion model says.
+* **Faults** end the map the same way: a device error from any driver,
+  or the stream going wrong (stalled, a read error, or a row with less
+  than half the samples it should have).
+* **However it ends**: motion stopped unless it completed, laser off,
+  stream stopped, SMU output off, and the file's status says `complete`,
+  `stopped` or `failed: <why>`.
 """
 
 from __future__ import annotations
 
 import datetime
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from importlib.metadata import version
@@ -27,21 +38,31 @@ from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
 from multilbic.hardware.laser import LaserBoard
 from multilbic.hardware.marlin import Marlin
-from multilbic.hardware.smu import PhotocurrentSmu, StreamSample
+from multilbic.hardware.smu import PhotocurrentSmu, SmuError, StreamSample
+from multilbic.run.motion import AB_TRAVEL_FEED_MM_S, approach
 from multilbic.scan.mapping import BASELINE_ROW
 from multilbic.scan.raster import TRAVEL_FEED_MM_S, RasterPlan
 from multilbic.scan.timing import ClockTracker, RowAnchor
 from multilbic.store.runfile import RunWriter, SampleRow
 
-#: Approach the first row from below in B, so B's backlash is taken up
-#: the same way for every row (rows always step +B).
-B_TAKE_UP_MM = 0.1
 #: Samples this close outside a row's move are kept with it.
 ROW_MARGIN_S = 0.02
 #: How long to wait for the stream to catch up with the end of a row.
 #: It arrives in bursts about every 100 ms.
 CATCH_UP_S = 2.0
 DEFAULT_BASELINE_S = 3.0
+#: A row with fewer samples than this share of what the stream rate
+#: promises is a fault. The real rate misses the requested one by up to
+#: ~19 % (bench), so half is far outside normal.
+MIN_ROW_SAMPLE_SHARE = 0.5
+
+
+class RunStopped(Exception):
+    """The operator asked to stop."""
+
+
+class StreamFault(SmuError):
+    """The SMU stream stopped delivering what it should."""
 
 
 @dataclass
@@ -62,6 +83,9 @@ class _Collector:
         self.received = 0
 
     def pull(self) -> None:
+        error = self._stream.stats.read_error
+        if error:
+            raise StreamFault(f"stream read failed: {error}")
         new = self._stream.drain()
         if not new:
             return
@@ -115,26 +139,30 @@ def scan_laser(
     *,
     baseline_s: float = DEFAULT_BASELINE_S,
     bias_v: float = 0.0,
+    stop: threading.Event | None = None,
     say: Callable[[str], None] = lambda text: None,
 ) -> dict[str, Any]:
-    """Run one laser's map. Returns the trailer written to the file."""
+    """Run one laser's map. Returns the trailer written to the file.
+    Raises `RunStopped` if `stop` was set, or the fault that ended it;
+    the file is finished either way."""
     marlin, board, smu = devices.marlin, devices.laser, devices.smu
     request = plan.request
     rows = plan.rows
-    safe_min = machine.ab.safe_min_mm
+    stop = stop or threading.Event()
     status = "incomplete"
     trailer: dict[str, Any] = {}
     collector = _Collector(smu, clock)
+
+    def check_stop() -> None:
+        if stop.is_set():
+            raise RunStopped("stopped by the operator")
+
     try:
         first = rows[0]
-        marlin.move_to(
-            feed_mm_s=TRAVEL_FEED_MM_S,
-            a=first.a_from_mm,
-            b=max(first.b_mm - B_TAKE_UP_MM, safe_min),
-        )
-        marlin.wait_idle()
-        marlin.move_to(feed_mm_s=TRAVEL_FEED_MM_S, b=first.b_mm)
-        marlin.wait_idle()
+        # A first, then B: both arrive moving up, so B's backlash is
+        # taken up the way every later row step takes it (always +B).
+        approach(marlin, machine, a=first.a_from_mm, b=first.b_mm)
+        check_stop()
 
         board.off()
         smu.prepare(bias_v=bias_v)
@@ -154,19 +182,23 @@ def scan_laser(
             ]
         )
 
+        check_stop()
         say(f"laser {laser} on")
         board.select(laser)
 
         for row in rows:
+            check_stop()
             if row.index > 0:
                 if not request.serpentine:
                     marlin.move_to(
-                        feed_mm_s=TRAVEL_FEED_MM_S, a=row.a_from_mm
+                        feed_mm_s=AB_TRAVEL_FEED_MM_S, a=row.a_from_mm
                     )
                 marlin.move_to(feed_mm_s=TRAVEL_FEED_MM_S, b=row.b_mm)
                 marlin.wait_idle()
+                check_stop()
             sent = marlin.move_to(feed_mm_s=request.speed_mm_s, a=row.a_to_mm)
             ended = marlin.wait_idle()
+            check_stop()
             anchor = RowAnchor(
                 row.index, row.b_mm, row.a_from_mm, row.a_to_mm,
                 request.speed_mm_s, plan.accel_mm_s2,
@@ -174,10 +206,19 @@ def scan_laser(
             )
             motion = anchor.motion()
             if not collector.wait_past(motion.end_s + ROW_MARGIN_S):
-                say(f"row {row.index}: the stream fell behind")
+                raise StreamFault(
+                    f"row {row.index}: no samples for {CATCH_UP_S:g} s "
+                    "after the row ended: the stream has stalled"
+                )
             taken = collector.take(
                 motion.start_s - ROW_MARGIN_S, motion.end_s + ROW_MARGIN_S
             )
+            expected = plan.stream_hz * motion.profile.duration_s
+            if len(taken) < MIN_ROW_SAMPLE_SHARE * expected:
+                raise StreamFault(
+                    f"row {row.index}: {len(taken)} samples, expected about "
+                    f"{expected:.0f} at {plan.stream_hz:g} Hz"
+                )
             direction = motion.direction
             writer.write_row(
                 anchor,
@@ -193,18 +234,37 @@ def scan_laser(
                 f"row {row.index + 1}/{len(rows)}: {len(taken)} samples"
             )
         status = "complete"
+    except RunStopped:
+        status = "stopped"
+        raise
+    except BaseException as exc:
+        status = f"failed: {type(exc).__name__}: {exc}"
+        raise
     finally:
-        try:
-            board.off()
-        finally:
-            try:
-                smu.output_off()  # stops the stream first
-            finally:
-                if collector.received:
-                    trailer["clock_map"] = collector.tracker.fit().as_dict()
-                trailer["samples_received"] = collector.received
-                writer.finish(status, trailer)
+        _shut_down(devices, moving=status != "complete", say=say)
+        if collector.received:
+            trailer["clock_map"] = collector.tracker.fit().as_dict()
+        trailer["samples_received"] = collector.received
+        writer.finish(status, trailer)
     return trailer
+
+
+def _shut_down(
+    devices: ScanDevices, *, moving: bool, say: Callable[[str], None]
+) -> None:
+    """Make everything safe, trying every step even if one fails."""
+    steps: list[tuple[str, Callable[[], object]]] = []
+    if moving:
+        steps.append(("stop motion", devices.marlin.quickstop))
+    steps += [
+        ("laser off", devices.laser.off),
+        ("SMU output off", devices.smu.output_off),  # stops the stream
+    ]
+    for name, step in steps:
+        try:
+            step()
+        except Exception as exc:
+            say(f"shutdown: {name} failed: {type(exc).__name__}: {exc}")
 
 
 def _sample_row(
@@ -254,5 +314,6 @@ def run_header(
         "accel_mm_s2": plan.accel_mm_s2,
         "stream_hz": plan.stream_hz,
         "mains_hz": machine.mains_hz,
+        "ab_backlash_mm": machine.geometry.ab_backlash_mm,
         "estimate_s": round(plan.estimate_s, 1),
     }

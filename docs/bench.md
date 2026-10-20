@@ -172,6 +172,41 @@ Each probe prints as it goes and writes one report to
 commit and firmware. A probe that fails partway still saves what it
 had, and a Marlin probe that fails mid-move sends a quickstop first.
 
+## Phase 4: first maps
+
+The first maps off the machine, with the `multilbic` command
+([run](run.md)). **Every step here moves the stage and lights a laser**:
+someone is at the machine, and Claude asks before starting each one.
+
+`calibrate` is interactive and needs eyes on the spot, so **you** run it
+at the Pi (its monitor, or an SSH terminal while standing at the
+machine). Claude runs the `run` steps over SSH under `nohup` and copies
+the run folders back.
+
+Before: deploy the branch on the Pi (`deploy/pi/setup.sh <branch>`),
+replug the Xiao and miniSMU if the Pi has rebooted, contact the cell on
+channel 1, cover the TFT35 if its light reaches the sample.
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | **Axis directions.** `multilbic calibrate --sample axes`; put the spot on a mark near the sample. `a+1`: note which way the mark moves. `a-1`, then `x+1`: if the mark moves the way it did for `a+1`, X is `"+A"`; the opposite way, `"-A"`; across, `"+B"` or `"-B"` (compare with `b+1`). Same for `y+1`. Write `x_along`, `y_along` into `machine.toml` and set `directions_measured = true` | `[geometry]`; until then `run` refuses the machine |
+| 2 | **Calibrate the cell.** `multilbic calibrate --sample <name> --out ~/cal/<name>.json`. Corner: the one the sample extends from towards +A and +B. For a first map, `size 2 2`: a 2 × 2 mm patch from that corner. `trace`, then `save` | the calibration; whether the outline sits on the cell |
+| 3 | **Homing repeatability.** `multilbic calibrate --check ~/cal/<name>.json`. Is the spot still on the corner? If not, how far you jog back is the answer | whether `run` homing again keeps calibration valid |
+| 4 | **First map**: `multilbic run ~/cal/<name>.json --lasers 2 --pixel 0.01 --pitch 0.05 --speed 1 --yes` (about 2 min) | a real map; the serpentine shift at 1 mm/s |
+| 5 | **Same at 4 mm/s**: `--speed 4` | the shift at 4 mm/s. The shift is `s = b − 2·v·δ` (backlash minus twice speed × latency), so with shifts in µm and speeds in mm/s: latency `δ = (s₁ − s₄) / 6` ms and backlash `b = s₁ + 2δ` µm. `b` goes into `ab_backlash_mm` |
+| 6 | **Stop**: step 4 again, `kill -INT` partway | the file says `stopped`, finished rows readable, laser and SMU off |
+| 7 | **Three lasers**: `--lasers 1,2,3` on the same patch | how well the maps line up: offsets between them are errors in `xy_centre_mm` (Phase 6 measures them properly) |
+| 8 | **Stamps** (analysis, no new run): do finger edges in the 4 mm/s map wobble by ~10 µm in step with the 100 ms delivery bursts? | whether the miniSMU stamps packets when it sends them ([hardware](hardware.md#streaming-measured-2026-10-19), *unverified* until now) |
+
+Copy the run folders back:
+
+```bash
+scp -r "multilbic:multilbic-runs/*" runs/
+```
+
+Findings go into [hardware](hardware.md); `x_along`, `y_along` and
+`ab_backlash_mm` into `machine.toml`.
+
 ## Afterwards
 
 Copy the reports back:

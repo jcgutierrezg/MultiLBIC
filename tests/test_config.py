@@ -176,3 +176,29 @@ def test_laser_board_settle(raw):
         lambda d: d["laser_board"].update(settle_ms=20000),
         "settle_ms",
     )
+
+
+def test_geometry_defaults(machine):
+    g = machine.geometry
+    assert g.reference_laser == 2
+    assert (g.x_along, g.y_along) == ("+A", "+B")
+    # Not measured yet: the first Phase 4 bench step checks them.
+    assert not g.directions_measured
+    assert g.ab_backlash_mm == 0.0
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    [
+        ("x_along", "A", "not one of"),
+        ("y_along", "-A", "same AB axis"),
+        ("reference_laser", 9, "not defined"),
+        ("ab_backlash_mm", 0.5, "below ab_take_up_mm"),
+        ("ab_backlash_mm", -0.01, ">= 0"),
+        ("xy_take_up_mm", 0.0, "xy_take_up_mm"),
+    ],
+)
+def test_geometry_refuses_impossible_values(raw, key, value, message):
+    raw["geometry"][key] = value
+    with pytest.raises(MachineConfigError, match=message):
+        parse(raw)

@@ -97,6 +97,8 @@ class FakeMiniSMU:
         self._connection = FakeSerial(self)
         #: Put one unparseable line into the stream.
         self.garble_next = False
+        #: Stop delivering packets (a hung instrument or cable).
+        self.stalled = False
         self.closed = False
 
     # ---- device clock ----
@@ -261,7 +263,7 @@ class FakeMiniSMU:
     def _produce_locked(self) -> None:
         """Append every packet due by now to the port's buffer."""
         now = self._clock.now()
-        while self._next_due:
+        while self._next_due and not self.stalled:
             channel = min(self._next_due, key=self._next_due.__getitem__)
             due = self._next_due[channel]
             if self._released(due) > now:

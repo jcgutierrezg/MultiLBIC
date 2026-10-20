@@ -95,6 +95,29 @@ class LaserBoardSettings:
     settle_ms: int
 
 
+#: How an XY axis lines up with the raster stage: "+A" means moving that
+#: axis up carries the sample the same way as moving A up.
+AXIS_DIRECTIONS = ("+A", "-A", "+B", "-B")
+
+
+@dataclass(frozen=True)
+class Geometry:
+    #: The laser corner calibration is done under.
+    reference_laser: int
+    #: Which AB axis each XY axis moves the sample along, and which way.
+    x_along: str
+    y_along: str
+    #: False until the bench has checked x_along and y_along.
+    directions_measured: bool
+    #: Every placing move ends moving up, from at least this far below,
+    #: so backlash is always taken up the same way.
+    xy_take_up_mm: float
+    ab_take_up_mm: float
+    #: A/B backlash, once measured: aligned maps are shifted by half of
+    #: it so they agree with positions read after moving up.
+    ab_backlash_mm: float
+
+
 @dataclass(frozen=True)
 class MachineConfig:
     name: str
@@ -107,6 +130,7 @@ class MachineConfig:
     baud: int
     #: The local mains frequency, which the map's cleaning removes.
     mains_hz: float
+    geometry: Geometry
 
     def laser(self, number: int) -> Laser:
         for laser in self.lasers:
@@ -154,9 +178,16 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
         },
         baud=top.table("serial").read_positive_int("baud"),
         mains_hz=top.read_positive_float("mains_hz"),
+        geometry=_parse_geometry(top.table("geometry")),
     )
     top.done()
     _check_lasers(config.lasers, source)
+    reference = config.geometry.reference_laser
+    if reference not in [laser.number for laser in config.lasers]:
+        raise MachineConfigError(
+            f"{source}: [geometry] reference_laser {reference} is not "
+            f"defined in [[lasers]]"
+        )
     return config
 
 
@@ -219,6 +250,34 @@ def _parse_laser(t: _Table) -> Laser:
             f"{laser.servo_angle_deg} is outside {low}..{high}"
         )
     return laser
+
+
+def _parse_geometry(t: _Table) -> Geometry:
+    geometry = Geometry(
+        reference_laser=t.read_int("reference_laser"),
+        x_along=t.read_str("x_along"),
+        y_along=t.read_str("y_along"),
+        directions_measured=t.read_bool("directions_measured"),
+        xy_take_up_mm=t.read_positive_float("xy_take_up_mm"),
+        ab_take_up_mm=t.read_positive_float("ab_take_up_mm"),
+        ab_backlash_mm=t.read_float("ab_backlash_mm"),
+    )
+    t.done()
+    if not 0.0 <= geometry.ab_backlash_mm < geometry.ab_take_up_mm:
+        raise t.error(
+            f"ab_backlash_mm {geometry.ab_backlash_mm} must be >= 0 and "
+            f"below ab_take_up_mm {geometry.ab_take_up_mm}"
+        )
+    for key in ("x_along", "y_along"):
+        value = getattr(geometry, key)
+        if value not in AXIS_DIRECTIONS:
+            raise t.error(f"{key} {value!r} is not one of {AXIS_DIRECTIONS}")
+    if geometry.x_along[1] == geometry.y_along[1]:
+        raise t.error(
+            f"x_along {geometry.x_along} and y_along {geometry.y_along} "
+            "name the same AB axis"
+        )
+    return geometry
 
 
 def _parse_laser_board(t: _Table) -> LaserBoardSettings:

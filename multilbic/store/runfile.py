@@ -149,6 +149,7 @@ class RunFile:
             host_s=c["host_s"],
             current_a=c["current_a"],
             laser=h.get("laser", 0),
+            ab_backlash_mm=h.get("ab_backlash_mm", 0.0),
         )
 
 

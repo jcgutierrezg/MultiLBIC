@@ -5,19 +5,19 @@ A headless scan of the synthetic sample, in simulation.
 
 Builds the simulated machine with the agreed faults (5 ms reply
 latency, 20 µm backlash, the SMU clock 100 ppm fast, bench-like noise),
-homes it, scans one laser's map into a run file, then rebuilds the map
-from that file alone and saves it as a PNG. It prints how far the
+puts the synthetic sample on the carriage, and runs one laser's map
+through the same session a real run uses (`multilbic.run.session`),
+from a perfect corner calibration: home, XY under the laser, baseline,
+rows, run file, map from the file alone, PNG. It prints how far the
 recovered edges are from the true ones.
 
-Everything below the fakes is the real code: drivers, row executor,
-run file, mapping.
+Everything below the fakes is the real code.
 """
 
 from __future__ import annotations
 
 import argparse
-import datetime
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -26,20 +26,22 @@ from multilbic.bench.report import provenance
 from multilbic.clock import Clock, ScaledClock
 from multilbic.config import load
 from multilbic.config.machine import MachineConfig
-from multilbic.run.rows import ScanDevices, run_header, scan_laser
-from multilbic.scan.geometry import SampleFrame
+from multilbic.run.rows import ScanDevices
+from multilbic.run.session import RunRequest, Session
 from multilbic.scan.mapping import MapResult, build_map
-from multilbic.scan.raster import ScanRequest, plan_raster
 from multilbic.sim.rig import Faults, SimRig
 from multilbic.sim.sample import SyntheticSample
 from multilbic.store.image import save_png
-from multilbic.store.runfile import RunWriter, read_run
+from multilbic.store.runfile import read_run
 
 #: Simulated seconds per real second. The scan's timing is checked to
 #: fractions of a millisecond, so the clock sleeps precisely (see
 #: `ScaledClock`), and a modest factor keeps thread scheduling from
 #: adding latency the faults didn't ask for.
 DEFAULT_SPEEDUP = 5.0
+#: Where the sample's corner sits on the carriage: off-centre, so XY has
+#: to move to place it.
+CORNER_CARRIAGE_MM = (15.0, 16.0)
 
 
 @dataclass
@@ -48,6 +50,7 @@ class SimScan:
     result: MapResult
     sample: SyntheticSample
     rig: SimRig
+    laser: int
 
 
 def simulate_scan(
@@ -66,49 +69,42 @@ def simulate_scan(
     baseline_s: float = 2.0,
     say=lambda text: None,
 ) -> SimScan:
-    machine = machine or load()
+    faults = faults or Faults()
+    machine = sim_machine(machine or load(), faults)
     clock = clock or ScaledClock(DEFAULT_SPEEDUP, precise=True)
     sample = SyntheticSample.default(width_mm, height_mm)
-    # The sample sits at the stage centre; the scan is told the same
-    # frame, as corner calibration would give it.
-    frame = SampleFrame.centred(machine.ab.centre_mm, width_mm, height_mm)
-    rig = SimRig(machine, clock, sample, frame, faults or Faults())
-    plan = plan_raster(
-        ScanRequest(frame, pixel_mm, pitch_mm, speed_mm_s, serpentine),
-        machine,
+    rig = SimRig(machine, clock, sample, CORNER_CARRIAGE_MM, faults)
+    request = RunRequest(
+        rig.perfect_calibration("synthetic"), (laser,),
+        pixel_mm, pitch_mm, speed_mm_s, serpentine,
+        baseline_s=baseline_s, allow_unmeasured=True,
     )
-    say(
-        f"{len(plan.rows)} rows at {speed_mm_s} mm/s, {plan.stream_hz:g} Hz,"
-        f" about {plan.estimate_s:.0f} s simulated"
-    )
-    out = Path(out_dir)
-    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
-    run_path = out / f"{stamp}_laser{laser}_sim.csv"
     rig.open()
     try:
-        rig.marlin.home()
-        header = run_header(
-            machine, plan, laser,
-            sample="synthetic (multilbic.sim.sample.default)",
-            simulated=True,
-            firmware={
-                "marlin": rig.marlin.info.firmware_name
-                if rig.marlin.info else None,
-                "laser": rig.laser.firmware,
-                "smu": rig.smu.identity,
-            },
-            provenance=provenance(),
+        session = Session(
+            ScanDevices(rig.marlin, rig.laser, rig.smu), machine, clock,
+            request, out_dir, simulated=True, provenance=provenance(),
+            say=say,
         )
-        writer = RunWriter(run_path, header)
-        scan_laser(
-            ScanDevices(rig.marlin, rig.laser, rig.smu),
-            machine, plan, laser, writer, clock,
-            baseline_s=baseline_s, say=say,
-        )
+        outcome = session.run()
     finally:
         rig.close()
+    if outcome.status != "complete":
+        raise RuntimeError(f"simulated run {outcome.status}")
+    run_path = outcome.lasers[0].path
     result = build_map(read_run(run_path).scan_data())
-    return SimScan(run_path, result, sample, rig)
+    return SimScan(run_path, result, sample, rig, laser)
+
+
+def sim_machine(machine: MachineConfig, faults: Faults) -> MachineConfig:
+    """machine.toml as it will be once the bench has measured things:
+    the A/B backlash known, the axis directions checked."""
+    geometry = replace(
+        machine.geometry,
+        ab_backlash_mm=faults.backlash_mm,
+        directions_measured=True,
+    )
+    return replace(machine, geometry=geometry)
 
 
 @dataclass(frozen=True)
@@ -139,19 +135,20 @@ def position_errors(scan: SimScan) -> PositionErrors:
     backlash is taken up after a reversal, so positions there are off by
     up to the whole backlash; that is what the run-up is for."""
     rig, result = scan.rig, scan.result
-    origin_a = rig.placement.origin_ab_mm[0]
-    shift = result.alignment.shift_mm if result.alignment.found else 0.0
+    found = result.alignment.found
+    shift = result.alignment.shift_mm if found else 0.0
+    added = rig.faults.backlash_mm / 2 if found else 0.0
     directions, before, after = [], [], []
     for row in result.rows:
         for u, stamp in zip(row.u_mm, row.device_ms, strict=True):
             t = rig.fake_smu.true_time(float(stamp))
-            true_u = rig.fake_marlin.past_stage_position(t)["A"] - origin_a
+            true_u = rig.true_uv(t, scan.laser)[0]
             if not 0.0 <= true_u <= scan.sample.width_mm:
                 continue
             error = float(u) - true_u
             directions.append(row.direction)
             after.append(error)
-            before.append(error + row.direction * shift / 2)
+            before.append(error + row.direction * shift / 2 - added)
     return PositionErrors(
         np.array(directions), np.array(before), np.array(after)
     )
