@@ -115,3 +115,66 @@ def test_check_puts_the_saved_corner_back(rig, machine, tmp_path):
     u, v = rig.spot_uv(rig.fake_marlin.stage_position(),
                        machine.geometry.reference_laser)
     assert (u, v) == pytest.approx((0.0, 0.0), abs=1e-6)
+
+
+class FakeKeys:
+    """Key presses from a list; counts flushes."""
+
+    def __init__(self, keys):
+        self.keys = list(keys)
+        self.flushes = 0
+
+    def read(self):
+        return self.keys.pop(0)
+
+    def flush(self):
+        self.flushes += 1
+
+
+def test_key_mode_jogs_toggles_and_steps(rig, machine):
+    import contextlib
+
+    keys = FakeKeys([
+        "d", "d", "W",      # X +0.1 twice, Y +0.1 (case doesn't matter)
+        "e", "a",           # step 1 mm, X -1
+        "q", "e", "e",      # AB, step 10 -> back to 0.1
+        "s", "",            # B -0.1; an arrow key is ignored
+        "\x1b",             # Esc: back to typed commands
+    ])
+    read, write, out = scripted(["keys", "where", "quit"])
+    prompt = CalibrationPrompt(
+        ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+        sample="s", read=read, write=write,
+        keys=lambda: contextlib.nullcontext(keys),
+    )
+    prompt.start()
+    start = rig.marlin.position()
+    prompt.loop()
+    end = rig.marlin.position()
+    assert end["X"] - start["X"] == pytest.approx(0.1 + 0.1 - 1.0)
+    assert end["Y"] - start["Y"] == pytest.approx(0.1)
+    assert end["A"] == pytest.approx(start["A"])
+    assert end["B"] - start["B"] == pytest.approx(-0.1)
+    assert keys.flushes == 5  # after every jog
+    assert "[AB, 0.1 mm]" in out
+    assert out[-1].startswith("X")  # 'where' after leaving key mode
+    assert not any(line.startswith("error") for line in out), out
+
+
+def test_a_jog_out_of_range_in_key_mode_is_only_reported(rig, machine):
+    import contextlib
+
+    # From A at the centre (17.5), three 10 mm steps up run past the
+    # 35 mm safe limit on the second.
+    keys = FakeKeys(["q", "e", "e", "d", "d", "\r"])
+    read, write, out = scripted(["keys", "quit"])
+    prompt = CalibrationPrompt(
+        ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+        sample="s", read=read, write=write,
+        keys=lambda: contextlib.nullcontext(keys),
+    )
+    prompt.start()
+    prompt.loop()
+    assert rig.marlin.position()["A"] == pytest.approx(27.5)
+    errors = [line for line in out if line.startswith("error")]
+    assert len(errors) == 1 and "outside" in errors[0]

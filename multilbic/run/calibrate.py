@@ -14,6 +14,7 @@ run makes later.
 
 Commands (case doesn't matter):
 
+    keys                         jog with single keys (below)
     x+0.5  y-1  a+0.01  b-0.02   jog an axis by that many mm
     x+  a-                       jog by the current step
     step 0.05                    set the step
@@ -28,18 +29,30 @@ Commands (case doesn't matter):
     save [file]                  write the calibration
     help | quit
 
+In key mode (`keys`), no Enter needed:
+
+    d / a     X up / down   (A in AB mode)
+    w / s     Y up / down   (B in AB mode)
+    q         switch between XY and AB
+    e         step 0.1 -> 1 -> 10 mm -> 0.1 ...
+    Esc, Enter or Ctrl+C   back to typed commands
+
+For finer than 0.1 mm, type a jog (`a+0.01`).
+
 `check` mode puts a saved calibration's corner back under the beam, to
 see that homing again put things back where they were.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 from collections.abc import Callable
 from pathlib import Path
 
 from multilbic.config.machine import MachineConfig
+from multilbic.run.keys import CTRL_C, ESCAPE, KeySource, terminal_keys
 from multilbic.run.motion import approach
 from multilbic.run.rows import ScanDevices
 from multilbic.scan.geometry import Calibration, place
@@ -47,6 +60,11 @@ from multilbic.scan.geometry import Calibration, place
 JOG_RE = re.compile(r"^([xyab])([+-])(\d*\.?\d*)$")
 MOVE_RE = re.compile(r"([xyab])=(-?\d+\.?\d*)")
 MAX_JOG_MM = 20.0
+#: What `e` cycles through in key mode.
+KEY_STEPS_MM = (0.1, 1.0, 10.0)
+#: Key -> (index of the axis in the pair, direction).
+KEY_JOGS = {"d": (0, 1), "a": (0, -1), "w": (1, 1), "s": (1, -1)}
+KEY_PAIRS = ("xy", "ab")
 
 
 class CalibrationPrompt:
@@ -59,6 +77,8 @@ class CalibrationPrompt:
         read: Callable[[str], str] | None = None,
         write: Callable[[str], None] = print,
         default_path: str | Path = "calibration.json",
+        keys: Callable[[], contextlib.AbstractContextManager[KeySource]]
+        = terminal_keys,
     ):
         self.devices = devices
         self.machine = machine
@@ -69,6 +89,9 @@ class CalibrationPrompt:
         self.write = write
         self.default_path = Path(default_path)
         self.step = 0.1
+        self.keys = keys
+        self.key_pair = "xy"
+        self.key_step = KEY_STEPS_MM[0]
         self.corner_xy: tuple[float, float] | None = None
         self.corner_ab: tuple[float, float] | None = None
         self.size: tuple[float, float] | None = None
@@ -139,7 +162,9 @@ class CalibrationPrompt:
     def command(self, line: str) -> None:
         word, _, rest = line.partition(" ")
         jog = JOG_RE.match(line)
-        if jog:
+        if line == "keys":
+            self.key_mode()
+        elif jog:
             axis, sign, amount = jog.groups()
             distance = float(amount) if amount else self.step
             if distance > MAX_JOG_MM:
@@ -191,6 +216,41 @@ class CalibrationPrompt:
         target = position[axis.upper()] + distance
         approach(self.devices.marlin, self.machine, **{axis: target})
         self.where()
+
+    def key_mode(self) -> None:
+        """Jog with single keys until Esc or Enter."""
+        with self.keys() as keys:
+            self.write(
+                "key mode: wasd jog, q XY/AB, e step, Esc or Enter to leave"
+            )
+            self._key_status()
+            while True:
+                key = keys.read().lower()
+                if key in (ESCAPE, "\r", "\n", CTRL_C):
+                    break
+                if key == "q":
+                    self.key_pair = "ab" if self.key_pair == "xy" else "xy"
+                    self._key_status()
+                elif key == "e":
+                    i = KEY_STEPS_MM.index(self.key_step)
+                    self.key_step = KEY_STEPS_MM[(i + 1) % len(KEY_STEPS_MM)]
+                    self._key_status()
+                elif key in KEY_JOGS:
+                    index, sign = KEY_JOGS[key]
+                    axis = self.key_pair[index]
+                    try:
+                        self.jog(axis, sign * self.key_step)
+                    except Exception as exc:
+                        self.write(f"error: {exc}")
+                    # Keys pressed during the move are dropped, so a
+                    # held key doesn't queue moves.
+                    keys.flush()
+        self.write("typed commands again")
+
+    def _key_status(self) -> None:
+        self.write(
+            f"[{self.key_pair.upper()}, {self.key_step:g} mm]"
+        )
 
     def where(self) -> None:
         p = self.devices.marlin.position()

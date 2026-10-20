@@ -46,6 +46,7 @@ AB centre and lights it, and gives you a prompt:
 
 | Command | Does |
 |---|---|
+| `keys` | jog with single keys (below) |
 | `x+0.5`, `y-1`, `a+0.01`, `b-0.02` | jog that axis by that many mm (at most 20) |
 | `x+`, `a-` | jog by the current step |
 | `step 0.05` | set the step |
@@ -59,6 +60,22 @@ AB centre and lights it, and gives you a prompt:
 | `trace` | place the sample as a run would and run the spot round its outline, ending on the corner |
 | `save [file]` | write the calibration (JSON) |
 | `help`, `quit` | |
+
+**Key mode** (`keys`), no Enter needed:
+
+| Key | Does |
+|---|---|
+| `d` / `a` | X up / down (A in AB mode) |
+| `w` / `s` | Y up / down (B in AB mode) |
+| `q` | switch between XY and AB |
+| `e` | step 0.1 → 1 → 10 mm, then back to 0.1 |
+| Esc, Enter, Ctrl+C | back to typed commands |
+
+It starts in XY at 0.1 mm. Keys pressed while the stage is moving are
+dropped, so holding a key jogs step by step rather than queueing moves.
+For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). Which
+way `w` moves the spot on the sample depends on the axis directions,
+which bench step 1 finds.
 
 **The corner** is the one the sample extends from towards +A and +B.
 Every jog ends moving up, like every move a run makes. Jog XY to get

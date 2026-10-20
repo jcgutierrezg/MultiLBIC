@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.1 - Jog with keys during calibration
+
+- `keys` in `multilbic calibrate`: `wasd` jogs (`d`/`a` X or A,
+  `w`/`s` Y or B), `q` switches XY/AB, `e` cycles the step 0.1, 1, 10 mm;
+  Esc, Enter or Ctrl+C go back to typed commands. Keys pressed during a
+  move are dropped, so a held key can't queue moves. Arrow keys are
+  ignored rather than read as Esc.
+- `multilbic/run/keys.py`: single key presses through `msvcrt` on
+  Windows and cbreak mode elsewhere (the Pi, SSH), terminal restored on
+  the way out. Tested with scripted keys, and through a pseudo-terminal
+  on Linux CI.
+
 ## 0.4.0 - Phase 4: calibrate and run from the command line
 
 Built and tested against the simulated machine; the bench session is
