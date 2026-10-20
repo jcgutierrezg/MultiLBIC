@@ -13,6 +13,8 @@ Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 - `tests/test_deploy.py` runs the real script on Linux against a fake
   by-id folder and a fake `uhubctl`: present, recovered, still missing,
   forced.
+- Installed on the Pi and verified with a forced cycle: every USB
+  device dropped and the Xiao was back 7 s later.
 - Findings: the miniSMU was simply switched off; the Xiao failure is
   intermittent, not tied to reboots or power order so far. 0.3 V leaks
   onto its 3V3 from the servo/laser supply. Recorded in

@@ -12,8 +12,9 @@
 #   sudo multilbic-usb-check            check, cycle only if missing
 #   sudo multilbic-usb-check --force    cycle even if present (a test)
 #
-# Every run logs one line per outcome to the journal:
-#   journalctl -t multilbic-usb-check
+# Each outcome is one printed line. Run by the service at boot, that line
+# goes to the journal (journalctl -t multilbic-usb-check); run by hand,
+# it only appears in the terminal.
 #
 # Exit status: 0 when the Xiao is present at the end, 1 when it is not.
 set -u

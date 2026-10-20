@@ -438,7 +438,9 @@ as a root service at every boot. If the Xiao has not appeared after 15 s,
 it switches the Pi's USB power off and on with `uhubctl` (the same as a
 replug, all ports together on a Pi 4), then checks again. It logs every
 boot (`journalctl -t multilbic-usb-check`), so the next failure is
-recorded with what else was present. Install steps are in
+recorded with what else was present. Installed and a forced cycle
+verified on 2026-10-20 (the Xiao was back 7 s later); the real
+missing-at-boot path waits for the failure to recur. Install steps are in
 [`deploy/pi/`](../deploy/pi/README.md). If the log shows it failing
 often, the hardware option is 1–10 kΩ resistors in series on the
 Xiao's signal lines.

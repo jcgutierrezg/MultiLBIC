@@ -69,11 +69,15 @@ comes back:
 sudo multilbic-usb-check --force
 ```
 
-What it did at each boot:
+What it did at each boot (runs by hand only print to the terminal):
 
 ```bash
 journalctl -t multilbic-usb-check
 ```
+
+Verified 2026-10-20: installed and enabled; a forced cycle dropped every
+USB device and the Xiao was back 7 s later. The real "missing at boot"
+path has not been exercised yet, because the failure has not recurred.
 
 ## Serial devices
 
