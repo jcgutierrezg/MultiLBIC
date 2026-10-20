@@ -97,10 +97,20 @@ def test_b_edges_within_tolerance(scan):
     assert worst <= tolerance
 
 
-def test_clock_map_follows_the_drift(scan):
-    # 100 ppm fast is under 2 ms over this short run, close to the
-    # stamps' resolution, so only the sign and size are checked.
-    assert scan.result.clock.drift * 1e6 == pytest.approx(-100, abs=90)
+def test_clock_map_puts_every_sample_near_its_true_time(scan):
+    """The drift itself is not checked here: 100 ppm over this ~20 s run
+    is 2 ms, about the scatter a busy CI runner puts on the window
+    minima, so the fitted slope can come out either sign (it did, on
+    Ubuntu CI). `test_scan_timing.py` checks drift on a long synthetic
+    stream. What matters for the map is that no sample is placed further
+    off in time than the edge tolerance allows: 5 ms is 5 µm at 1 mm/s.
+    A constant part of the error is removed by the alignment anyway."""
+    rig = scan.rig
+    stamps = np.concatenate([row.device_ms for row in scan.result.rows])
+    mapped = scan.result.clock.to_host(stamps)
+    true = np.array([rig.fake_smu.true_time(float(s)) for s in stamps])
+    error_s = mapped - true
+    assert np.abs(error_s).max() < 0.005 / SPEED_MM_S
 
 
 def test_map_shows_the_pattern(scan, tmp_path):

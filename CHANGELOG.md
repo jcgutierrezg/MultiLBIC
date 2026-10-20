@@ -2,6 +2,17 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.2.1 - Scan test: check sample times, not the drift's sign
+
+- Ubuntu CI failed `test_clock_map_follows_the_drift`: the fitted drift
+  came out +20 ppm against the injected -100. Over the ~20 s simulated
+  scan, 100 ppm is only 2 ms, about the scatter a busy runner puts on
+  the clock map's window minima, so the slope is not resolvable there.
+  The test now checks what drift would spoil: every sample's mapped
+  time is within 5 ms of its true time (5 µm at 1 mm/s, the edge
+  tolerance). Drift recovery stays tested on a 60 s synthetic stream
+  in `tests/test_scan_timing.py`.
+
 ## 0.2.0 - Phase 3: the scan core, in simulation
 
 A new session, so the second number moves. The first push of this
