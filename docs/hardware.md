@@ -256,6 +256,29 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   rate: 100 Hz gives 4.3 nA RMS (43 nA p-p), and 250–1000 Hz give
   14–15 nA. Sampling at 100 Hz lands on the same few points of each
   50 Hz cycle, which hides much of it.
+- **With a cell contacted on channel 1** (2026-10-20, reports
+  `20261020T123224Z` and `20261020T123445Z`, plus the spectrum check):
+
+  | | Lights on | Lights off, stage covered |
+  |---|---|---|
+  | background current | −165 µA (−104 µA an hour earlier) | **−0.83 µA**, drifting −0.79 to −0.89 µA |
+  | noise, autorange / 650 µA | 1.7 µA RMS, 8–9 µA p-p | **0.12 µA RMS**, 0.6–0.9 µA p-p |
+  | slow drift, below 5 Hz | 89 % of noise power | 81 %, strongest 0.2–0.7 Hz |
+  | 50 Hz mains | 0.1 % | 17 % |
+  | 100 Hz light flicker | 8 % | 0.1 % |
+
+  - The cell's low impedance removes most of the 50 Hz pickup that open
+    leads had.
+  - With lights on, the fixed 1 µA and 25 µA ranges saturate (0.6 mA
+    spikes): those rows are invalid. Autorange and 650 µA are fine.
+  - Dark, without the drift and 50 Hz, about **20 nA RMS per sample** is
+    left, and a few nA once averaged over a pixel.
+  - **The drift is the problem.** At 2 mm/s a 1 mm feature passes in
+    0.5 s, around 2 Hz, the same band as the drift, so filtering it out
+    would remove the map too. Whether the −0.8 µA and its drift are
+    residual light (monitor, gaps in the cover) or the cell still
+    relaxing after the lights went off is not known; a longer wait in
+    the dark would tell. See D8 in the [plan](plan.md#decisions).
 - The one quiet run (1.5 nA RMS, 18:03) was the only one read through
   the old per-line reader, which could not keep up. Why it was quieter
   is not known: possibly the instrument averaging longer while it waited
@@ -267,7 +290,8 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
     cell is not possible, because contacting needs the top surface);
   - because raw samples are kept with their timestamps, a 50 Hz (and
     harmonics) notch can be applied along each row before binning, or a
-    pixel's averaging window made a whole number of 20 ms cycles;
+    pixel's averaging window made a whole number of 20 ms cycles. With a
+    cell connected, 50 Hz is minor; slow drift is the real limit (below);
   - shielded or twisted leads and the planned enclosure help at the
     source. The mains frequency here is **50 Hz**.
 - **Two channels**: stopping one channel's stream while the other still
@@ -302,6 +326,21 @@ is streaming, nominally up to 1 kHz, which at 2 mm/s is a sample every
 (below). The bench instruments' buffered, triggered acquisition was not
 compared. They live on another bench and the miniSMU is already
 installed here.
+
+## USB at boot
+
+On both bench days the laser Xiao and the miniSMU were **missing after
+the Pi booted**: the kernel made no attempt to connect them and logged
+no error. Both appeared as soon as their cables were replugged. The SKR
+and the TFT's FTDI adapter came up normally each time. All four are on
+the Pi's own ports (the Xiao on port 2, the miniSMU on port 4) or on a
+hub off port 1.
+
+Suspected, not verified: the two boards stay powered while the Pi
+restarts and then miss the Pi's USB reset. Ways to fix it without
+touching cables: power-cycle the Pi's USB ports at start-up (`uhubctl`,
+needs root) or unbind and rebind the two devices in sysfs. First,
+compare a cold start against a reboot.
 
 ## TFT35
 

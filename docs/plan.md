@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | resume the bench ([bench](bench.md)): miniSMU noise with a contacted cell, lights on and off (a covered cell isn't possible: the top contact needs access), then the at-the-machine steps (home + motion, speed trials, `--lasers`), then decide the A/B speed (EEPROM 6 mm/s vs 2 mm/s). No PR until those pass. |
+| next | resume the bench ([bench](bench.md)): contacted-cell noise is done (2026-10-20); next the at-the-machine steps (home + motion, speed trials, `--lasers`), then decide the A/B speed (EEPROM 6 mm/s vs 2 mm/s). No PR until those pass. |
 
 ## Phases
 
@@ -141,3 +141,4 @@ desktop launcher), and the Zensical docs site.
 | D5 | Channel-2 photodiode | On an AB corner. What it gives is in [architecture](architecture.md#the-channel-2-reference-photodiode). |
 | D6 | How the GUI on the Pi is reached during development | Open; decided in Phase 5. |
 | D7 | SMUniversal dependency | Pinned git dependency, installing only what the miniSMU needs. |
+| D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. |

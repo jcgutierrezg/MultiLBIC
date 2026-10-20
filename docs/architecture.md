@@ -222,6 +222,11 @@ and its harmonics along each row, or by averaging each pixel over whole
 20 ms cycles. Both belong in Phase 3's binning, and the mains frequency
 goes into `machine.toml`.
 
+**Drift is the harder problem** (measured with a contacted cell in the
+dark: most of the noise is 0.2–0.7 Hz drift, where map features sit at
+2 mm/s). Decision D8 in the plan weighs a stable enclosure with baselines
+against chopping the laser and demodulating in software.
+
 **A dark baseline in every scan.** A covered cell can't be measured
 while contacted, and room conditions vary anyway. So each laser's map
 starts with a few seconds of streaming with the laser off and the stage

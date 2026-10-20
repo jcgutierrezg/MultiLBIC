@@ -2,6 +2,19 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## Unreleased
+
+- Contacted-cell noise measured:
+  - lights on: −165 µA background, 1.7 µA RMS, mostly slow drift plus
+    100 Hz flicker;
+  - lights off and covered: −0.83 µA, 0.12 µA RMS, 81 % slow drift at
+    0.2–0.7 Hz, 17 % at 50 Hz.
+- The drift shares its band with map features, so open decision D8
+  (enclosure and baselines, or laser chopping with a software lock-in)
+  is added to the plan.
+- The Xiao and the miniSMU needed a replug after every Pi boot. Recorded
+  under "USB at boot" in `docs/hardware.md`.
+
 ## 0.1.5 - Bulk stream reader for the miniSMU
 
 - `SmuStream` reads the miniSMU's serial port itself: everything waiting
