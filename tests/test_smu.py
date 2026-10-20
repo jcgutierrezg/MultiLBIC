@@ -29,7 +29,7 @@ def test_fake_matches_the_real_library():
     same parameter names, so code that works on the fake calls the real
     library correctly."""
     for name, method in inspect.getmembers(FakeMiniSMU, inspect.isfunction):
-        if name.startswith("_") or name == "device_ms":
+        if name.startswith("_") or name in ("device_ms", "interference", "true_time"):
             continue
         assert hasattr(SMU, name), f"minismu_py.SMU has no {name}()"
         fake_params = list(inspect.signature(method).parameters)

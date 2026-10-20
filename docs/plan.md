@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
-| next | bench ([bench](bench.md)): cell noise, homing, motion and A speed trials done (2026-10-20; A/B ceiling 6 mm/s, D9). Lasers checked too (each alone; settle 1000 ms stable, 500 ms not; D10: keep 2000 ms). B speed trial done (no missed steps; 6 mm/s noisier, so scans ≤5 mm/s). USB at boot: a boot-check service recovers a missing Xiao (`deploy/pi/`), installed and its forced cycle verified on the Pi. Next: the PR for Phase 2. |
+| status | Phase 0 (0.1.0) and Phase 2 (0.1.11, bench-tested) merged. Phase 3, the scan core, done in simulation (0.1.12, branch `phase-3-scan-core`): the agreed test case passes ([scan](scan.md#the-simulated-scan)). |
+| next | Pushed, no PR yet: `run/rows.py` drives the real devices and has only run in simulation. Phase 4 gives it a command-line run on the machine (corner calibration, then a small map of a test target); Phase 3 goes to PR either then or as simulation-only, as decided. |
 
 ## Phases
 
@@ -91,6 +91,17 @@ compile and flash laser firmware 2.0.0, then `--real` and
 **Done when** the simulated scan recovers the synthetic pattern within
 tolerance despite injected latency, backlash and clock drift.
 
+The test case, agreed 2026-10-20: 5 ms reply latency, 20 µm backlash on
+A and B, the SMU clock 100 ppm fast. Edges within 5 µm or one pixel,
+whichever is larger; the forward/reverse shift estimated within 2 µm of
+the one present.
+
+**State (0.1.12): done in simulation.** Worst A edge 3.8 µm, worst B
+edge 9.4 µm (pitch 50 µm), shift 9.93 µm measured against 9.68 µm
+present, every on-sample position within 0.52 µm of the true stage
+([scan](scan.md#the-simulated-scan)). Slow drift is left in the map
+(D8).
+
 ### Phase 4: run orchestration and command line
 
 - Home → corner calibration → per-laser loop → rows.
@@ -143,4 +154,4 @@ desktop launcher), and the Zensical docs site.
 | D7 | SMUniversal dependency | Pinned git dependency, installing only what the miniSMU needs. |
 | D9 | A/B speed ceiling in `machine.toml` | **6 mm/s**: matches the board's EEPROM; A and B both reached 3–6 mm/s with no missed steps (2026-10-20). A and B share it, being mechanically identical. B was noisier and vibrated more at 6 mm/s, so **scans should use 5 mm/s or less**. The scan speed is chosen per run in Phase 3. |
 | D10 | Laser settle time | **2000 ms**, in `machine.toml` (`[laser_board] settle_ms`), applied by the driver at every `open()` because the firmware forgets a runtime value on power-up. 1000 ms was stable on the worst swing and 500 ms was not; 2000 ms keeps a wide margin and costs only seconds per run. |
-| D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. |
+| D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open, **set aside** (2026-10-20): no enclosure for now. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. Note for (b): the miniSMU tops out near 1.4 kHz and the Pi's reader near 1.2 kHz, so chopping is limited to the low end. Phase 3 does the mains removal and a dark baseline per map; drift would be removed in the per-row cleaning in `scan/binning.py`. |

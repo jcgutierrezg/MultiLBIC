@@ -89,7 +89,7 @@ class Report:
             "simulated": bool(args.sim),
             "started_utc": self.started.isoformat(timespec="seconds"),
             "multilbic_version": version("multilbic"),
-            "provenance": _provenance(),
+            "provenance": provenance(),
             "host": {
                 "node": platform.node(),
                 "platform": sys.platform,
@@ -131,7 +131,8 @@ class Report:
         return path
 
 
-def _provenance() -> dict[str, Any]:
+def provenance() -> dict[str, Any]:
+    """The commit and tree state this code ran from."""
     try:
         from smuniversal_lab_suite.core.provenance import head_commit
 

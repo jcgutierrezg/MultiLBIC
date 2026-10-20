@@ -58,6 +58,14 @@ Every device has a simulator, so the whole device layer runs on Windows:
 uv run python -m multilbic.hardware.check --sim --home --move --lasers
 ```
 
+A whole scan of a synthetic sample, with latency, backlash and clock
+drift injected, writes a run file and a PNG and prints how far the map
+is from the truth ([scan](scan.md#the-simulated-scan)):
+
+```bash
+uv run python -m multilbic.sim.scan --height 0.4 --speedup 2
+```
+
 Tests marked `hardware` are skipped unless pytest gets `--hardware`,
 which is only for the Pi. See [devices](devices.md). The bench probes
 (`multilbic/bench/`) also run with `--sim`; on the machine they follow

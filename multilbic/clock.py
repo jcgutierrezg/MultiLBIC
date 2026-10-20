@@ -66,12 +66,23 @@ class ScaledClock:
     Starts at zero when created. Sleeping is real sleeping, shortened by
     the factor, so threads still interleave as they would on the
     machine, just sooner.
+
+    A real sleep overshoots by about 0.5 ms on Windows, and the factor
+    multiplies that: at 20x a sleep ends 10 ms of simulated time late.
+    For device tests that is harmless. For the scan's timing tests it is
+    not, because every sleep on a reply's way to the host adds simulated
+    latency the test didn't inject. `precise=True` sleeps short and then
+    yields in a loop until the exact moment, at the cost of CPU.
     """
 
-    def __init__(self, factor: float = 100.0):
+    #: How early a precise sleep stops sleeping and starts yielding.
+    PRECISE_SPIN_S = 0.0015
+
+    def __init__(self, factor: float = 100.0, precise: bool = False):
         if factor <= 0:
             raise ValueError("factor must be positive")
         self.factor = factor
+        self.precise = precise
         self._t0 = time.monotonic()
         self._wall0_ms = int(time.time() * 1000)
 
@@ -79,8 +90,17 @@ class ScaledClock:
         return (time.monotonic() - self._t0) * self.factor
 
     def sleep(self, seconds: float) -> None:
-        if seconds > 0:
-            time.sleep(seconds / self.factor)
+        if seconds <= 0:
+            return
+        real = seconds / self.factor
+        if not self.precise:
+            time.sleep(real)
+            return
+        deadline = time.monotonic() + real
+        if real > self.PRECISE_SPIN_S:
+            time.sleep(real - self.PRECISE_SPIN_S)
+        while time.monotonic() < deadline:
+            time.sleep(0)
 
     def to_real(self, seconds: float) -> float:
         return seconds / self.factor

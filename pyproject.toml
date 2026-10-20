@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.1.11"
+version = "0.1.12"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -21,6 +21,10 @@ dependencies = [
     "minismu-py>=0.4.0",
     # Marlin and the laser board are plain serial devices.
     "pyserial>=3.5",
+    # The scan's maths and the map image. Both already come with
+    # SMUniversal; named here because MultiLBIC imports them itself.
+    "numpy>=2.0",
+    "matplotlib>=3.8",
 ]
 
 [tool.uv.sources]
@@ -99,6 +103,12 @@ files = [
     "multilbic/hardware/smu.py",
     # the simulator's motion model, which the sync tests lean on
     "multilbic/sim/motion.py",
+    # the scan core and the run file: what a map is made from
+    "multilbic/scan/timing.py",
+    "multilbic/scan/raster.py",
+    "multilbic/scan/mapping.py",
+    "multilbic/store/runfile.py",
+    "multilbic/run/rows.py",
 ]
 python_version = "3.14"
 ignore_missing_imports = true

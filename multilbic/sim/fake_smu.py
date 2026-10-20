@@ -13,11 +13,21 @@ fake serial port (`FakeSerial`, the library's `_connection`), in the
 format the bench showed: `channel,ms,volts,amps,0`, with whole-
 millisecond stamps from a device clock that can be given an offset, a
 drift and a rate error. The current is `signal(channel, t)` plus noise;
-Phase 3 plugs the stage position and a synthetic sample into `signal`.
+the scan simulation (`multilbic.sim.rig`) plugs the stage position and a
+synthetic sample into `signal`.
+
+The noise can be shaped like the bench's (`docs/hardware.md`, contacted
+cell at 0 V): white noise (`noise_a`), mains pickup at `mains_hz` and
+its odd harmonics (`mains_a`), and slow drift made of a few sine waves
+between 0.2 and 0.7 Hz (`drift_a`, RMS). Packets can also arrive in
+bursts (`burst_s`): above 500 Hz the real one delivers about every
+100 ms, keeping the average rate. A burst delays arrival, never the
+timestamp.
 """
 
 from __future__ import annotations
 
+import math
 import random
 import threading
 from collections.abc import Callable
@@ -43,6 +53,10 @@ class FakeMiniSMU:
         device_offset_ms: float = 0.0,
         drift_ppm: float = 0.0,
         rate_error: float = 0.0,
+        mains_a: float = 0.0,
+        mains_hz: float = 50.0,
+        drift_a: float = 0.0,
+        burst_s: float = 0.0,
         seed: int = 0,
     ):
         self._clock = clock
@@ -54,7 +68,18 @@ class FakeMiniSMU:
         #: Delivered rate = requested * (1 + rate_error). The real one
         #: misses the requested rate by up to ~19% (bench, 2026-10-19).
         self.rate_error = rate_error
+        self.mains_a = mains_a
+        self.mains_hz = mains_hz
+        self.drift_a = drift_a
+        self.burst_s = burst_s
         self._random = random.Random(seed)
+        shape = random.Random(seed + 1)
+        self._mains_phase = shape.uniform(0, 2 * math.pi)
+        #: (frequency, phase) of each drift component, 0.2-0.7 Hz.
+        self._drift_parts = [
+            (shape.uniform(0.2, 0.7), shape.uniform(0, 2 * math.pi))
+            for _ in range(4)
+        ]
         self._lock = threading.Lock()
         self._base_ms = 0.0
         self._base_t = clock.now()
@@ -84,11 +109,37 @@ class FakeMiniSMU:
             + self.device_offset_ms
         )
 
+    def true_time(self, device_ms: float) -> float:
+        """The clock time a stamp was taken at: `device_ms` inverted,
+        to within the stamp's whole-millisecond rounding. Simulation
+        only, for checking a scan's clock map against the truth."""
+        with self._lock:
+            elapsed_ms = (
+                device_ms - self.device_offset_ms - self._base_ms
+            ) / (1 + self.drift_ppm * 1e-6)
+            return self._base_t + elapsed_ms / 1000.0
+
     def _current(self, channel: int, t: float) -> float:
         if not self.enabled[channel]:
             return 0.0
         noise = self._random.gauss(0.0, self.noise_a) if self.noise_a else 0.0
-        return self.signal(channel, t) + noise
+        return self.signal(channel, t) + noise + self.interference(t)
+
+    def interference(self, t: float) -> float:
+        """Mains and drift at time `t`: what no laser causes."""
+        total = 0.0
+        if self.mains_a:
+            # The fundamental, with a third harmonic a fifth as strong.
+            w = 2 * math.pi * self.mains_hz * t + self._mains_phase
+            total += self.mains_a * (math.sin(w) + 0.2 * math.sin(3 * w))
+        if self.drift_a:
+            # Sum of n unit sines has RMS sqrt(n/2).
+            scale = self.drift_a / math.sqrt(len(self._drift_parts) / 2)
+            total += scale * sum(
+                math.sin(2 * math.pi * f * t + phase)
+                for f, phase in self._drift_parts
+            )
+        return total
 
     # ---- identity and setup (what UndalogicMiniSMU calls) ----
 
@@ -213,7 +264,7 @@ class FakeMiniSMU:
         while self._next_due:
             channel = min(self._next_due, key=self._next_due.__getitem__)
             due = self._next_due[channel]
-            if due > now:
+            if self._released(due) > now:
                 return
             if self.garble_next:
                 self.garble_next = False
@@ -228,8 +279,16 @@ class FakeMiniSMU:
                 f"{channel},{stamp},{volts:.4e},{amps:.4e},0\n".encode()
             )
 
+    def _released(self, due: float) -> float:
+        """When a packet stamped at `due` reaches the port."""
+        if not self.burst_s:
+            return due
+        return (math.floor(due / self.burst_s) + 1) * self.burst_s
+
     def _next_due_time(self) -> float | None:
-        return min(self._next_due.values()) if self._next_due else None
+        if not self._next_due:
+            return None
+        return self._released(min(self._next_due.values()))
 
 
 class FakeSerial:

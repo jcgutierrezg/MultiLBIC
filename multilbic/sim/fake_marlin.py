@@ -12,6 +12,14 @@ send `busy: processing` every 2 s.
 Faults can be injected for tests: a corrupted line (forces a resend), a
 dropped `ok`, going silent, or a controller restart.
 
+Backlash can be given per axis. The motors then follow Marlin's plan
+exactly, but the stage they carry lags behind by up to half the
+backlash, through a dead band: on a reversal the motor turns through
+the whole backlash before the stage moves again. `stage_position()`
+reports where the stage is, which is what a laser spot sees. Marlin's
+own backlash compensation is effectively off on this machine (correction
+0, `docs/hardware.md`), so nothing here undoes it.
+
 Simulated time comes from the clock passed to `attach()`, so a
 `ScaledClock` makes moves complete faster than real time while every
 duration stays consistent.
@@ -19,6 +27,7 @@ duration stays consistent.
 
 from __future__ import annotations
 
+import bisect
 import queue
 import threading
 
@@ -61,11 +70,15 @@ class FakeMarlin:
         machine_type: str | None = None,
         home_duration_s: float = 2.0,
         reply_latency_s: float = 0.001,
+        backlash_mm: dict[str, float] | None = None,
     ):
         self.machine = machine
         self.machine_type = machine_type or machine.name
         self.home_duration_s = home_duration_s
         self.reply_latency_s = reply_latency_s
+        #: Lost motion per axis on a reversal, in mm.
+        self.backlash_mm = {axis: 0.0 for axis in AXES}
+        self.backlash_mm.update(backlash_mm or {})
         ab, xy = machine.ab, machine.xy
         self.limits = {
             "X": AxisLimits(xy.max_feed_mm_s, xy.max_accel_mm_s2),
@@ -103,6 +116,16 @@ class FakeMarlin:
         #: The two differ after a move dropped during the stop lockout.
         self.planned = {axis: 0.0 for axis in AXES}
         self.blocks: list[Block] = []
+        #: Where the stage (not the motor) is when each block starts,
+        #: by id(block), and where it is after the last planned move.
+        self._load_start: dict[int, dict[str, float]] = {}
+        self._load_planned = {axis: 0.0 for axis in AXES}
+        #: Every block since the last home or stop, with the stage
+        #: position it started from, kept after it ends: the ground
+        #: truth a scan's mapped positions are checked against.
+        self._trace: list[tuple[Block, dict[str, float]]] = []
+        self._trace_starts: list[float] = []
+        self._trace_rest = {axis: 0.0 for axis in AXES}
         self.relative = False
         self.feed_mm_s = DEFAULT_FEED_MM_S
         self.homed = False
@@ -156,7 +179,31 @@ class FakeMarlin:
         return self._clock.now()
 
     def stage_position(self, t: float | None = None) -> dict[str, float]:
-        """Where the stage physically is at time `t` (default: now)."""
+        """Where the stage physically is at time `t` (default: now),
+        backlash included. Without backlash it is the motor position."""
+        t = self.now() if t is None else t
+        with self._lock:
+            return self._load_at_locked(t)
+
+    def past_stage_position(self, t: float) -> dict[str, float]:
+        """Where the stage was at time `t`, even after the move has
+        ended. Covers the time since the last home or quickstop."""
+        with self._lock:
+            i = bisect.bisect_right(self._trace_starts, t) - 1
+            if i < 0:
+                return dict(self._trace_rest)
+            block, load = self._trace[i]
+            if t >= block.t_end:
+                return self._load_after(block, load, block.end)
+            return self._load_after(block, load, block.position_at(t))
+
+    def _reset_trace_locked(self, rest: dict[str, float]) -> None:
+        self._trace.clear()
+        self._trace_starts.clear()
+        self._trace_rest = dict(rest)
+
+    def motor_position(self, t: float | None = None) -> dict[str, float]:
+        """Where Marlin has driven the motors at time `t`."""
         t = self.now() if t is None else t
         with self._lock:
             return self._position_at_locked(t)
@@ -169,8 +216,10 @@ class FakeMarlin:
         """Behave as if the board reset: forget everything, say 'start'."""
         with self._lock:
             self.blocks.clear()
+            self._load_start.clear()
             self.commanded = {axis: 0.0 for axis in AXES}
             self.planned = {axis: 0.0 for axis in AXES}
+            self._load_planned = {axis: 0.0 for axis in AXES}
             self.homed = False
             self.last_n = 0
         self._send("start")
@@ -268,7 +317,7 @@ class FakeMarlin:
 
     def _retire_locked(self, t: float) -> None:
         while self.blocks and self.blocks[0].t_end <= t:
-            self.blocks.pop(0)
+            self._load_start.pop(id(self.blocks.pop(0)), None)
 
     def _busy_locked(self) -> bool:
         self._retire_locked(self.now())
@@ -288,20 +337,60 @@ class FakeMarlin:
             return dict(self.blocks[-1].end)
         return dict(self.planned)
 
-    def _wait_while(self, condition) -> None:
-        """Block like a synchronising Marlin command, with keepalives."""
+    def _load_at_locked(self, t: float) -> dict[str, float]:
+        for block in self.blocks:
+            if t < block.t_end:
+                start = self._load_start[id(block)]
+                if t < block.t_start:
+                    return dict(start)
+                return self._load_after(block, start, block.position_at(t))
+        return dict(self._load_planned)
+
+    def _load_after(
+        self,
+        block: Block,
+        load: dict[str, float],
+        motor: dict[str, float],
+    ) -> dict[str, float]:
+        """The stage position once the motors of `block` reach `motor`,
+        starting from `load`. Within one block each axis moves one way,
+        so the stage follows the motor at half the backlash behind it,
+        once the slack is taken up."""
+        result = dict(load)
+        for axis, m in motor.items():
+            delta = block.end[axis] - block.start[axis]
+            half = self.backlash_mm[axis] / 2
+            if delta > 0:
+                result[axis] = max(load[axis], m - half)
+            elif delta < 0:
+                result[axis] = min(load[axis], m + half)
+        return result
+
+    def _wait_while(self, condition, until=None) -> None:
+        """Block like a synchronising Marlin command, with keepalives.
+
+        `until()`, if given, says when the condition is next expected to
+        change; the wait sleeps straight to it instead of polling."""
         next_keepalive = self.now() + KEEPALIVE_S
         while True:
             with self._lock:
                 if not condition():
                     return
+                wake = until() if until is not None else None
             if self.halted or self.silent:
                 return
-            if self.now() >= next_keepalive:
+            now = self.now()
+            if now >= next_keepalive:
                 self._send("echo:busy: processing")
                 next_keepalive += KEEPALIVE_S
+            pause = 0.01
+            if wake is not None and wake > now:
+                pause = min(wake - now, next_keepalive - now)
             assert self._clock is not None
-            self._clock.sleep(0.01)
+            self._clock.sleep(pause)
+
+    def _queue_end_locked(self) -> float | None:
+        return self.blocks[-1].t_end if self.blocks else None
 
     def _queue_move(self, target: dict[str, float]) -> None:
         self._wait_while(self._planner_full_locked)
@@ -328,6 +417,12 @@ class FakeMarlin:
             )
             if block.distance_mm > 0:
                 self.blocks.append(block)
+                self._load_start[id(block)] = self._load_planned
+                self._trace.append((block, self._load_planned))
+                self._trace_starts.append(block.t_start)
+                self._load_planned = self._load_after(
+                    block, self._load_planned, block.end
+                )
             self.planned = dict(target)
             self.commanded = dict(target)
             self.motors_on = True  # Marlin enables steppers to move
@@ -335,7 +430,10 @@ class FakeMarlin:
     def _quickstop(self) -> None:
         with self._lock:
             position = self._position_at_locked(self.now())
+            self._load_planned = self._load_at_locked(self.now())
+            self._reset_trace_locked(self._load_planned)
             self.blocks.clear()
+            self._load_start.clear()
             self.commanded = position
             self.planned = dict(position)
             self._lockout_until = self.now() + STOP_LOCKOUT_S
@@ -346,6 +444,7 @@ class FakeMarlin:
     def _kill(self) -> None:
         with self._lock:
             self.blocks.clear()
+            self._load_start.clear()
         self._send("Error:Printer halted. kill() called!")
         self.halted = True
 
@@ -388,6 +487,8 @@ class FakeMarlin:
             for axis in axes:
                 self.commanded[axis] = 0.0
                 self.planned[axis] = 0.0
+                self._load_planned[axis] = 0.0
+            self._reset_trace_locked(self._load_planned)
             self.homed = True
             self.motors_on = True
 
@@ -398,9 +499,14 @@ class FakeMarlin:
         self.relative = True
 
     def _cmd_M400(self, command: str) -> None:
+        # Marlin's synchronize() spins in idle(), so its ok follows the
+        # last step within a fraction of a millisecond. Waking at the end
+        # of the queue keeps the fake as prompt; polling alone would add
+        # up to 10 ms, which the scan's row anchors would see.
         # planner.synchronize() also waits out the post-stop lockout.
         self._wait_while(
-            lambda: self._busy_locked() or self._locked_out_locked()
+            lambda: self._busy_locked() or self._locked_out_locked(),
+            until=self._queue_end_locked,
         )
 
     def _cmd_M410(self, command: str) -> None:

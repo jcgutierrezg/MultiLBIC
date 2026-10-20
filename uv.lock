@@ -427,10 +427,12 @@ wheels = [
 
 [[package]]
 name = "multilbic"
-version = "0.1.11"
+version = "0.1.12"
 source = { editable = "." }
 dependencies = [
+    { name = "matplotlib" },
     { name = "minismu-py" },
+    { name = "numpy" },
     { name = "pyserial" },
     { name = "smuniversal-lab-suite" },
 ]
@@ -444,7 +446,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "matplotlib", specifier = ">=3.8" },
     { name = "minismu-py", specifier = ">=0.4.0" },
+    { name = "numpy", specifier = ">=2.0" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "smuniversal-lab-suite", git = "https://github.com/jcgutierrezg/SMUniversal_Lab_Suite?rev=b7da18f01a4bfaa90202becf2b4ff42747f307d4" },
 ]
