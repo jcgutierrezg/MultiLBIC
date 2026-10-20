@@ -46,7 +46,7 @@ def test_values_match_hardware_notes():
         True, True, True, False, False, False,
     ]
     assert config.ab.centre_mm == (17.5, 17.5)
-    assert config.ab.max_feed_mm_s == 2.0
+    assert config.ab.max_feed_mm_s == 6.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 
 
@@ -69,7 +69,8 @@ def test_config_is_immutable():
 
 def test_ports_by_platform():
     config = load()
-    assert config.ports("linux").skr == "/dev/SKR"
+    assert config.ports("linux").skr.startswith("/dev/serial/by-id/")
+    assert "1602400395D510E961DB1B78F50020C1" in config.ports("linux").skr
     assert config.ports("win32").skr == ""
     # A platform with no entry gets empty ports rather than an error.
     assert config.ports("darwin").laser == ""
@@ -166,3 +167,12 @@ def test_negative_feed(raw):
 
 def test_no_lasers(raw):
     _breaks(raw, lambda d: d.update(lasers=[]), "no \\[\\[lasers\\]\\]")
+
+
+def test_laser_board_settle(raw):
+    assert load().laser_board.settle_ms == 2000
+    _breaks(
+        raw,
+        lambda d: d["laser_board"].update(settle_ms=20000),
+        "settle_ms",
+    )

@@ -17,8 +17,11 @@ centre_mm = [17.5, 17.5]
 # Near the back edge the motor struggles or the grub screw slips.
 safe_min_mm = 0.0
 safe_max_mm = 35.0
-# Compiled-in Marlin limits. The EEPROM may hold others: check with M503.
-max_feed_mm_s = 2.0
+# The ceiling the software will ever command; the scan speed itself is
+# chosen per run. 6 mm/s matches the board's EEPROM, and A ran smoothly
+# at 3-6 mm/s on the bench (2026-10-20). A and B are mechanically
+# identical and share these limits. Compiled-in default: 2 mm/s.
+max_feed_mm_s = 6.0
 max_accel_mm_s2 = 50.0
 
 [xy]
@@ -73,14 +76,25 @@ servo_angle_deg = 30
 xy_centre_mm = [50.0, 50.0]
 measured = false
 
-# Serial ports per platform (sys.platform). On the Pi, udev rules give
-# the boards fixed names; see deploy/pi/. An empty string means "not
+[laser_board]
+# Wait after the servo turns, before the laser comes on. On the worst
+# 120-degree swing, 1000 ms was stable and 500 ms slid (bench,
+# 2026-10-20); 2000 keeps a wide margin for a few seconds per run
+# (decision D10). The driver sets it at every open(), because the
+# firmware forgets a runtime value on power-up.
+settle_ms = 2000
+
+# Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.
+#
+# On the Pi these are the names Linux makes on its own under
+# /dev/serial/by-id, from each board's USB serial number: they survive
+# replugging and reboots, and need no udev rules (docs/hardware.md).
 [ports.linux]
-skr = "/dev/SKR"
-laser = "/dev/S_LASER"
-tft = "/dev/TFT35"
-smu = ""
+skr = "/dev/serial/by-id/usb-marlinfw.org_Marlin_USB_Device_1602400395D510E961DB1B78F50020C1-if00"
+laser = "/dev/serial/by-id/usb-Seeed_Seeed_XIAO_M0_AC5401405154315432202020FF102436-if00"
+tft = "/dev/serial/by-id/usb-FTDI_TTL232R-3V3_FTDKEIR6-if00-port0"
+smu = "/dev/serial/by-id/usb-Undalogic_Inc_miniSMU_MS01_lunar-tuvok-7966-if00"
 
 [ports.win32]
 skr = ""

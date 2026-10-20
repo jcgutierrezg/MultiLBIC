@@ -20,6 +20,10 @@ dist/
 # checkout; a single map can run to gigabytes.
 runs/
 
+# Bench probe reports: findings go into docs/hardware.md, the raw JSON
+# stays on the machine that took it (see docs/bench.md).
+bench-results/
+
 # The documentation site's build output.
 /site/
 

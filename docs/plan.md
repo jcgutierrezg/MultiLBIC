@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phase 0 in review (0.1.0); trying it on the real Pi is still owed |
-| next | Phase 1 bench probes, once SSH to the Pi is set up |
+| status | Phase 0 landed (0.1.0). Phase 2 in review (0.1.1): drivers and simulators done; flashing the laser firmware and the hardware runs are owed |
+| next | bench ([bench](bench.md)): cell noise, homing, motion and A speed trials done (2026-10-20; A/B ceiling 6 mm/s, D9). Lasers checked too (each alone; settle 1000 ms stable, 500 ms not; D10: keep 2000 ms). B speed trial done (no missed steps; 6 mm/s noisier, so scans ≤5 mm/s). USB at boot: a boot-check service recovers a missing Xiao (`deploy/pi/`), installed and its forced cycle verified on the Pi. Next: the PR for Phase 2. |
 
 ## Phases
 
@@ -46,11 +46,24 @@ Small scripts in `tools/`, independent of the app. Their output goes into
 - **miniSMU, after upgrading to firmware 1.5+:**
   - achieved stream rate at 100–1000 Hz, one and two channels;
   - timestamp resolution and jitter, clock drift against the host;
-  - noise floor and offset at 0 V, open circuit and on a dark cell;
+  - noise floor and offset at 0 V, open circuit and with a contacted
+    cell, lights on and off;
   - range switching while streaming.
 
 **Done when** the sync error budget can be checked against measured
 numbers, and the stream rate and A/B speed are chosen.
+
+**First session, 2026-10-19 (no motion, no lasers):** every device
+answers on the Pi; findings are in [hardware](hardware.md). It found the
+EEPROM running settings (A/B at 6 mm/s), the streaming limits (bulk
+reads needed above a few hundred Hz on the Pi; the device's rate is not
+the requested one), and a two-channel stop bug, now fixed. Still owed:
+the motion, speed and laser steps (at the machine), and the miniSMU
+probe with a stated load.
+
+**State (0.1.8):** the probes are written and tested against the
+simulators (`multilbic/bench/`). The runbook is [bench](bench.md).
+Nothing has run on the machine yet.
 
 ### Phase 2: device layer and fakes
 
@@ -62,6 +75,11 @@ numbers, and the stream rate and A/B speed are chosen.
 
 **Done when** every device runs in simulation in CI and on the real
 machine from a script.
+
+**State (0.1.1):** drivers, simulators and the check script
+(`python -m multilbic.hardware.check`) work in simulation. Still owed:
+compile and flash laser firmware 2.0.0, then `--real` and
+`pytest --hardware` on the Pi.
 
 ### Phase 3: scan core
 
@@ -123,3 +141,6 @@ desktop launcher), and the Zensical docs site.
 | D5 | Channel-2 photodiode | On an AB corner. What it gives is in [architecture](architecture.md#the-channel-2-reference-photodiode). |
 | D6 | How the GUI on the Pi is reached during development | Open; decided in Phase 5. |
 | D7 | SMUniversal dependency | Pinned git dependency, installing only what the miniSMU needs. |
+| D9 | A/B speed ceiling in `machine.toml` | **6 mm/s**: matches the board's EEPROM; A and B both reached 3–6 mm/s with no missed steps (2026-10-20). A and B share it, being mechanically identical. B was noisier and vibrated more at 6 mm/s, so **scans should use 5 mm/s or less**. The scan speed is chosen per run in Phase 3. |
+| D10 | Laser settle time | **2000 ms**, in `machine.toml` (`[laser_board] settle_ms`), applied by the driver at every `open()` because the firmware forgets a runtime value on power-up. 1000 ms was stable on the worst swing and 500 ms was not; 2000 ms keeps a wide margin and costs only seconds per run. |
+| D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. |

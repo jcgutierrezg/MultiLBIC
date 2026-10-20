@@ -92,7 +92,8 @@ experiments). MultiLBIC needs none of them.
   fingerprints, so it is not the first choice.
 
 **Python 3.14** is SMUniversal's floor and becomes MultiLBIC's.
-Raspberry Pi OS ships an older Python, so the Pi gets a uv-managed 3.14.
+The Pi runs Ubuntu 24.04, which ships Python 3.12, so it gets a
+uv-managed 3.14.
 Phase 0 confirms that it runs there and that Tk works under it.
 
 ## Position sync
@@ -185,7 +186,12 @@ Requirements:
 
 ## Run time
 
-Rows cost time; resolution along a row is nearly free. Along a row the
+Rows cost time; resolution along a row is nearly free. The table below
+is for 2 mm/s. The A/B ceiling is now 6 mm/s (decision D9), which cuts
+these times by up to 3×. The scan speed is chosen per run, trading speed
+against samples per pixel, timestamp bunching and the drift band (D8):
+at 6 mm/s a 1 mm feature passes at about 6 Hz, clear of the 0.2–0.7 Hz
+drift. Along a row the
 resolution is sample rate × speed (about 2 µm at 1 kHz and 2 mm/s).
 Each extra row costs a full pass. Rough time per laser at 2 mm/s,
 including turnarounds:
@@ -212,6 +218,26 @@ One CSV per run, using SMUniversal's convention:
 
 Per-row anchors go in as `#row` comment lines, so
 `pd.read_csv(path, comment="#")` still returns the plain sample table.
+
+**Mains pickup** (measured, see
+[hardware](hardware.md#streaming-measured-2026-10-19)): about 90 % of the
+0 V noise on open leads is at 50 Hz. Raw samples are kept with their
+timestamps, so the map can be cleaned afterwards with a notch at 50 Hz
+and its harmonics along each row, or by averaging each pixel over whole
+20 ms cycles. Both belong in Phase 3's binning, and the mains frequency
+goes into `machine.toml`.
+
+**Drift is the harder problem** (measured with a contacted cell in the
+dark: most of the noise is 0.2–0.7 Hz drift, where map features sit at
+2 mm/s). Decision D8 in the plan weighs a stable enclosure with baselines
+against chopping the laser and demodulating in software.
+
+**A dark baseline in every scan.** A covered cell can't be measured
+while contacted, and room conditions vary anyway. So each laser's map
+starts with a few seconds of streaming with the laser off and the stage
+still, written to the run file. That gives the offset to subtract and
+the noise floor the map has to clear, under that run's real conditions
+(room light, mains, cabling).
 
 **The file is appended after every completed row** and flushed to disk
 (D1). Until the run finishes, the header says `status: incomplete`. A
