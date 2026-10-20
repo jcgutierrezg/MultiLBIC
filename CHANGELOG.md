@@ -2,6 +2,15 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.7 - A/B ceiling raised to 6 mm/s
+
+- `machine.toml`: A/B `max_feed_mm_s` is 6.0 (decision D9). It matches
+  the board's EEPROM, and A ran smoothly at 3–6 mm/s. A and B share it,
+  being mechanically identical.
+- The Marlin probe's stop test runs at a fixed 2 mm/s, so its results
+  stay comparable whatever the ceiling. Tests updated for the new
+  ceiling.
+
 ## 0.1.6 - Motion measured; no moves lost after a stop
 
 - First homing and motion run on the machine:

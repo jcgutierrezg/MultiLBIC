@@ -186,7 +186,12 @@ Requirements:
 
 ## Run time
 
-Rows cost time; resolution along a row is nearly free. Along a row the
+Rows cost time; resolution along a row is nearly free. The table below
+is for 2 mm/s. The A/B ceiling is now 6 mm/s (decision D9), which cuts
+these times by up to 3×. The scan speed is chosen per run, trading speed
+against samples per pixel, timestamp bunching and the drift band (D8):
+at 6 mm/s a 1 mm feature passes at about 6 Hz, clear of the 0.2–0.7 Hz
+drift. Along a row the
 resolution is sample rate × speed (about 2 µm at 1 kHz and 2 mm/s).
 Each extra row costs a full pass. Rough time per laser at 2 mm/s,
 including turnarounds:

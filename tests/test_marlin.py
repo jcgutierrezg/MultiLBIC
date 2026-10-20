@@ -104,17 +104,18 @@ def test_wait_idle_survives_a_move_longer_than_its_timeout(rig):
 def test_overspeed_is_refused_not_clamped(rig):
     client, _, _ = rig
     client.home()
-    with pytest.raises(MotionLimitError, match="A would move at 6.000"):
-        client.move_to(a=10.0, feed_mm_s=6.0)  # the old script's F360
+    with pytest.raises(MotionLimitError, match="A would move at 7.000"):
+        client.move_to(a=10.0, feed_mm_s=7.0)  # above the 6 mm/s ceiling
 
 
 def test_diagonal_feed_is_checked_per_axis(rig):
     client, _, _ = rig
     client.home()
-    # Equal A and B travel: each axis sees feed/sqrt(2).
-    client.move_to(a=5.0, b=5.0, feed_mm_s=2.8)
+    # Equal A and B travel: each axis sees feed/sqrt(2), so the diagonal
+    # may run at 6 * sqrt(2) = 8.49 mm/s.
+    client.move_to(a=5.0, b=5.0, feed_mm_s=8.4)
     with pytest.raises(MotionLimitError):
-        client.move_to(a=10.0, b=10.0, feed_mm_s=2.9)
+        client.move_to(a=10.0, b=10.0, feed_mm_s=8.6)
 
 
 def test_out_of_safe_range_is_refused(rig):
@@ -216,7 +217,7 @@ def test_releasing_motors_untrusts_position(rig):
 def test_settings_dump(rig):
     client, _, _ = rig
     lines = client.settings()
-    assert any("M203" in line and "A2.00" in line for line in lines)
+    assert any("M203" in line and "A6.00" in line for line in lines)
 
 
 def test_move_right_after_quickstop_is_not_lost(rig):

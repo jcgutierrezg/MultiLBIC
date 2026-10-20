@@ -46,7 +46,7 @@ def test_values_match_hardware_notes():
         True, True, True, False, False, False,
     ]
     assert config.ab.centre_mm == (17.5, 17.5)
-    assert config.ab.max_feed_mm_s == 2.0
+    assert config.ab.max_feed_mm_s == 6.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 
 

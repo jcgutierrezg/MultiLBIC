@@ -17,8 +17,11 @@ centre_mm = [17.5, 17.5]
 # Near the back edge the motor struggles or the grub screw slips.
 safe_min_mm = 0.0
 safe_max_mm = 35.0
-# Compiled-in Marlin limits. The EEPROM may hold others: check with M503.
-max_feed_mm_s = 2.0
+# The ceiling the software will ever command; the scan speed itself is
+# chosen per run. 6 mm/s matches the board's EEPROM, and A ran smoothly
+# at 3-6 mm/s on the bench (2026-10-20). A and B are mechanically
+# identical and share these limits. Compiled-in default: 2 mm/s.
+max_feed_mm_s = 6.0
 max_accel_mm_s2 = 50.0
 
 [xy]

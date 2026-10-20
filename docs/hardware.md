@@ -123,7 +123,7 @@ Compiled-in values that matter to the software:
 | Setting | X / Y | A / B | Note |
 |---|---|---|---|
 | steps/mm | 400 | 3200 | 16 microsteps, TMC2209 |
-| max feedrate | 20 mm/s | **2 mm/s** | but the board runs **6 mm/s** from EEPROM: see below |
+| max feedrate | 20 mm/s | **2 mm/s** | the board runs **6 mm/s** from EEPROM, and `machine.toml` now uses 6 too (D9) |
 | max acceleration | 100 mm/s² | 50 mm/s² | reaching 2 mm/s takes 0.04 s over 0.04 mm |
 | travel | 0–100 / 0–120 | 0–40 | software endstops on |
 | homing | sensorless | sensorless, stall sensitivity 8 | drives into the hard stop |
@@ -151,11 +151,9 @@ Other relevant options:
   | backlash, `M425` | X/Y 0.2 mm, correction 0 | the same, so compensation is effectively off |
   | stepping mode, `M569` | | stealthChop (S1) on every axis |
 
-  So the old script's `F360` really did run A/B at 6 mm/s. The
-  client still checks moves against `machine.toml`'s 2 mm/s, which is
-  the cautious side. Which value is right is open until the speed
-  trials (bench step 6). `tests/test_hardware.py` fails on the
-  mismatch on purpose, until it is resolved.
+  So the old script's `F360` really did run A/B at 6 mm/s. After the
+  speed trials, `machine.toml` was raised to 6 mm/s to match (decision
+  D9). `tests/test_hardware.py` checks that the two agree.
 - Plain `M114` reports the last **commanded** position, not a live
   one (see [devices](devices.md#marlin)).
 - **Releasing the motors loses the position.** Marlin cannot see a
@@ -218,8 +216,9 @@ X, Y and B did not move.
 Every speed was reached: each move is the model plus Marlin's 0.1 s
 delay. **By eye and ear, all four were smooth, with no clicking,
 grinding or overshoot** (the builder, watching). Lost steps would not
-show in the timings; there is no encoder. **B was not tested above
-2 mm/s.**
+show in the timings; there is no encoder. B was not tested above
+2 mm/s. It is mechanically identical to A and shares its limits, so a B
+trial is optional; each axis's own grub screw is the one difference.
 
 ## Source-measure unit
 

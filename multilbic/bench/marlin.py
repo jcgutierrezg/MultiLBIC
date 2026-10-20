@@ -162,8 +162,12 @@ def move_timing(marlin, machine, clock, report: Report) -> None:
     report["move_timing"] = results
 
 
+#: Fixed, so stop results stay comparable whatever the A/B ceiling is.
+STOP_FEED_MM_S = 2.0
+
+
 def stop_test(marlin: Marlin, machine, clock, report: Report) -> None:
-    feed = machine.ab.max_feed_mm_s
+    feed = STOP_FEED_MM_S
     marlin.move_to(a=BASE_A_MM, feed_mm_s=feed)
     marlin.wait_idle(timeout=30.0)
     sent = clock.now()
