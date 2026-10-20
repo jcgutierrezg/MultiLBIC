@@ -2,6 +2,17 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.2.2 - Fake Marlin stops motors and stage at one instant
+
+- Ubuntu CI failed `test_quickstop_interrupts_a_wait` after Phase 3
+  merged: `M114` reported 3.7795 mm, the stage 3.7810. The fake's
+  quickstop (changed in 0.2.0 for backlash) read the clock once for
+  the motor position and again for the stage's, so a thread stalled
+  between the two put them 0.75 ms of motion apart. It now reads the
+  clock once. `test_quickstop_stops_motors_and_stage_at_one_instant`
+  reproduces it every time with a clock that moves on at each read.
+  Simulator only; the drivers were not affected.
+
 ## 0.2.1 - Scan test: check sample times, not the drift's sign
 
 - Ubuntu CI failed `test_clock_map_follows_the_drift`: the fitted drift

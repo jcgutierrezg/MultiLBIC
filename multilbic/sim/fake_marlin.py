@@ -429,14 +429,18 @@ class FakeMarlin:
 
     def _quickstop(self) -> None:
         with self._lock:
-            position = self._position_at_locked(self.now())
-            self._load_planned = self._load_at_locked(self.now())
+            # One instant for everything: the motors and the stage stop
+            # together. Reading the clock twice let a stalled thread put
+            # M114's position and the stage's apart (Ubuntu CI).
+            now = self.now()
+            position = self._position_at_locked(now)
+            self._load_planned = self._load_at_locked(now)
             self._reset_trace_locked(self._load_planned)
             self.blocks.clear()
             self._load_start.clear()
             self.commanded = position
             self.planned = dict(position)
-            self._lockout_until = self.now() + STOP_LOCKOUT_S
+            self._lockout_until = now + STOP_LOCKOUT_S
 
     def _locked_out_locked(self) -> bool:
         return self.now() < self._lockout_until
