@@ -2,6 +2,17 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## Unreleased
+
+- Lasers checked on the bench:
+  - each of the six lights alone, the right colour, at the right servo
+    angle, so this Xiao drives them;
+  - the "two at once" seen in the fast probe never showed up one at a
+    time;
+  - servo settle on the worst 120° swing is stable at 1000 ms and slides
+    at 500 ms;
+  - open decision D10: which settle time, kept in `machine.toml`.
+
 ## 0.1.7 - A/B ceiling raised to 6 mm/s
 
 - `machine.toml`: A/B `max_feed_mm_s` is 6.0 (decision D9). It matches

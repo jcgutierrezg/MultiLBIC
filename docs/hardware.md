@@ -109,6 +109,36 @@ refuses 1.x firmware at `open()`. A laser gate input driven by Marlin comes
 later, and only if software sync is not good enough (see
 [architecture](architecture.md#position-sync)).
 
+### Lasers, checked on the bench 2026-10-20
+
+Reports `bench-results/20261020T130654Z_laser_real.json` and
+`20261020T140042Z_laser_real.json`, plus a one-at-a-time check with the
+builder watching.
+
+- **Timing is exact.** A switch that moves the servo takes the settle
+  time to within 1 ms. A same-angle switch (1↔4, 2↔5, 3↔6) takes 1 ms.
+  `STATE?` round trip: 0.42 ms.
+- **Each laser lights alone, at the right angle.** One at a time, held:
+
+  | Laser | Seen | Servo |
+  |---|---|---|
+  | 1 | one blue-violet beam | 150° |
+  | 2 | one green beam | 90° |
+  | 3 | one red beam | 30° |
+  | 4 | one deep red beam | 150° |
+  | 5 | dim deep red by eye, clear on a phone camera | 90° |
+  | 6 | nothing by eye, clear on a phone camera | 30° |
+
+  So this Xiao drives the lasers and servo, and every enable line is its
+  own. During the fast probe the builder saw two lasers lit at once.
+  Held one at a time, none ever was. The likely cause is the same-angle
+  swaps, where one laser goes off and the next comes on within 1 ms.
+- **Servo settle, worst case** (120° swing, 30° → 150°, onto laser 1):
+  **1000 ms: the spot appeared and stayed put**, twice. **500 ms: the
+  spot slid a little after appearing**, so too short. The firmware
+  default stays 2000 ms; the settle time a scan should use is decision
+  D10.
+
 ## Motion controller (Marlin)
 
 Upstream **Marlin 2.1.2.4**, environment `LPC1769`. Only
