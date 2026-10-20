@@ -110,6 +110,11 @@ class Reply:
     ok: str
     planner_free: int | None
     buffer_free: int | None
+    #: Clock time the line was written, and the time its `ok` was read
+    #: off the link (on the reader thread, before any waiting thread
+    #: wakes). The scan anchors each row on an `M400`'s `received_s`.
+    sent_s: float = 0.0
+    received_s: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -129,6 +134,8 @@ class _Pending:
     lines: list[str] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
     ok: str | None = None
+    sent_s: float = 0.0
+    received_s: float = 0.0
     failure: Exception | None = None
     done: threading.Event = field(default_factory=threading.Event)
 
@@ -261,12 +268,15 @@ class Marlin:
         self.position_trusted = True
         self.position()
 
-    def wait_idle(self, timeout: float = DEFAULT_TIMEOUT_S) -> None:
+    def wait_idle(self, timeout: float = DEFAULT_TIMEOUT_S) -> Reply:
         """Block until every queued move has finished (`M400`). After a
-        quickstop this also waits out Marlin's one-second move lockout."""
-        self.send("M400", timeout=timeout)
+        quickstop this also waits out Marlin's one-second move lockout.
+        The reply's `received_s` is when the last move ended, give or
+        take the line's latency."""
+        reply = self.send("M400", timeout=timeout)
         with self._lock:
             self._settle_after_stop = False
+        return reply
 
     def position(self) -> dict[str, float]:
         """The last commanded position (`M114`), not a live reading.
@@ -445,6 +455,7 @@ class Marlin:
             with self._lock:
                 self._pending.append(entry)
             self._log(">", wire)
+            entry.sent_s = self._clock.now()
             try:
                 self._link.write_line(wire)
             except LinkClosed as exc:
@@ -479,6 +490,8 @@ class Marlin:
             entry.ok,
             _int_or_none(_OK_P_RE, entry.ok),
             _int_or_none(_OK_B_RE, entry.ok),
+            entry.sent_s,
+            entry.received_s,
         )
 
     def _read_loop(self) -> None:
@@ -550,6 +563,7 @@ class Marlin:
             self._log("!", f"unmatched ok ignored: {line}")
             return
         self._pending.remove(match)
+        match.received_s = self._clock.now()
         match.ok = line
         match.done.set()
 

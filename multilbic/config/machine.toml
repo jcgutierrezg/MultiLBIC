@@ -9,6 +9,10 @@
 
 name = "MultiLBIC"
 
+# Mains pickup is most of the noise on open leads (docs/hardware.md); the
+# map's cleaning removes this frequency and its harmonics along each row.
+mains_hz = 50.0
+
 [ab]
 # Raster stage: 1 mm lead screws, 16 microsteps.
 steps_per_mm = 3200

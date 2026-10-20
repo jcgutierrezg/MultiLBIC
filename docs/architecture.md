@@ -5,8 +5,11 @@ title: "Architecture"
 
 # Architecture
 
-**Agreed, not built yet.** This is the design agreed before any code was
-written. Decisions are recorded in [plan](plan.md#decisions).
+This is the design agreed before any code was written. Decisions are
+recorded in [plan](plan.md#decisions). The device layer (Phase 2) and
+the scan core (Phase 3) are built; where the build differs from what
+follows, the difference is noted here and the detail is in
+[devices](devices.md) and [scan](scan.md).
 
 ## Goals
 
@@ -120,10 +123,12 @@ from the host only once, and lead-screw backlash on reversal.
    has a host arrival time. The earliest-arriving packets bound the
    offset between the two clocks to about 1 ms. Tracking it through the
    run removes drift. `set_time()` is not relied on.
-3. **Row anchors.** Each row's start and end come from the host
-   timestamps of its commands and its completion, corrected by the
-   motion profile. They are converted to SMU time through the clock
-   mapping.
+3. **Row anchors.** Each row's end comes from the host timestamp of the
+   `ok` to the `M400` after it; the start is the end minus the modelled
+   duration. Samples are put in host time through the clock mapping.
+   *As built:* the start of the move is not used, because the first-move
+   delay varies by about 20 ms on the bench, while the end is known to
+   about a millisecond ([scan](scan.md#position)).
 4. **Serpentine self-calibration** (serpentine is the default; scanning
    in one direction only is an option, D3). Any leftover constant delay, and
    backlash, shows up as a shift between forward and reverse rows.
@@ -216,6 +221,12 @@ One CSV per run, using SMUniversal's convention:
 - then one row per raw sample: laser, row, direction, SMU timestamp,
   channel 1 current and voltage, channel 2 current, mapped X and Y.
 
+*As built* ([scan](scan.md#the-run-file)): one file per laser, one line
+per streamed packet with a channel column (the two channels stream
+separate packets), and the host arrival time kept too. What is only
+known at the end goes in a trailer of the same `#` lines rather than
+rewriting the header.
+
 Per-row anchors go in as `#row` comment lines, so
 `pd.read_csv(path, comment="#")` still returns the plain sample table.
 
@@ -224,8 +235,9 @@ Per-row anchors go in as `#row` comment lines, so
 0 V noise on open leads is at 50 Hz. Raw samples are kept with their
 timestamps, so the map can be cleaned afterwards with a notch at 50 Hz
 and its harmonics along each row, or by averaging each pixel over whole
-20 ms cycles. Both belong in Phase 3's binning, and the mains frequency
-goes into `machine.toml`.
+20 ms cycles. *As built:* a pixel lasts a few milliseconds, too short to
+average whole cycles, so each row has the best-fitting mains sines
+subtracted; `mains_hz` is in `machine.toml`.
 
 **Drift is the harder problem** (measured with a contacted cell in the
 dark: most of the noise is 0.2–0.7 Hz drift, where map features sit at
@@ -240,8 +252,9 @@ the noise floor the map has to clear, under that run's real conditions
 (room light, mains, cabling).
 
 **The file is appended after every completed row** and flushed to disk
-(D1). Until the run finishes, the header says `status: incomplete`. A
-Stop or a crash leaves every finished row readable.
+(D1). Until the run finishes, the header says `status: incomplete`, and
+a trailer appended at the end says `complete`. A Stop or a crash leaves
+every finished row readable.
 
 **Size matters.** A 30×30 mm map at 10 µm rows with 1 kHz streaming is
 tens of millions of samples, over 1 GB per laser. The stream rate is
@@ -269,7 +282,8 @@ the same protocol parsing is exercised in tests as on the machine.
 and clock drift must recover the pattern within a stated position
 tolerance. The fake uses Marlin's motion model and the sync code uses
 its own, so the test can catch a wrong model, not just confirm the code
-agrees with itself.
+agrees with itself. It passes; the numbers are in
+[scan](scan.md#the-simulated-scan).
 
 ## Stop and faults
 

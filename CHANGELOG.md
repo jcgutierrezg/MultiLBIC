@@ -2,6 +2,63 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.2.1 - Scan test: check sample times, not the drift's sign
+
+- Ubuntu CI failed `test_clock_map_follows_the_drift`: the fitted drift
+  came out +20 ppm against the injected -100. Over the ~20 s simulated
+  scan, 100 ppm is only 2 ms, about the scatter a busy runner puts on
+  the clock map's window minima, so the slope is not resolvable there.
+  The test now checks what drift would spoil: every sample's mapped
+  time is within 5 ms of its true time (5 µm at 1 mm/s, the edge
+  tolerance). Drift recovery stays tested on a 60 s synthetic stream
+  in `tests/test_scan_timing.py`.
+
+## 0.2.0 - Phase 3: the scan core, in simulation
+
+A new session, so the second number moves. The first push of this
+work was labelled 0.1.12 by mistake; it is the same change.
+
+- **The scan core** (`multilbic/scan/`, no I/O): sample frame, row plan
+  (serpentine, run-up from the acceleration, stream rate from the pixel
+  size, bounds and speed refused before anything moves, time estimate),
+  the scan's own trapezoid model, the clock map (lower edge of each
+  window's smallest arrival gap, updated as samples arrive), row anchors
+  on the `M400` ok, the serpentine shift from cross-correlating
+  neighbouring rows, dark baseline, per-row mains removal, the pixel
+  grid, and `build_map()` from a run's raw record. Slow drift is left
+  in (D8, set aside: no enclosure for now).
+- **The run file** (`multilbic/store/runfile.py`): one CSV per laser
+  map, `#` header, `#row` anchors, one line per packet with both
+  timestamps, appended and flushed per row, a trailer at the end
+  (status, clock map). Reader included. Maps save as PNG.
+- **One laser's map on the devices** (`multilbic/run/rows.py`): position
+  with B taken up from below, baseline with the laser off, laser on,
+  rows; however it ends, laser off, stream stopped, output off and the
+  file marked. Only run in simulation so far.
+- **Simulators:** backlash per axis in the fake Marlin (a dead band
+  between motor and stage) and the stage's whole path kept for
+  checking; `M400` answers the moment the queue ends; reply latency and
+  jitter on the fake link; bench-shaped noise in the fake SMU (mains,
+  0.2–0.7 Hz drift) and delivery in 100 ms bursts; a synthetic sample
+  with exact Gaussian-spot edges; `sim/rig.py` joins it all up.
+- `python -m multilbic.sim.scan`: a headless scan of the synthetic
+  sample with the agreed faults (5 ms latency, 20 µm backlash, SMU clock
+  100 ppm fast). At 2× real time: worst A edge 3.8 µm (tolerance 5),
+  worst B edge 9.4 µm (pitch 50), shift 9.93 µm measured vs 9.68
+  present (tolerance 2), every on-sample position within 0.52 µm of the
+  true stage. `tests/test_sim_scan.py` asserts these.
+- Marlin replies carry `sent_s` and `received_s`; `wait_idle()` returns
+  its reply.
+- `ScaledClock(precise=True)`: sleeps short and yields to the exact
+  moment. A plain sleep overshoots ~0.5 ms on Windows, which the
+  speed-up turns into simulated latency the scan tests would measure.
+- `machine.toml` gains `mains_hz = 50.0`. numpy and matplotlib are
+  direct dependencies (already installed through SMUniversal).
+- Docs: [scan](docs/scan.md) is new; architecture notes where the build
+  differs from the design (end-only anchors, the file's trailer and
+  channel column, mains by fitted sines).
+- The suite takes ~37 s instead of ~22 s, mostly the end-to-end scan.
+
 ## 0.1.11 - Simulators slowed for busy CI runners
 
 - Windows CI failed `test_jog_before_homing` with a spurious

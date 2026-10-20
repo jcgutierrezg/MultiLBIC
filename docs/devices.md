@@ -16,9 +16,10 @@ in for it (`multilbic/sim/`). What the machine *is* lives in
 | miniSMU | `hardware/smu.py` (+ SMUniversal's driver) | `sim/fake_smu.py` | the vendor library, `minismu_py` |
 
 Every driver takes a `Clock` (`multilbic/clock.py`). On the machine that
-is real time. In tests it is a `ScaledClock` running 100× faster, so a
-15 s row takes 0.15 s and every timeout, sleep and timestamp still
-agrees.
+is real time. In tests it is a `ScaledClock` running 20× faster, so a
+15 s row takes 0.75 s and every timeout, sleep and timestamp still
+agrees. The scan's timing tests use `ScaledClock(2, precise=True)`
+instead: see [scan](scan.md#the-simulated-scan) for why.
 
 The simulators run the **real drivers** over the **same text**. Only
 the far end of the cable is fake (`sim/link.py`), so protocol parsing is
@@ -67,6 +68,19 @@ Behaviours worth knowing, all checked in the Marlin 2.1.2.4 source:
   for alignment.
 - **A wrong port fails at `open()`**: `M115` must report
   `MACHINE_TYPE:MultiLBIC`.
+- **Every reply is timed.** `Reply.sent_s` is when the line was
+  written and `Reply.received_s` when its `ok` was read, on the reader
+  thread. `wait_idle()` returns its reply; the scan anchors each row on
+  that `received_s`.
+
+The fake Marlin can also be given **backlash** per axis: the motors
+follow the plan, and the stage trails them through a dead band, so on a
+reversal the motor turns through the whole backlash before the stage
+moves. `stage_position()` is where the stage is; `motor_position()`
+where Marlin drove the motors; `past_stage_position(t)` looks up any
+time since the last home or stop. Its `M400` answers the moment the
+queue ends, as Marlin's does. The fake link can delay every reply
+(`connect(..., latency_s, jitter_s)`), in order.
 
 ## Laser board: protocol 2.0
 

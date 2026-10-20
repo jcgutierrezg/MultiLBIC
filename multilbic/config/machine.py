@@ -105,6 +105,8 @@ class MachineConfig:
     #: Keyed by `sys.platform` ("linux", "win32", ...).
     ports_by_platform: dict[str, Ports]
     baud: int
+    #: The local mains frequency, which the map's cleaning removes.
+    mains_hz: float
 
     def laser(self, number: int) -> Laser:
         for laser in self.lasers:
@@ -151,6 +153,7 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
             for platform, table in top.table("ports").subtables()
         },
         baud=top.table("serial").read_positive_int("baud"),
+        mains_hz=top.read_positive_float("mains_hz"),
     )
     top.done()
     _check_lasers(config.lasers, source)
