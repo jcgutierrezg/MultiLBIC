@@ -30,6 +30,8 @@ from multilbic.sim.motion import AXES, AxisLimits, Block
 BUFSIZE = 4
 BLOCK_BUFFER_SIZE = 16
 FIRST_MOVE_DELAY_S = 0.100  # BLOCK_DELAY_FOR_1ST_MOVE in planner.cpp
+#: After M410 the planner drops new moves for 1 s (cleaning_buffer_counter).
+STOP_LOCKOUT_S = 1.0
 KEEPALIVE_S = 2.0  # DEFAULT_KEEPALIVE_INTERVAL
 DEFAULT_ACCEL_MM_S2 = 100.0
 DEFAULT_FEED_MM_S = 25.0
@@ -95,7 +97,11 @@ class FakeMarlin:
         self._wake = threading.Event()
 
         # Marlin state
+        #: Marlin's current_position: what M114 reports.
         self.commanded = {axis: 0.0 for axis in AXES}
+        #: Marlin's planner.position: where the last accepted move ends.
+        #: The two differ after a move dropped during the stop lockout.
+        self.planned = {axis: 0.0 for axis in AXES}
         self.blocks: list[Block] = []
         self.relative = False
         self.feed_mm_s = DEFAULT_FEED_MM_S
@@ -104,6 +110,9 @@ class FakeMarlin:
         self.halted = False
         self.last_n = 0
         self.auto_report_s = 0.0
+        self._lockout_until = float("-inf")
+        #: Moves dropped during a post-stop lockout, for tests.
+        self.dropped_moves = 0
         #: Every command executed, without line number or checksum.
         self.executed: list[str] = []
 
@@ -161,6 +170,7 @@ class FakeMarlin:
         with self._lock:
             self.blocks.clear()
             self.commanded = {axis: 0.0 for axis in AXES}
+            self.planned = {axis: 0.0 for axis in AXES}
             self.homed = False
             self.last_n = 0
         self._send("start")
@@ -276,7 +286,7 @@ class FakeMarlin:
                 return dict(block.start)
         if self.blocks and t >= self.blocks[-1].t_end:
             return dict(self.blocks[-1].end)
-        return dict(self.commanded)
+        return dict(self.planned)
 
     def _wait_while(self, condition) -> None:
         """Block like a synchronising Marlin command, with keepalives."""
@@ -297,13 +307,19 @@ class FakeMarlin:
         self._wait_while(self._planner_full_locked)
         with self._lock:
             now = self.now()
+            if self._locked_out_locked():
+                # Marlin drops the move but still reports its target as
+                # the position (current_position = destination).
+                self.dropped_moves += 1
+                self.commanded = dict(target)
+                return
             self._retire_locked(now)
             if self.blocks:
                 t_start = self.blocks[-1].t_end
             else:
                 t_start = now + FIRST_MOVE_DELAY_S
             block = motion.plan(
-                dict(self.commanded),
+                dict(self.planned),
                 target,
                 self.feed_mm_s,
                 self.limits,
@@ -312,6 +328,7 @@ class FakeMarlin:
             )
             if block.distance_mm > 0:
                 self.blocks.append(block)
+            self.planned = dict(target)
             self.commanded = dict(target)
             self.motors_on = True  # Marlin enables steppers to move
 
@@ -320,6 +337,11 @@ class FakeMarlin:
             position = self._position_at_locked(self.now())
             self.blocks.clear()
             self.commanded = position
+            self.planned = dict(position)
+            self._lockout_until = self.now() + STOP_LOCKOUT_S
+
+    def _locked_out_locked(self) -> bool:
+        return self.now() < self._lockout_until
 
     def _kill(self) -> None:
         with self._lock:
@@ -365,6 +387,7 @@ class FakeMarlin:
         with self._lock:
             for axis in axes:
                 self.commanded[axis] = 0.0
+                self.planned[axis] = 0.0
             self.homed = True
             self.motors_on = True
 
@@ -375,7 +398,10 @@ class FakeMarlin:
         self.relative = True
 
     def _cmd_M400(self, command: str) -> None:
-        self._wait_while(self._busy_locked)
+        # planner.synchronize() also waits out the post-stop lockout.
+        self._wait_while(
+            lambda: self._busy_locked() or self._locked_out_locked()
+        )
 
     def _cmd_M410(self, command: str) -> None:
         self._quickstop()

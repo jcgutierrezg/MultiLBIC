@@ -217,3 +217,31 @@ def test_settings_dump(rig):
     client, _, _ = rig
     lines = client.settings()
     assert any("M203" in line and "A2.00" in line for line in lines)
+
+
+def test_move_right_after_quickstop_is_not_lost(rig):
+    # Bench, 2026-10-20: for 1 s after M410 Marlin drops new moves while
+    # answering ok and reporting their target as the position.
+    client, fake, clock = rig
+    client.home()
+    client.move_to(a=20.0, feed_mm_s=2.0)
+    clock.sleep(1.0)
+    client.quickstop()
+    client.move_to(a=5.0, feed_mm_s=2.0)  # immediately after the stop
+    client.wait_idle(timeout=10.0)
+    assert fake.dropped_moves == 0
+    assert fake.stage_position()["A"] == pytest.approx(5.0)
+
+
+def test_fake_drops_moves_during_the_lockout(rig):
+    # The behaviour the client guards against, checked on the fake.
+    client, fake, clock = rig
+    client.home()
+    client.move_to(a=20.0, feed_mm_s=2.0)
+    clock.sleep(1.0)
+    client.quickstop()
+    client._settle_after_stop = False  # bypass the guard
+    client.move_to(a=5.0, feed_mm_s=2.0)
+    assert fake.dropped_moves == 1
+    assert client.position()["A"] == pytest.approx(5.0)  # Marlin's claim
+    assert fake.stage_position()["A"] != pytest.approx(5.0)

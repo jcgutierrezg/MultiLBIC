@@ -2,7 +2,21 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
-## Unreleased
+## 0.1.6 - Motion measured; no moves lost after a stop
+
+- First homing and motion run on the machine:
+  - homing takes 33.5 s;
+  - A/B speeds are exact at 1 and 2 mm/s;
+  - each move carries 113–135 ms, which is Marlin's 100 ms first-move
+    delay plus acceleration;
+  - Stop acts at once.
+- Found on it: for 1 s after `M410`, Marlin silently drops new moves and
+  reports their target as the position. `Marlin.quickstop()` now makes
+  the next move wait with `M400` first. The fake Marlin models the
+  lockout and keeps its reported and planned positions apart; two tests
+  cover it.
+
+## Earlier on 0.1.5
 
 - Contacted-cell noise measured:
   - lights on: −165 µA background, 1.7 µA RMS, mostly slow drift plus

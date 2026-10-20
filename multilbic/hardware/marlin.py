@@ -159,6 +159,9 @@ class Marlin:
         #: anything until the next home.
         self.position_trusted = False
         self._commanded: dict[str, float] | None = None
+        #: Set by quickstop(): the next move waits for Marlin's planner
+        #: to accept moves again.
+        self._settle_after_stop = False
         self.last_report: dict[str, float] | None = None
         #: (clock time, ">" or "<", line), for the GUI console.
         self.traffic: collections.deque[tuple[float, str, str]] = (
@@ -239,10 +242,18 @@ class Marlin:
         is waiting: the emergency parser acts on the bytes as they
         arrive. The commanded position becomes unknown, because Marlin
         resets it to wherever the steppers actually stopped.
+
+        For one second afterwards Marlin's planner silently drops every
+        new move while still answering `ok`, and still sets its reported
+        position to the dropped move's target (`Planner::quick_stop()`
+        and `prepare_line_to_destination()` in Marlin 2.1.2.4; seen on
+        the bench 2026-10-20 as a 1.0 s `M400`). So the next move first
+        waits that second out with `M400`.
         """
         self._submit("M410", numbered=False)
         with self._lock:
             self._commanded = None
+            self._settle_after_stop = True
 
     def home(self) -> None:
         self.send("G28", timeout=HOME_TIMEOUT_S)
@@ -251,8 +262,11 @@ class Marlin:
         self.position()
 
     def wait_idle(self, timeout: float = DEFAULT_TIMEOUT_S) -> None:
-        """Block until every queued move has finished (`M400`)."""
+        """Block until every queued move has finished (`M400`). After a
+        quickstop this also waits out Marlin's one-second move lockout."""
         self.send("M400", timeout=timeout)
+        with self._lock:
+            self._settle_after_stop = False
 
     def position(self) -> dict[str, float]:
         """The last commanded position (`M114`), not a live reading.
@@ -349,6 +363,10 @@ class Marlin:
     ) -> Reply:
         if not target:
             raise MotionLimitError("move with no axis")
+        with self._lock:
+            settle = self._settle_after_stop
+        if settle:
+            self.wait_idle()
         start = self._known_position()
         if check_bounds:
             self._check_bounds(target)

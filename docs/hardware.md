@@ -175,6 +175,32 @@ settle it, and A/B speed is what sets the run time (see
 Measured 2026-10-19: an `M114` round trip takes **1.7 ms** median
 (2.1 ms max). The board was unhomed at power-up, all axes at 0.
 
+### Motion, measured 2026-10-20
+
+Report `bench-results/20261020T123740Z_marlin_real.json` (commit
+`14db999`). Probe lifted, stage clear, `--home --motion`:
+
+- **Homing all axes takes 33.5 s**, sensorless, without incident.
+- **Speeds are exact**: fitting time against distance for 1–10 mm moves
+  gives 0.999–1.000 mm/s at 1 mm/s and 2.000 mm/s at 2 mm/s, on A and
+  on B. Nothing is clamped below 2 mm/s, as expected with 6 mm/s in
+  EEPROM.
+- **Each move carries a fixed 113–135 ms**, 95–99 ms more than the
+  trapezoid model alone. That is Marlin's 100 ms first-move delay, seen
+  on the hardware. Model plus delay predicts a move's duration to within
+  about 5 ms.
+- **Stop acts at once**: a 2 mm/s move stopped with `M410` after 2.00 s
+  had travelled 3.763 mm. The 120 ms shortfall is exactly first-move
+  delay plus acceleration, so no lag is left for the stop itself.
+- **For 1 s after a stop Marlin ignores moves.** The `M400` after `M410`
+  took 1.0 s. Marlin's `Planner::quick_stop()` drops every new move for
+  one second while still answering `ok`, and `prepare_line_to_destination()`
+  still sets the reported position to the dropped move's target. A move
+  sent right after Stop would be lost silently, with `M114` claiming it
+  happened. The client now waits that second out with `M400` before the
+  next move (0.1.6).
+- `busy:` keepalives arrive every 2.000 s during long waits.
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial

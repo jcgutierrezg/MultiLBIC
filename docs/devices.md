@@ -51,6 +51,12 @@ Behaviours worth knowing, all checked in the Marlin 2.1.2.4 source:
   anything. The emergency parser acts on it as the bytes arrive. The
   line is still queued, and its later `ok` is expected. Afterwards
   Marlin's position is where the steppers actually stopped.
+- **After a stop, the next move waits 1 s.** Marlin drops moves for one
+  second after `M410`, while answering `ok` and reporting the dropped
+  move's target as its position (seen on the bench). So the client sends
+  `M400` before the first move after a stop. The fake Marlin drops moves
+  the same way, and keeps the reported position (`commanded`) separate
+  from the planned one (`planned`), so tests see the difference.
 - **Limits are enforced by the client.** Marlin would silently slow a
   too-fast move (the old `F360` ran at 2 mm/s) and silently clamp an
   out-of-range target. The client raises `MotionLimitError` instead.
