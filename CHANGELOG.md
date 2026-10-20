@@ -2,6 +2,14 @@
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 
+## 0.1.9 - Speed trials on either axis
+
+- `python -m multilbic.bench.marlin --speeds ... --speed-axis b` runs the
+  speed trials on B. Only that axis moves.
+- `--speeds` now needs only `--home`, not the full motion run, and each
+  trial starts from a fixed position, so every timed move is a full
+  20 mm.
+
 ## 0.1.8 - Lasers checked; settle time from machine.toml
 
 - Lasers checked on the bench:

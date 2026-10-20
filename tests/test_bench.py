@@ -50,11 +50,29 @@ def test_marlin_full(tmp_path):
     assert results["speeds"][0]["speed_mm_s"] == 3.0
 
 
+def test_marlin_speed_trial_on_b_moves_only_b(tmp_path):
+    # --speeds needs only --home; --speed-axis b moves B and nothing else.
+    argv = [
+        "--sim", "--home", "--speeds", "4", "--speed-axis", "b",
+        "--out", str(tmp_path),
+    ]
+    assert marlin.main(argv) == 0
+    results = _report(tmp_path, "marlin")["results"]
+    assert "move_timing" not in results
+    row = results["speeds"][0]
+    assert row["axis"] == "B" and row["speed_mm_s"] == 4.0
+    # Every timed move is a full 20 mm at 4 mm/s: model 5.08 s plus the
+    # first-move delay.
+    assert row["move_s"]["min"] > 5.0
+    sent = " ".join(results["traffic_tail"])
+    assert "G1 A" not in sent.split("M203 A4 B4")[-1]
+
+
 def test_marlin_flags_are_ordered():
     with pytest.raises(SystemExit):
         marlin.main(["--sim", "--motion"])
     with pytest.raises(SystemExit):
-        marlin.main(["--sim", "--home", "--speeds", "3"])
+        marlin.main(["--sim", "--speeds", "3"])
 
 
 def test_laser(tmp_path):

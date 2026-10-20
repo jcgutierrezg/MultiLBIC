@@ -3,7 +3,8 @@ Marlin on the bench: what it is really running, and how it really times.
 
     python -m multilbic.bench.marlin --real                      # no motion
     python -m multilbic.bench.marlin --real --home --motion      # + AB moves
-    python -m multilbic.bench.marlin --real --home --motion --speeds 3,4,5
+    python -m multilbic.bench.marlin --real --home --speeds 3,4,5,6
+    python -m multilbic.bench.marlin --real --home --speeds 3,4,5,6 --speed-axis b
 
 Stages, each opted into:
 
@@ -21,10 +22,11 @@ Stages, each opted into:
    * **stop.** A 10 s move is stopped with `M410` after 2 s; where it
      stopped says how quickly Stop acts.
    * **keepalive.** Spacing of `busy: processing` during a long `M400`.
-4. **`--speeds 3,4,5`** (needs `--motion`). Raises the A/B max feedrate
+4. **`--speeds 3,4,5`** (needs `--home`). Raises the A/B max feedrate
    with `M203`, **for this power cycle only** (nothing is saved to
    EEPROM; the original value is restored at the end), and runs 20 mm
-   back-and-forth moves at each speed. Watch and listen: lost steps
+   back-and-forth moves at each speed on one axis: A by default, B with
+   `--speed-axis b`. Only that axis moves. Watch and listen: lost steps
    don't show in the numbers, because there is no encoder. `M122` after
    each speed records driver flags.
 """
@@ -228,11 +230,18 @@ def _m203_ab(settings: list[str]) -> tuple[float, float] | None:
     return None
 
 
-def speeds(marlin: Marlin, machine, clock, report: Report, values) -> None:
+def speeds(
+    marlin: Marlin, machine, clock, report: Report, values, axis: str = "a"
+) -> None:
     original = _m203_ab(report["m503"])
     if original is None:
         report.note("could not read M203 for A/B: speed test skipped")
         return
+    base = BASE_A_MM if axis == "a" else BASE_B_MM
+    # Start every trial from the same place, so the first timed move is
+    # a full 20 mm like the rest.
+    marlin.move_to(feed_mm_s=1.0, **{axis: base})
+    marlin.wait_idle(timeout=60.0)
     rows = []
     try:
         for speed in values:
@@ -242,17 +251,23 @@ def speeds(marlin: Marlin, machine, clock, report: Report, values) -> None:
                 ab=dataclasses.replace(machine.ab, max_feed_mm_s=speed),
             )
             marlin.use_limits(raised)
-            say(f"speed {speed:g} mm/s: 3 x {LONG_MOVE_MM:g} mm back and forth")
+            say(
+                f"speed {speed:g} mm/s on {axis.upper()}: "
+                f"3 x {LONG_MOVE_MM:g} mm back and forth"
+            )
             times = []
             for _ in range(3):
                 times.append(
-                    timed_move(marlin, clock, speed, a=BASE_A_MM + LONG_MOVE_MM)
+                    timed_move(
+                        marlin, clock, speed, **{axis: base + LONG_MOVE_MM}
+                    )
                 )
-                times.append(timed_move(marlin, clock, speed, a=BASE_A_MM))
+                times.append(timed_move(marlin, clock, speed, **{axis: base}))
             predicted = model_duration(raised, LONG_MOVE_MM, speed)
             m122 = list(marlin.send("M122", timeout=10.0).lines)
             rows.append(
                 {
+                    "axis": axis.upper(),
                     "speed_mm_s": speed,
                     "move_s": summary(times),
                     "model_s": predicted,
@@ -294,11 +309,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--speeds", default="", help="comma-separated A/B speeds, mm/s"
     )
+    parser.add_argument(
+        "--speed-axis",
+        choices=("a", "b"),
+        default="a",
+        help="which axis the speed trials move (default a)",
+    )
     args = parser.parse_args(argv)
     if args.motion and not args.home:
         parser.error("--motion needs --home")
-    if args.speeds and not args.motion:
-        parser.error("--speeds needs --motion")
+    if args.speeds and not args.home:
+        parser.error("--speeds needs --home")
     speed_values = [float(v) for v in args.speeds.split(",") if v.strip()]
 
     machine, clock = setup(args)
@@ -314,7 +335,9 @@ def main(argv: list[str] | None = None) -> int:
             stop_test(marlin, machine, clock, report)
             keepalive(marlin, machine, clock, report)
         if speed_values:
-            speeds(marlin, machine, clock, report, speed_values)
+            speeds(
+                marlin, machine, clock, report, speed_values, args.speed_axis
+            )
     except Exception as exc:
         report["error"] = f"{type(exc).__name__}: {exc}"
         say(f"FAILED: {report['error']}")
