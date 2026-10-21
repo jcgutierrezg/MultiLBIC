@@ -105,6 +105,7 @@ board may have restarted since calibration.
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers with placeholder positions |
+| `--note "room lights on"` | | free text in every file header and `run.json` |
 | `--out DIR` | `~/multilbic-runs` (`runs/` with `--sim`) | |
 | `--yes` | | don't ask; needed without a terminal |
 | `--sim`, `--speedup 5` | | the simulated machine, its speed |

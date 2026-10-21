@@ -3,6 +3,17 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.2 - Ready for room light
+
+The room light can't be fully turned off for the first maps.
+
+- The lowest stream rate is now 400 Hz (was 200). Room light flickers
+  at 100 Hz; at 200 Hz that flicker, and the 150 Hz mains harmonic, sit
+  at or near half the sample rate, where the per-row cleaning can't fit
+  them. A 10 µm pixel at 1 mm/s now streams at 400 Hz.
+- `multilbic run --note "..."` writes free text (lighting, contacts)
+  into every file header and `run.json`.
+
 ## 0.4.1 - Jog with keys during calibration
 
 - `keys` in `multilbic calibrate`: `wasd` jogs (`d`/`a` X or A,

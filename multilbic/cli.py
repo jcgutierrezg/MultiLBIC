@@ -141,6 +141,7 @@ def run(args: argparse.Namespace) -> int:
         calibration, lasers, args.pixel, args.pitch, args.speed,
         serpentine=not args.one_direction, bias_v=args.bias,
         baseline_s=args.baseline, allow_unmeasured=args.allow_unmeasured,
+        note=args.note,
     )
     try:
         plans = plan_run(request, machine)
@@ -276,6 +277,8 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--baseline", type=float, default=3.0,
                     help="s of laser-off baseline per laser")
     go.add_argument("--one-direction", action="store_true")
+    go.add_argument("--note", default="",
+                    help="free text for the file headers, e.g. lighting")
     go.add_argument("--allow-unmeasured", action="store_true",
                     help="scan lasers whose positions are placeholders")
     go.add_argument("--out", default="", help="folder for runs")

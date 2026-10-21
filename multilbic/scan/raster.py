@@ -29,8 +29,12 @@ from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid, axis_accel
 #: near 1400 Hz and the Pi's bulk reader kept up at about 1190 Hz
 #: (bench, 2026-10-19); 1000 leaves a margin.
 MAX_STREAM_HZ = 1000.0
-#: Below this the 50 Hz mains is sampled too coarsely to remove.
-MIN_STREAM_HZ = 200.0
+#: The per-row cleaning fits sines at 50, 100 and 150 Hz, and room light
+#: flickers at 100 Hz (8 % of the noise with the lights on, bench
+#: 2026-10-20). Below about 400 Hz the 100 Hz and 150 Hz sines sit at or
+#: near half the sample rate, where they can't be told apart from each
+#: other or fitted.
+MIN_STREAM_HZ = 400.0
 #: Run-up beyond the acceleration distance.
 RUN_UP_MARGIN_MM = 0.05
 MIN_RUN_UP_MM = 0.1

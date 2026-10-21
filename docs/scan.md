@@ -32,8 +32,8 @@ are in [plan](plan.md#decisions).
   0.05 mm, at least 0.1 mm: at 5 mm/s that is 0.3 mm.
 - Serpentine by default (D3); one direction returns A between rows.
 - **Stream rate** (D2): 2 samples per pixel at the scan speed, kept
-  between 200 Hz (below that 50 Hz is too coarsely sampled to remove)
-  and 1000 Hz (the Pi's reader kept up to ~1190/s). A pixel too small
+  between 400 Hz (below that the 100 Hz room-light flicker and the
+  150 Hz mains harmonic can't be fitted and removed) and 1000 Hz (the Pi's reader kept up to ~1190/s). A pixel too small
   for the speed is refused with the speed that would work.
 - Refused before anything moves: a speed over `[ab] max_feed_mm_s`, a
   pitch below one microstep, and any row outside the AB safe range.

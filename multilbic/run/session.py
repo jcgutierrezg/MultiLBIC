@@ -66,6 +66,9 @@ class RunRequest:
     baseline_s: float = DEFAULT_BASELINE_S
     #: Allow lasers whose position in machine.toml is a placeholder.
     allow_unmeasured: bool = False
+    #: Free text for the file headers: lighting, contacts, anything
+    #: the data can't say for itself.
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -255,6 +258,7 @@ class Session:
                 provenance=self.provenance,
             )
             header["run_id"] = self.run_id
+            header["note"] = self.request.note
             header["xy_mm"] = list(plan.placement.xy_mm)
             header["calibration"] = self.request.calibration.to_dict()
             writer = RunWriter(path, header)
@@ -340,6 +344,7 @@ class Session:
                 "bias_v": r.bias_v,
                 "baseline_s": r.baseline_s,
                 "allow_unmeasured": r.allow_unmeasured,
+                "note": r.note,
             },
             "plans": [
                 {
