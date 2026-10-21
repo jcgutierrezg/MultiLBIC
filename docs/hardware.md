@@ -59,6 +59,16 @@ replaced it, and nothing should still refer to it.
   the grub screw slips. The safe range is about 0–35 mm. The grub screw
   sits on the shaft's thread. A flat ground into the shaft is the
   planned fix (small hardware change, owed).
+- **XY and AB move the sample the same ways** (bench, 2026-10-21,
+  laser 2 on a mark; as the operator looks at the stage): **+X and +A
+  move the sample up, +Y and +B move it right**, and both stages home to
+  the bottom-left, like the first quadrant of a graph. So `x_along =
+  "+A"`, `y_along = "+B"` in `machine.toml`.
+  - Since the sample moves under a fixed spot, raising A brings the
+    part of the sample *below* the spot under it. A sample therefore
+    extends down and to the left of the corner calibration uses: the
+    **top-right corner**, as seen by the operator (the old script asked
+    for the top-right corner too).
 - **Z has a driver and no motor.** Marlin would not build XYAB without
   Z. The software never moves Z.
 - **Samples** are solar cells, 100–300 µm thick, typically 10, 20 or

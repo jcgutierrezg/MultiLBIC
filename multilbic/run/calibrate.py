@@ -4,7 +4,9 @@ Corner calibration at the machine: an interactive prompt.
 On start the stage homes, XY goes to the reference laser's position, AB
 to its centre, and the reference laser comes on. You jog **XY** until
 the laser spot sits on the sample's corner - the corner the sample
-extends from towards +A and +B - then fine-tune with AB if you like,
+extends from towards +A and +B, which on this machine is its top-right
+corner as you look at it (+A moves the sample up, +B right;
+docs/hardware.md) - then fine-tune with AB if you like,
 record it with `here`, give the size, and watch the laser trace the
 outline with `trace`. If the outline sits on the sample, `save`.
 
@@ -121,7 +123,8 @@ class CalibrationPrompt:
         if check is None:
             self.write(
                 f"laser {self.reference} is on. Jog XY until the spot is on "
-                "the corner the sample extends from towards +A and +B, then "
+                "the sample's TOP-RIGHT corner as you look at it (the "
+                "corner the sample extends from towards +A and +B), then "
                 "'here'. 'help' lists commands."
             )
         else:

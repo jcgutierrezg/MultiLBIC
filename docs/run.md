@@ -77,7 +77,10 @@ For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). Which
 way `w` moves the spot on the sample depends on the axis directions,
 which bench step 1 finds.
 
-**The corner** is the one the sample extends from towards +A and +B.
+**The corner** is the one the sample extends from towards +A and +B:
+on this machine, the sample's **top-right corner** as you look at the
+stage, since +A moves the sample up and +B moves it right
+([hardware](hardware.md#mechanics)).
 Every jog ends moving up, like every move a run makes. Jog XY to get
 close, fine-tune with XY or AB, `here`, `size`, `trace`; if the outline
 sits on the sample, `save`.

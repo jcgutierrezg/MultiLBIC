@@ -119,8 +119,9 @@ contacted solar cell with fingers. The bench session is
 **State (0.4.0): built and tested in simulation.** `multilbic
 calibrate` and `multilbic run` ([run](run.md)); XY placement with
 swapped and reversed axes, Stop mid-run and three injected faults all
-tested against the simulators. Owed: the bench session, starting with
-the axis directions; `run` refuses the machine until they are checked.
+tested against the simulators. Bench: axis directions checked 2026-10-21 (X along +A, Y
+along +B; the calibration corner is the sample's top-right as seen at
+the machine). Owed: the rest of the session.
 
 ### Phase 5: GUI
 

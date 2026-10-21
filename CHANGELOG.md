@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.5 - Axis directions checked on the machine
+
+- Bench step 1 (2026-10-21, laser 2 on a mark): +X and +A move the
+  sample up, +Y and +B move it right, as the operator sees it; both
+  stages home to the bottom-left. `machine.toml` keeps `x_along = "+A"`,
+  `y_along = "+B"` and now says `directions_measured = true`, so `run`
+  accepts the machine.
+- That makes the calibration corner the sample's **top-right** corner
+  as seen at the machine. The calibrate prompt and the docs now say so.
+
 ## 0.4.4 - setup.sh runs the steps it just checked out
 
 - The run of `deploy/pi/setup.sh` that fetched 0.4.3 still failed the

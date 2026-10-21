@@ -86,12 +86,13 @@ measured = false
 reference_laser = 2
 # XY carries the whole AB gantry, so moving XY moves the sample under the
 # beam like moving AB does. These say along which AB axis, and which way:
-# "+A" means X up moves the sample the same way as A up. The old script
-# assumed X along A and Y along B, same way. NOT MEASURED: the first
-# Phase 4 bench step checks them with the laser on.
+# "+A" means X up moves the sample the same way as A up. Checked on the
+# bench 2026-10-21 with laser 2 on a mark: +X and +A both move the mark
+# up, +Y and +B both move it right, as the operator sees it; both stages
+# home to the bottom-left (docs/hardware.md).
 x_along = "+A"
 y_along = "+B"
-directions_measured = false
+directions_measured = true
 # Marlin lists 0.2 mm of X/Y backlash with correction 0, so every placing
 # move ends moving up, from at least this far below. The AB value is
 # above the 20 um the simulations assume.

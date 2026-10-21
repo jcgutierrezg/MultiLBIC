@@ -46,11 +46,23 @@ def test_run_sim_end_to_end(machine, tmp_path, capsys):
 
 
 def test_real_run_refused_until_directions_are_checked(machine, tmp_path):
+    from importlib import resources
+
     path, _, _ = saved_calibration(machine, tmp_path)
-    assert not machine.geometry.directions_measured
+    text = (
+        resources.files("multilbic.config").joinpath("machine.toml")
+        .read_text(encoding="utf-8")
+    )
+    assert "directions_measured = true" in text
+    unchecked = tmp_path / "machine.toml"
+    unchecked.write_text(
+        text.replace("directions_measured = true",
+                     "directions_measured = false"),
+        encoding="utf-8",
+    )
     with pytest.raises(SystemExit, match="directions_measured"):
-        cli.main(["run", str(path), "--yes", "--lasers", "2",
-                  "--pixel", "0.01", "--pitch", "0.05"])
+        cli.main(["--machine", str(unchecked), "run", str(path), "--yes",
+                  "--lasers", "2", "--pixel", "0.01", "--pitch", "0.05"])
 
 
 def test_bad_requests_are_refused_before_devices(machine, tmp_path):

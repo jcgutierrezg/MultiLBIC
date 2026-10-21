@@ -182,8 +182,8 @@ def test_geometry_defaults(machine):
     g = machine.geometry
     assert g.reference_laser == 2
     assert (g.x_along, g.y_along) == ("+A", "+B")
-    # Not measured yet: the first Phase 4 bench step checks them.
-    assert not g.directions_measured
+    # Checked on the bench 2026-10-21 (docs/hardware.md, Mechanics).
+    assert g.directions_measured
     assert g.ab_backlash_mm == 0.0
 
 
