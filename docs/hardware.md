@@ -336,6 +336,16 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   above the fastest packet: median **52 ms**, max **109 ms**, with no
   growth. A sample's time has to come from its device stamp, mapped
   through a tracked offset and drift. When it arrived says little.
+- **Autoranging drops samples while streaming** (first real maps,
+  2026-10-21, runs `20261021T174652Z` and `20261021T175325Z`, laser 2 on
+  a contacted cell in the cardboard box). The cell gave 0.6-2.1 uA,
+  right across the 1 uA / 25 uA boundary. On autorange the stream's own
+  stamps showed gaps of 10-15 ms, 91 % of them exactly where the current
+  crossed 1 uA (1,401 gaps, 1,904 crossings in 12 rows), and the
+  delivered rate fell from 400 to ~200 Hz. The Pi was not behind
+  (arrival delay under 50 ms throughout). With the lead off, nothing
+  crossed and the rate held at 400 Hz. So scans fix the range
+  (`run --current-range`, default 25 uA) and stop if it clips.
 - **Noise at 0 V, channel 1 open** (nothing connected; reports
   `20261019T181817Z` and `20261019T181857Z`, back to back) is
   repeatable: **14.3 and 14.8 nA RMS**, p-p ≈ 53 nA, on the auto and

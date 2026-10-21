@@ -55,6 +55,12 @@ DEFAULT_BASELINE_S = 3.0
 #: promises is a fault. The real rate misses the requested one by up to
 #: ~19 % (bench), so half is far outside normal.
 MIN_ROW_SAMPLE_SHARE = 0.5
+#: A fixed current range reads no further than its end; a sample this
+#: close to it is taken as clipped.
+SATURATION_SHARE = 0.98
+#: The default range for scans: autoranging drops samples at every
+#: range switch (bench, 2026-10-21). 25 uA had 2.1 nA RMS on the bench.
+DEFAULT_CURRENT_RANGE_A = 25e-6
 
 
 class RunStopped(Exception):
@@ -139,6 +145,7 @@ def scan_laser(
     *,
     baseline_s: float = DEFAULT_BASELINE_S,
     bias_v: float = 0.0,
+    current_range_a: float | None = DEFAULT_CURRENT_RANGE_A,
     stop: threading.Event | None = None,
     say: Callable[[str], None] = lambda text: None,
 ) -> dict[str, Any]:
@@ -165,7 +172,7 @@ def scan_laser(
         check_stop()
 
         board.off()
-        smu.prepare(bias_v=bias_v)
+        smu.prepare(bias_v=bias_v, current_range_a=current_range_a)
         smu.output_on()
         smu.stream.start(channels=(1,), rate_hz=plan.stream_hz)
 
@@ -175,12 +182,14 @@ def scan_laser(
         t1 = clock.now()
         collector.wait_past(t1)
         stage = marlin.position()
+        baseline = collector.take(t0, t1)
         writer.write_samples(
             [
                 _sample_row(s, BASELINE_ROW, 0, stage["A"], stage["B"])
-                for s, _ in collector.take(t0, t1)
+                for s, _ in baseline
             ]
         )
+        _check_range(baseline, current_range_a, "the baseline")
 
         check_stop()
         say(f"laser {laser} on")
@@ -213,6 +222,7 @@ def scan_laser(
             taken = collector.take(
                 motion.start_s - ROW_MARGIN_S, motion.end_s + ROW_MARGIN_S
             )
+            _check_range(taken, current_range_a, f"row {row.index}")
             expected = plan.stream_hz * motion.profile.duration_s
             if len(taken) < MIN_ROW_SAMPLE_SHARE * expected:
                 raise StreamFault(
@@ -247,6 +257,23 @@ def scan_laser(
         trailer["samples_received"] = collector.received
         writer.finish(status, trailer)
     return trailer
+
+
+def _check_range(
+    taken: list[tuple[StreamSample, float]],
+    current_range_a: float | None,
+    where: str,
+) -> None:
+    """A fixed range that clipped makes the data wrong, not just noisy."""
+    if current_range_a is None or not taken:
+        return
+    peak = max(abs(s.current_a) for s, _ in taken)
+    if peak >= SATURATION_SHARE * current_range_a:
+        raise StreamFault(
+            f"{where}: {peak * 1e6:.3g} uA reaches the end of the "
+            f"{current_range_a * 1e6:g} uA range: use a larger "
+            "--current-range"
+        )
 
 
 def _shut_down(
@@ -289,6 +316,7 @@ def run_header(
     simulated: bool,
     firmware: dict[str, str | None],
     provenance: dict[str, Any],
+    current_range_a: float | None = DEFAULT_CURRENT_RANGE_A,
 ) -> dict[str, Any]:
     """The `# key: value` block at the top of a run file."""
     r = plan.request
@@ -314,6 +342,7 @@ def run_header(
         "accel_mm_s2": plan.accel_mm_s2,
         "stream_hz": plan.stream_hz,
         "mains_hz": machine.mains_hz,
+        "current_range_a": current_range_a,
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
         "estimate_s": round(plan.estimate_s, 1),
     }

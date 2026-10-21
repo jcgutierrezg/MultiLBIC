@@ -39,6 +39,10 @@ from multilbic.run.session import (
     plan_run,
 )
 
+#: `--current-range` choices: the miniSMU's measurement ranges.
+CURRENT_RANGES: dict[str, float | None] = {
+    "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3, "auto": None,
+}
 #: Simulated runs go here (ignored by git); real ones outside the checkout.
 SIM_RUNS = Path("runs")
 REAL_RUNS = Path.home() / "multilbic-runs"
@@ -142,6 +146,7 @@ def run(args: argparse.Namespace) -> int:
         serpentine=not args.one_direction, bias_v=args.bias,
         baseline_s=args.baseline, allow_unmeasured=args.allow_unmeasured,
         note=args.note,
+        current_range_a=CURRENT_RANGES[args.current_range],
     )
     try:
         plans = plan_run(request, machine)
@@ -277,6 +282,10 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--baseline", type=float, default=3.0,
                     help="s of laser-off baseline per laser")
     go.add_argument("--one-direction", action="store_true")
+    go.add_argument("--current-range", default="25u",
+                    choices=list(CURRENT_RANGES),
+                    help="fixed SMU range; 'auto' drops samples at every "
+                    "range switch (default 25u)")
     go.add_argument("--note", default="",
                     help="free text for the file headers, e.g. lighting")
     go.add_argument("--allow-unmeasured", action="store_true",

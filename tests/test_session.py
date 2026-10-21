@@ -203,3 +203,20 @@ def test_refused_before_anything_moves(machine):
         )
     finally:
         rig.close()
+
+
+def test_a_saturated_range_stops_the_run(machine, tmp_path):
+    """The synthetic cell gives about 1 uA; on the 1 uA range it clips,
+    which makes the data wrong, so the run stops and says why."""
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    try:
+        req = replace(request(rig), current_range_a=1e-6)
+        outcome = session(rig, machine, clock, req, tmp_path).run()
+    finally:
+        rig.close()
+    assert outcome.status.startswith("failed")
+    assert "larger --current-range" in outcome.status
+    assert not rig.fake_smu.enabled[1]
+    header = read_run(outcome.lasers[0].path).header
+    assert header["current_range_a"] == 1e-6

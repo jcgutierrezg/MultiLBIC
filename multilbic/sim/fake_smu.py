@@ -36,6 +36,8 @@ from minismu_py import SMUException
 
 from multilbic.clock import Clock
 
+#: The measurement ranges, by index, as the library numbers them.
+CURRENT_RANGES_A = (1e-6, 25e-6, 650e-6, 15e-3, 180e-3)
 #: The library's serial timeout: how long an empty read blocks.
 READ_TIMEOUT_S = 1.0
 #: How long the library waits for the line to go quiet after STREAM OFF.
@@ -125,7 +127,13 @@ class FakeMiniSMU:
         if not self.enabled[channel]:
             return 0.0
         noise = self._random.gauss(0.0, self.noise_a) if self.noise_a else 0.0
-        return self.signal(channel, t) + noise + self.interference(t)
+        amps = self.signal(channel, t) + noise + self.interference(t)
+        index = self.current_range[channel]
+        if not self.autorange[channel] and index is not None:
+            # A fixed range reads no further than its end.
+            limit = CURRENT_RANGES_A[index]
+            amps = max(-limit, min(limit, amps))
+        return amps
 
     def interference(self, t: float) -> float:
         """Mains and drift at time `t`: what no laser causes."""
@@ -172,6 +180,20 @@ class FakeMiniSMU:
 
     def set_current_range(self, channel: int, range_index: int):
         self.current_range[channel] = range_index
+
+    def set_current_range_by_limit(self, channel: int, max_current: float,
+                                    disable_autorange: bool = True) -> int:
+        fitting = [
+            i for i, limit in enumerate(CURRENT_RANGES_A)
+            if abs(max_current) <= limit
+        ]
+        if not fitting:
+            raise ValueError(f"{max_current} A exceeds the largest range")
+        index = fitting[0]
+        if disable_autorange:
+            self.autorange[channel] = False
+        self.current_range[channel] = index
+        return index
 
     def set_oversampling_ratio(self, channel: int, osr: int):
         self.osr[channel] = osr

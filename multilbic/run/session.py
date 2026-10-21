@@ -40,6 +40,7 @@ from multilbic.config.machine import MachineConfig
 from multilbic.run.motion import approach
 from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
+    DEFAULT_CURRENT_RANGE_A,
     RunStopped,
     ScanDevices,
     run_header,
@@ -69,6 +70,8 @@ class RunRequest:
     #: Free text for the file headers: lighting, contacts, anything
     #: the data can't say for itself.
     note: str = ""
+    #: Fixed measurement range in A, or None to autorange.
+    current_range_a: float | None = DEFAULT_CURRENT_RANGE_A
 
 
 @dataclass(frozen=True)
@@ -256,6 +259,7 @@ class Session:
                 simulated=self.simulated,
                 firmware=self._firmware(),
                 provenance=self.provenance,
+                current_range_a=self.request.current_range_a,
             )
             header["run_id"] = self.run_id
             header["note"] = self.request.note
@@ -267,6 +271,7 @@ class Session:
                 self.clock,
                 baseline_s=self.request.baseline_s,
                 bias_v=self.request.bias_v,
+                current_range_a=self.request.current_range_a,
                 stop=self.stop,
                 say=self.say,
             )
@@ -345,6 +350,7 @@ class Session:
                 "baseline_s": r.baseline_s,
                 "allow_unmeasured": r.allow_unmeasured,
                 "note": r.note,
+                "current_range_a": r.current_range_a,
             },
             "plans": [
                 {

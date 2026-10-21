@@ -105,6 +105,7 @@ board may have restarted since calibration.
 | `--pitch 0.05` | (required) | mm between rows |
 | `--speed 2` | 2 mm/s | stay at 5 or below (D9) |
 | `--bias 0` | 0 V | |
+| `--current-range 25u` | 25 µA | fixed SMU range: `1u`, `25u`, `650u`, `15m` or `auto`. Autoranging drops 10–15 ms of samples at every range switch; a run stops if the fixed range clips |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers with placeholder positions |

@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.6 - Scans use a fixed current range
+
+- First real maps (bench, 2026-10-21): with laser 2 on the cell the
+  photocurrent sat at 0.6-2.1 uA, across the miniSMU's 1 uA / 25 uA
+  boundary. Autoranging dropped 10-15 ms of samples at every crossing,
+  the stream fell to ~200 Hz, and the run stopped itself after 12 rows
+  (the under-delivery check, as designed: motion stopped, laser and SMU
+  off, rows kept). Findings in `docs/hardware.md`.
+- `multilbic run --current-range` (`1u`, `25u`, `650u`, `15m`, `auto`;
+  default `25u`) fixes the measurement range with autoranging off
+  (`PhotocurrentSmu.prepare(current_range_a=...)`). A baseline or row
+  that reaches the end of the range stops the run: clipped data is wrong,
+  not just noisy. The range goes into every file header.
+- The fake SMU clips at a fixed range, and gains
+  `set_current_range_by_limit` like the library.
+
 ## 0.4.5 - Axis directions checked on the machine
 
 - Bench step 1 (2026-10-21, laser 2 on a mark): +X and +A move the
