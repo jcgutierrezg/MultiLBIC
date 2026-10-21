@@ -62,6 +62,7 @@ def finger_edges(path, sample, nm):
     return np.array(edges), finger.u0
 
 
+@pytest.mark.sim_timing  # see tests/test_sim_scan.py
 def test_two_lasers_line_up_with_swapped_axes(machine, tmp_path):
     """The axes here are swapped and one is reversed, in machine.toml
     and in truth alike: the geometry has to get both lasers' XY right

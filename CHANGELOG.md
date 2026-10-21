@@ -3,6 +3,17 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.3 - Simulator timing tests skipped on the Pi
+
+- `deploy/pi/setup.sh` on the Pi failed three tests that check the
+  simulator's timing to about a millisecond (`test_sim_scan.py`, and the
+  two-laser test in `test_session.py`): sample times off by 4-8 ms.
+  `ScaledClock(precise=True)` spin-waits in several threads, and on the
+  Pi's slower cores they contend for Python's GIL and delay the readers.
+  Real runs use the real clock and never spin, so this says nothing
+  about the machine. These tests are now marked `sim_timing` and
+  skipped by `setup.sh`; CI, including its ARM runner, still runs them.
+
 ## 0.4.2 - Ready for room light
 
 The room light can't be fully turned off for the first maps.

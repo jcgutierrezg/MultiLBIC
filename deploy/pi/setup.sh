@@ -65,7 +65,9 @@ fi
 echo "== interpreter and Tk"
 uv run python -c "import sys, tkinter; print('python', sys.version.split()[0], '| Tk', tkinter.TkVersion)"
 
-echo "== tests (hardware tests skipped)"
-uv run pytest -q
+echo "== tests (hardware and simulator-timing tests skipped)"
+# sim_timing: the simulator's millisecond timing needs a faster host
+# than the Pi; CI runs those (pyproject.toml markers).
+uv run pytest -q -m "not sim_timing"
 
 echo "== done: $(git log -1 --format='%h %s')"
