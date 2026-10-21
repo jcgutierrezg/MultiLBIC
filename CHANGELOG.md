@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.4 - setup.sh runs the steps it just checked out
+
+- The run of `deploy/pi/setup.sh` that fetched 0.4.3 still failed the
+  three timing tests: `git checkout` replaces the script with a new file,
+  and bash goes on reading the old one it had open, so the rest of that
+  run was the previous version's. After checking out, the script now
+  starts again from the fresh copy (once).
+
 ## 0.4.3 - Simulator timing tests skipped on the Pi
 
 - `deploy/pi/setup.sh` on the Pi failed three tests that check the
