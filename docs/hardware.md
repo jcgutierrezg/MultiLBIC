@@ -275,7 +275,13 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
 - **Channel 1** measures photocurrent at 0 V bias. Expected signal: low
   µA down to nA, *unverified*.
 - **Channel 2** is free. Agreed use: a reference photodiode on a corner
-  of the AB stage, outside the sample area.
+  of the AB stage, outside the sample area. The part is chosen, not yet
+  bought ([below](#channel-2-reference-photodiode-chosen-2026-10-22)).
+- **Envelope:** two channels, four-quadrant, ±12 V, ±180 mA, 2.1 W per
+  channel. Five current ranges: 1 µA, 25 µA, 650 µA, 15 mA, 180 mA (from
+  `minismu_py` and SMUniversal's driver). On USB-C power alone each
+  channel is limited to 50 mA, and the instrument can't say which
+  supply it is on, so the 12 V adapter stays plugged in.
 - **Streaming** (`SOUR<n>:DATA:STREAM`, rate set with
   `SOUR<n>:DATA:SRATE`, packets timestamped by the SMU's own clock) is
   what makes continuous scanning possible. First measured on this
@@ -285,6 +291,64 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
 - Firmware is still **1.4.6**: Undalogic's update server returned HTTP
   500. The library says 1.5.0+ adds the active current range to each
   packet.
+
+### Channel-2 reference photodiode, chosen 2026-10-22
+
+What it is for is in
+[architecture](architecture.md#the-channel-2-reference-photodiode):
+laser positions, knife-edge spot sizes, and a power reference to
+compare wavelengths.
+
+**Chosen: Hamamatsu S1223-01**, RS 415-5722 (about £17–18 ex VAT on RS
+UK, October 2026). Not yet bought.
+
+| Need | S1223-01 |
+|---|---|
+| All six lasers, 444–848 nm | Si PIN, 320–1100 nm; 0.52 A/W at 780 nm, peak at 960 nm |
+| Active area much larger than any spot | 3.6 × 3.6 mm: a position scan sees a flat plateau with clean edges |
+| An edge for knife-edge scans | The square chip edge, in the chip's plane; a razor blade on top if a spot turns out large |
+| No lens | Metal TO-5 can with a flat window; a lensed part responds differently depending on where the spot lands |
+| A spectral curve to correct by | Hamamatsu publishes the typical curve, which wavelength normalisation needs |
+
+Specifications from Hamamatsu's product page; price and stock from RS's
+listing, which change.
+
+- **Fallback:** Vishay BPW34, RS 699-7616 (pack of 5, a few pounds).
+  Larger (7.5 mm²) but its range starts at 430 nm, close to laser 1,
+  and the clear plastic package is less well defined. Good for trying
+  the mount and the cable first.
+- **Avoid**, although RS lists them as photodiodes: eye-response (V(λ))
+  filtered parts such as BPW21 or Hamamatsu S1087/S7686, which cut off
+  near 700 nm and would miss lasers 5 and 6; daylight-filtered infrared
+  parts such as BPW34F, SFH 205F or BPW41N, whose black epoxy blocks
+  444–652 nm; and domed parts with a built-in lens.
+- **Laser power does not limit the choice.** The lasers are believed
+  to be under 1 mW (*unverified*), which a silicon photodiode takes
+  easily. At silicon's highest responsivity, about 0.6 A/W at 848 nm,
+  even 1 mW is only 0.6 mA, far inside the miniSMU's 180 mA. Any
+  silicon photodiode gives about the same current, so another part
+  would not change that.
+- **What power does decide is the range.** Lower ranges are quieter
+  (about 2 nA RMS on 25 µA, 27 nA on 650 µA, measured below), and
+  streaming needs a fixed range, since autoranging drops samples. The
+  contacted cell gave 0.6–2.1 µA under laser 2, which points to µW-level
+  power at the sample. **Read each laser once on autorange** after
+  mounting, then fix the lowest range that holds the brightest one.
+- **Linearity with a tight spot:** a small spot concentrates the current
+  in a tiny patch of the chip, and the response can bend before any
+  range clips. If a laser is bright, run channel 2 at a few volts of
+  reverse bias (e.g. −5 V; dark current is nA, negligible here), or
+  raise the photodiode slightly for power readings. Knife-edge scans
+  still need it in focus.
+- **Mounting:** there is no focus axis, so the spot size at the
+  photodiode depends on its height. Recess the can so the chip sits at
+  the sample surface's height, or its knife-edge spot sizes describe a
+  different focus from the maps. It has to sit on a corner every laser
+  can reach within XY + AB travel, with a shielded twisted pair to
+  channel 2 and enough slack to follow the stage.
+- **Absolute EQE** would need a calibrated photodiode (for example a
+  Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
+  relative spectral response.
 
 ### Streaming, measured 2026-10-19
 

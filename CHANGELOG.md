@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.7 - The channel-2 photodiode is chosen
+
+- `docs/hardware.md` records the reference photodiode for channel 2:
+  Hamamatsu S1223-01 (RS 415-5722), with the Vishay BPW34 as a cheap
+  fallback, the photodiode types to avoid, and how to mount it and pick
+  its range. Not bought yet.
+- The miniSMU's envelope is now in `docs/hardware.md` too: ±12 V,
+  ±180 mA, five current ranges up to 180 mA, and 50 mA per channel on
+  USB power alone.
+
 ## 0.4.6 - Scans use a fixed current range
 
 - First real maps (bench, 2026-10-21): with laser 2 on the cell the
