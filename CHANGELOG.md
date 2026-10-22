@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.8 - The saturation test no longer depends on noise
+
+- `test_a_saturated_range_stops_the_run` used laser 2, under which the
+  synthetic cell gives 0.87 uA: it only reached the 0.98 uA threshold
+  when simulated noise pushed it there, so it passed on Windows and
+  failed on the Pi. It now uses laser 3, where the cell gives the full
+  1 uA and clips every time. The check itself is unchanged.
+
 ## 0.4.7 - The channel-2 photodiode is chosen
 
 - `docs/hardware.md` records the reference photodiode for channel 2:

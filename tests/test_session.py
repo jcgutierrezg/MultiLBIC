@@ -206,12 +206,15 @@ def test_refused_before_anything_moves(machine):
 
 
 def test_a_saturated_range_stops_the_run(machine, tmp_path):
-    """The synthetic cell gives about 1 uA; on the 1 uA range it clips,
-    which makes the data wrong, so the run stops and says why."""
+    """Under laser 3 (652 nm) the synthetic cell's left half gives 1 uA,
+    the whole 1 uA range, so it clips whatever the noise does; clipped
+    data is wrong, so the run stops and says why. (Under laser 2 it
+    gives 0.87 uA and only clipped when noise happened to push it over
+    0.98 uA: it passed on Windows and failed on the Pi.)"""
     clock = ScaledClock(20.0)
     rig, machine = make(machine, clock)
     try:
-        req = replace(request(rig), current_range_a=1e-6)
+        req = replace(request(rig, lasers=(3,)), current_range_a=1e-6)
         outcome = session(rig, machine, clock, req, tmp_path).run()
     finally:
         rig.close()
