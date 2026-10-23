@@ -202,3 +202,19 @@ def test_geometry_refuses_impossible_values(raw, key, value, message):
     raw["geometry"][key] = value
     with pytest.raises(MachineConfigError, match=message):
         parse(raw)
+
+
+def test_display_matches_the_operators_view(machine):
+    # Bench, 2026-10-23: rows run from the right edge leftwards and
+    # step downwards, as the operator sees the cell.
+    assert machine.display.view == ("left", "down")
+
+
+@pytest.mark.parametrize(
+    ("u", "v", "message"),
+    [("sideways", "down", "not one of"), ("left", "right", "right angles")],
+)
+def test_display_refuses_impossible_views(raw, u, v, message):
+    raw["display"] = {"u_points": u, "v_points": v}
+    with pytest.raises(MachineConfigError, match=message):
+        parse(raw)

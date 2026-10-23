@@ -60,15 +60,19 @@ replaced it, and nothing should still refer to it.
   sits on the shaft's thread. A flat ground into the shaft is the
   planned fix (small hardware change, owed).
 - **XY and AB move the sample the same ways** (bench, 2026-10-21,
-  laser 2 on a mark; as the operator looks at the stage): **+X and +A
-  move the sample up, +Y and +B move it right**, and both stages home to
-  the bottom-left, like the first quadrant of a graph. So `x_along =
-  "+A"`, `y_along = "+B"` in `machine.toml`.
-  - Since the sample moves under a fixed spot, raising A brings the
-    part of the sample *below* the spot under it. A sample therefore
-    extends down and to the left of the corner calibration uses: the
-    **top-right corner**, as seen by the operator (the old script asked
-    for the top-right corner too).
+  laser 2 on a mark): +X moves it the same way as +A, +Y the same way as
+  +B, and both stages home to the same corner. So `x_along = "+A"`,
+  `y_along = "+B"` in `machine.toml`. (The note at the time said "+X and
+  +A move it up, +Y and +B right"; that was from a different viewpoint
+  than the one below, and only the pairing matters.)
+- **What a scan looks like at the machine** (bench, 2026-10-23, watched
+  with the box off, seen as in the reference photo of the test cell):
+  the spot starts at the sample's **top-right corner**, each row runs
+  **leftwards** (+A), and the rows step **downwards** (+B). So the
+  calibration corner is the top-right one (the old script asked for the
+  top-right corner too), and on the test cell the rows run along the
+  fingers. `[display]` in `machine.toml` (`u_points = "left"`,
+  `v_points = "down"`) draws map PNGs the same way round.
 - **Z has a driver and no motor.** Marlin would not build XYAB without
   Z. The software never moves Z.
 - **Samples** are solar cells, 100–300 µm thick, typically 10, 20 or

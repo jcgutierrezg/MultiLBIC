@@ -143,4 +143,7 @@ or delivers less than half a row's samples.
 ```
 
 A map is built from its file alone, so it can be rebuilt later with
-better calibration (`multilbic.scan.mapping.build_map`).
+better calibration: `multilbic map <run folder>/laser2_519nm.csv` draws
+it again (`multilbic.scan.mapping.build_map`). PNGs are turned to match
+how the cell looks at the machine (`[display]` in `machine.toml`): the
+calibration corner is marked, at the top right.

@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.9 - Maps drawn as the operator sees the cell
+
+- Bench, 2026-10-23: watched with the box off, a scan starts at the
+  sample's top-right corner, runs each row leftwards (+A) and steps the
+  rows downwards (+B). The PNGs were drawn with u to the right and v up,
+  turned 180 degrees from that. `machine.toml` gains `[display]`
+  (`u_points = "left"`, `v_points = "down"`), and maps are now drawn
+  that way, at true scale, with the calibration corner marked.
+- `multilbic map RUNFILE` rebuilds a map from its run file alone and
+  draws it again, e.g. for runs made before this change.
+- `docs/hardware.md`: the orientation note now says what the bench
+  showed; the step 1 pairing (X with A, Y with B) is unchanged.
+
 ## 0.4.8 - The saturation test no longer depends on noise
 
 - `test_a_saturated_range_stops_the_run` used laser 2, under which the

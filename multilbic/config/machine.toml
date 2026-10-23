@@ -105,6 +105,14 @@ ab_take_up_mm = 0.1
 # the same rows at two speeds separate backlash from latency).
 ab_backlash_mm = 0.0
 
+[display]
+# How the operator sees the cell (bench, 2026-10-23, with the reference
+# photo's view): each row runs from the cell's right edge leftwards
+# (+u, A) and the rows step downwards (+v, B), from the top-right corner.
+# Map PNGs are drawn that way.
+u_points = "left"
+v_points = "down"
+
 [laser_board]
 # Wait after the servo turns, before the laser comes on. On the worst
 # 120-degree swing, 1000 ms was stable and 500 ms slid (bench,

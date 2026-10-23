@@ -106,3 +106,23 @@ def test_raw_timestamps_survive(tmp_path):
     assert run.columns["device_ms"][0] == 1792513542674.0
     assert run.columns["host_s"][0] == pytest.approx(1234.567891, abs=1e-6)
     assert np.isfinite(run.columns["a_mm"]).all()
+
+
+@pytest.mark.parametrize(
+    "view",
+    [("right", "up"), ("left", "down"), ("up", "left"), ("down", "right")],
+)
+def test_map_draws_in_any_view(tmp_path, view):
+    from multilbic.scan.alignment import NOT_FOUND
+    from multilbic.scan.binning import NO_BASELINE, Grid
+    from multilbic.scan.mapping import MapResult
+    from multilbic.scan.timing import ClockMap
+    from multilbic.store.image import save_png
+
+    values = np.arange(12.0).reshape(3, 4) * 1e-9
+    result = MapResult(
+        Grid(values, np.ones_like(values, dtype=int), 0.5, 1.0),
+        ClockMap(0.0, 0.0, 0.0), NO_BASELINE, NOT_FOUND, [],
+    )
+    png = save_png(result, tmp_path / "map.png", view=view)
+    assert png.stat().st_size > 1000

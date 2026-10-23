@@ -303,6 +303,7 @@ class Session:
                 mapped, result.path.with_suffix(".png"),
                 title=f"{self.request.calibration.sample}, laser "
                 f"{result.laser} ({result.status})",
+                view=self.machine.display.view,
             )
             if mapped.alignment.found:
                 result.shift_um = mapped.alignment.shift_mm * 1000

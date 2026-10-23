@@ -255,6 +255,36 @@ def run_until_done(session: Session):
     return result["outcome"]
 
 
+# ---- map ----
+
+
+def remap(args: argparse.Namespace) -> int:
+    """Rebuild a map from its run file alone and draw it again, e.g.
+    after the display orientation or the mapping changed."""
+    from multilbic.scan.mapping import build_map
+    from multilbic.store.image import save_png
+    from multilbic.store.runfile import read_run
+
+    machine = load(args.machine)
+    run = read_run(args.runfile)
+    result = build_map(run.scan_data())
+    out = Path(args.out) if args.out else Path(args.runfile).with_suffix(".png")
+    save_png(
+        result, out,
+        title=f"{run.header.get('sample', '')}, laser "
+        f"{run.header.get('laser', '?')} ({run.header.get('status', '?')})",
+        view=machine.display.view,
+    )
+    shift = result.alignment
+    say(f"map: {out}")
+    say(
+        f"serpentine shift {shift.shift_mm * 1000:.1f} µm "
+        f"(quality {shift.quality:.2f})" if shift.found
+        else f"serpentine shift not found (quality {shift.quality:.2f})"
+    )
+    return 0
+
+
 # ---- entry ----
 
 
@@ -296,6 +326,11 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--speedup", type=float, default=SIM_SPEED,
                     help="simulated seconds per real second (--sim)")
     go.set_defaults(func=run)
+
+    draw = commands.add_parser("map", help="rebuild and draw a run file's map")
+    draw.add_argument("runfile", help="a laser's .csv from a run folder")
+    draw.add_argument("--out", default="", help="PNG (default: next to it)")
+    draw.set_defaults(func=remap)
 
     args = parser.parse_args(argv)
     return args.func(args)

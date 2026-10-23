@@ -118,6 +118,22 @@ class Geometry:
     ab_backlash_mm: float
 
 
+#: Directions on the cell as the operator sees it.
+VIEW_DIRECTIONS = ("left", "right", "up", "down")
+
+
+@dataclass(frozen=True)
+class Display:
+    #: Which way +u (along the rows, A) and +v (B) point on the cell as
+    #: seen at the machine; maps are drawn that way.
+    u_points: str
+    v_points: str
+
+    @property
+    def view(self) -> tuple[str, str]:
+        return self.u_points, self.v_points
+
+
 @dataclass(frozen=True)
 class MachineConfig:
     name: str
@@ -131,6 +147,7 @@ class MachineConfig:
     #: The local mains frequency, which the map's cleaning removes.
     mains_hz: float
     geometry: Geometry
+    display: Display
 
     def laser(self, number: int) -> Laser:
         for laser in self.lasers:
@@ -179,6 +196,7 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
         baud=top.table("serial").read_positive_int("baud"),
         mains_hz=top.read_positive_float("mains_hz"),
         geometry=_parse_geometry(top.table("geometry")),
+        display=_parse_display(top.table("display")),
     )
     top.done()
     _check_lasers(config.lasers, source)
@@ -278,6 +296,24 @@ def _parse_geometry(t: _Table) -> Geometry:
             "name the same AB axis"
         )
     return geometry
+
+
+def _parse_display(t: _Table) -> Display:
+    display = Display(
+        u_points=t.read_str("u_points"), v_points=t.read_str("v_points")
+    )
+    t.done()
+    for key in ("u_points", "v_points"):
+        value = getattr(display, key)
+        if value not in VIEW_DIRECTIONS:
+            raise t.error(f"{key} {value!r} is not one of {VIEW_DIRECTIONS}")
+    horizontal = {"left", "right"}
+    if (display.u_points in horizontal) == (display.v_points in horizontal):
+        raise t.error(
+            f"u_points {display.u_points} and v_points {display.v_points} "
+            "must be at right angles"
+        )
+    return display
 
 
 def _parse_laser_board(t: _Table) -> LaserBoardSettings:
