@@ -66,3 +66,20 @@ def test_one_direction_scans_have_nothing_to_compare():
         RowSamples(1, r.a_mm, r.values) for r in rows(0.01)
     ]
     assert not estimate_shift(same_way).found
+
+
+def test_a_broad_spot_gets_the_smoothing_it_needs():
+    """A 50 µm spot with bench-like noise, as laser 2 on the bench
+    (2026-10-23): 2 µm smoothing only correlates noise, so a coarser one
+    is chosen and still finds the shift."""
+    broad = SyntheticSample.default(1.0, 0.4, spot_sigma_mm=0.05)
+    found = estimate_shift(rows(0.03, sample=broad, noise_a=1.5e-7, n=10))
+    assert found.found
+    assert found.smooth_mm >= 0.01
+    assert found.shift_mm * 1000 == pytest.approx(30.0, abs=5.0)
+
+
+def test_a_sharp_spot_keeps_fine_smoothing():
+    found = estimate_shift(rows(0.0123))
+    assert found.smooth_mm == 0.002
+    assert found.shift_mm * 1000 == pytest.approx(12.3, abs=0.5)

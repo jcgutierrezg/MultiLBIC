@@ -121,7 +121,10 @@ calibrate` and `multilbic run` ([run](run.md)); XY placement with
 swapped and reversed axes, Stop mid-run and three injected faults all
 tested against the simulators. Bench: axis directions checked 2026-10-21 (X along +A, Y
 along +B; the calibration corner is the sample's top-right as seen at
-the machine). Owed: the rest of the session.
+the machine). Steps 2-6 done 2026-10-21 to 2026-10-23: first real maps,
+the forward/reverse shift at two speeds (an 18.6 ms stamp lag), Stop
+([hardware](hardware.md#first-maps-2026-10-21-to-2026-10-23)). Owed:
+step 7 (three lasers; laser 1 needs the 650 uA range).
 
 ### Phase 5: GUI
 

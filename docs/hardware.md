@@ -270,6 +270,66 @@ was noticeably noisier and vibrated more than 3–5 mm/s.** Vibration
 moves the beam spot relative to the sample, so scans should stay at
 **5 mm/s or below** unless a map shows otherwise (D9).
 
+## First maps, 2026-10-21 to 2026-10-23
+
+Phase 4's bench session ([bench](bench.md#phase-4-first-maps)), on the
+18 x 18 mm test cell ("stdtest"), laser 2 unless stated, in a cardboard
+box with the room lights on. Run folders are named by their UTC stamp.
+
+- **The box works.** Laser-off baseline −0.4 to −20 nA with 0.7-1.5 nA
+  RMS, mostly drift below 0.5 Hz. With the room lights on, the bench had
+  measured 1.7 uA RMS: about a thousand times quieter.
+- **The lead to the backplate matters.** It is a crocodile clip biting
+  the copper backplate. Homing A drives the stage to the end away from
+  where the lead came in and tugs it. A loose clip gave a flat map
+  (`20261021T174652Z`, lead off) and, partly loose, row-to-row jumps of
+  2-3x in the photocurrent (`20261023T151932Z`). With the leads coming
+  in from the top and strain-relieved, the level is steady
+  (`20261023T153728Z`) and about twice what it was before. A soldered or
+  screwed connection to the backplate would be better than a clip.
+- **Signal**, laser 2 on the cell: −0.3 to −1.0 uA, rising towards the
+  wire contact. Laser 1 (444 nm) gave more than 25 uA, clipping the
+  25 uA range (`20261023T163133Z`, stopped by the saturation check).
+- **Spot**, laser 2, focused by eye: the cell's straight right edge goes
+  from 10 % to 90 % in 123-132 um at both 1 and 4 mm/s, so sigma is
+  about 50 um and the 1/e^2 diameter about 0.2 mm. Resolution is set by
+  the spot, not the pixels. Lasers 1 and 3 were focused by eye too;
+  their spots are measured properly with the photodiode (Phase 6).
+- **On the cell, with the laser on, the signal has 100-200 Hz noise**
+  of about 20 % per 10 um pixel at 1 mm/s, absent with the laser off or
+  off the cell. With a 0.2 mm spot this is not surface texture; most
+  likely the laser's own output. Larger pixels average it.
+- **The forward/reverse shift** on the straight edge, 40 rows 50 um
+  apart (`20261023T155130Z`, `20261023T155424Z`):
+
+  | Speed | Shift | Spread between row pairs |
+  |---|---|---|
+  | 1 mm/s | +20.5 um | 7.7 um |
+  | 4 mm/s | +131.9 um | 12.5 um |
+
+  It grows by 37 um per mm/s: a timing lag of **18.6 ms with the
+  samples stamped after they were measured**, which supports the
+  "stamped when sent" suspicion above. The fit's offset at zero speed
+  is −17 um, which cannot be backlash; A backlash is too small to see
+  this way, so `ab_backlash_mm` stays 0. The serpentine alignment
+  removes the shift per map; the residual is the 8-13 um row-to-row
+  spread.
+- **The alignment needed broader smoothing.** Smoothing rows over 2 um
+  (right for the simulator's 5 um spot) only correlated noise with a
+  0.2 mm spot. It now tries 2-80 um and keeps the finest that a clear
+  majority of row pairs agree on (0.4.10).
+- **What the cell looks like** (whole-cell surveys, `20261023T125741Z`,
+  `20261023T153728Z`): the rows run along the fingers, so fingers show
+  only as faint bands; the copper strip above the cell's top edge; an
+  electrically dead region at the bottom-right, next to the pad that
+  broke in the first soldering attempt, with a straight slanted
+  boundary; small dead patches at the wire and solder blob; current
+  rising towards the contact. The calibrated corner sat about 1.3 mm
+  inside the cell's right edge and 0.5 mm below its top edge: picking a
+  corner by eye with a 0.2 mm spot is good to about a millimetre.
+- **Stop** (`20261023T160531Z`): SIGINT after row 10 left a readable
+  file with 10 rows and status `stopped`.
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial

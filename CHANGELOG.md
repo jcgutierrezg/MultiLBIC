@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.10 - Alignment that works with a real spot
+
+- On the bench the serpentine alignment found nothing, even with a
+  sharp edge crossing every row: it smoothed rows over 2 um, right for
+  the simulator's 5 um spot but pure noise against laser 2's ~0.2 mm
+  spot. It now tries smoothing widths from 2 to 80 um, finest first,
+  and keeps the first that a clear majority of row pairs (at least half,
+  at least 3) trust and agree on (spread within the smoothing plus
+  20 um). On the bench runs it now finds +19.6 um at 1 mm/s and
+  +138.7 um at 4 mm/s, against +20.5 and +131.9 um from fitting the edge
+  row by row, and still reports "not found" on rows of pure noise.
+  The search reaches 0.4 mm (was 0.2), and shortens on short rows.
+- The smoothing used is recorded with the shift.
+- `docs/hardware.md`: findings from the first maps (box, lead, signal,
+  spot, the shift and its 18.6 ms stamp lag, the cell, Stop).
+
 ## 0.4.9 - Maps drawn as the operator sees the cell
 
 - Bench, 2026-10-23: watched with the box off, a scan starts at the
