@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) started** 2026-10-26 on branch `phase-5-gui`: plan agreed (0.5.0), step 2 done (0.5.1). |
-| next | Phase 5 step 3: the worker and controller, no Tk. The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
+| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) started** 2026-10-26 on branch `phase-5-gui`: plan agreed (0.5.0), steps 2-3 done (0.5.2). |
+| next | Phase 5 step 4: the window (connection, jog, laser, position, console, Stop). The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
 
 ## Phases
 

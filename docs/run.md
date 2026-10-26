@@ -132,6 +132,13 @@ timeout or halt, a laser board that stops answering (the Xiao still
 drops off USB now and then), a stream that stalls, reports a read error,
 or delivers less than half a row's samples.
 
+**One process at a time.** `calibrate`, `run` and the GUI take the
+machine lock before opening the real machine
+(`multilbic/run/devices.py`), so a second one stops with "the machine
+is in use by another MultiLBIC process" instead of fighting over the
+ports. The operating system drops the lock when the process ends, even
+by a crash. Simulated machines take no lock.
+
 ## The run folder
 
 ```text

@@ -25,11 +25,19 @@ import sys
 import threading
 from pathlib import Path
 
-from multilbic.clock import SYSTEM_CLOCK, Clock, ScaledClock
+from multilbic.clock import ScaledClock
 from multilbic.config import load
 from multilbic.config.machine import MachineConfig
 from multilbic.run.calibrate import CalibrationPrompt, load_calibration
-from multilbic.run.rows import ScanDevices
+from multilbic.run.devices import (
+    SIM_SAMPLE_MM,
+    SIM_SPEED,
+    Connection,
+    DeviceSetupError,
+    open_real,
+    open_sim,
+    sim_corner,
+)
 from multilbic.run.session import (
     RunPlanError,
     RunRequest,
@@ -46,10 +54,6 @@ CURRENT_RANGES: dict[str, float | None] = {
 #: Simulated runs go here (ignored by git); real ones outside the checkout.
 SIM_RUNS = Path("runs")
 REAL_RUNS = Path.home() / "multilbic-runs"
-#: Where `calibrate --sim` hides its sample on the carriage.
-SIM_CORNER_CARRIAGE_MM = (15.2, 16.1)
-SIM_SAMPLE_MM = (2.0, 1.0)
-SIM_SPEED = 5.0
 
 
 def say(text: str) -> None:
@@ -59,44 +63,11 @@ def say(text: str) -> None:
 # ---- devices ----
 
 
-def open_real(machine: MachineConfig, clock: Clock) -> ScanDevices:
-    from multilbic.hardware.laser import LaserBoard
-    from multilbic.hardware.link import SerialLink
-    from multilbic.hardware.marlin import Marlin
-    from multilbic.hardware.smu import open_smu
-
-    ports = machine.ports()
-    for name in ("skr", "laser", "smu"):
-        if not getattr(ports, name):
-            raise SystemExit(
-                f"no {name} port for {sys.platform} in machine.toml"
-            )
-    marlin = Marlin(SerialLink.open(ports.skr, machine.baud, clock),
-                    machine, clock)
-    marlin.open()
-    board = LaserBoard(SerialLink.open(ports.laser, machine.baud, clock),
-                       machine, clock)
-    board.open()
-    smu = open_smu(ports.smu, clock)
-    smu.identify()
-    return ScanDevices(marlin, board, smu)
-
-
-def sim_rig(machine: MachineConfig, clock: Clock, corner, size):
-    from multilbic.sim.rig import SimRig
-    from multilbic.sim.sample import SyntheticSample
-
-    rig = SimRig(machine, clock, SyntheticSample.default(*size), corner)
-    rig.open()
-    return rig
-
-
-def close(devices: ScanDevices) -> None:
-    for device in (devices.smu, devices.laser, devices.marlin):
-        try:
-            device.close()
-        except Exception:  # noqa: S110 - best effort on the way out
-            pass
+def connect_real(machine: MachineConfig) -> Connection:
+    try:
+        return open_real(machine)
+    except DeviceSetupError as exc:
+        raise SystemExit(f"cannot open the machine: {exc}") from None
 
 
 # ---- calibrate ----
@@ -110,16 +81,14 @@ def calibrate(args: argparse.Namespace) -> int:
         raise SystemExit("--sample is needed (or --check a saved file)")
     out = Path(args.out or (args.check or f"{sample}.json"))
     if args.sim:
-        clock: Clock = ScaledClock(SIM_SPEED)
-        rig = sim_rig(machine, clock, SIM_CORNER_CARRIAGE_MM, SIM_SAMPLE_MM)
-        devices = ScanDevices(rig.marlin, rig.laser, rig.smu)
+        conn = open_sim(machine, clock=ScaledClock(SIM_SPEED))
         say(
             f"simulated: a {SIM_SAMPLE_MM[0]:g} x {SIM_SAMPLE_MM[1]:g} mm "
             "sample is on the carriage; find its corner with 'read'"
         )
     else:
-        devices = open_real(machine, SYSTEM_CLOCK)
-    prompt = CalibrationPrompt(devices, machine, sample=sample,
+        conn = connect_real(machine)
+    prompt = CalibrationPrompt(conn.devices, machine, sample=sample,
                                default_path=out)
     say("the stage will home and the reference laser will come on")
     try:
@@ -127,7 +96,7 @@ def calibrate(args: argparse.Namespace) -> int:
         prompt.loop()
     finally:
         prompt.stop()
-        close(devices)
+        conn.close()
     return 0
 
 
@@ -181,25 +150,24 @@ def run(args: argparse.Namespace) -> int:
     if args.sim:
         from multilbic.sim.rig import Faults
 
-        clock: Clock = ScaledClock(args.speedup, precise=True)
         # The truth is where the calibration says, as a perfect
         # operator would have recorded it.
-        corner = _sim_corner(calibration, machine, Faults())
-        rig = sim_rig(machine, clock, corner,
-                      (calibration.width_mm, calibration.height_mm))
-        devices = ScanDevices(rig.marlin, rig.laser, rig.smu)
+        conn = open_sim(
+            machine, speed=args.speedup,
+            corner_carriage_mm=sim_corner(calibration, machine, Faults()),
+            size_mm=(calibration.width_mm, calibration.height_mm),
+        )
     else:
-        clock = SYSTEM_CLOCK
-        devices = open_real(machine, clock)
+        conn = connect_real(machine)
     out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
     session = Session(
-        devices, machine, clock, request, out,
+        conn.devices, machine, conn.clock, request, out,
         simulated=args.sim, provenance=provenance(), say=say,
     )
     try:
         outcome = run_until_done(session)
     finally:
-        close(devices)
+        conn.close()
     for result in outcome.lasers:
         shift = (
             f", serpentine shift {result.shift_um:.1f} µm"
@@ -207,25 +175,6 @@ def run(args: argparse.Namespace) -> int:
         )
         say(f"  laser {result.laser}: {result.status}{shift}")
     return 0 if outcome.status == "complete" else 1
-
-
-def _sim_corner(calibration, machine, faults):
-    """Inverse of `SimRig.perfect_calibration`: where the sample really
-    is, given what a perfect operator recorded."""
-    from multilbic.scan.geometry import xy_to_ab
-
-    half_xy = faults.xy_backlash_mm / 2
-    half_ab = faults.backlash_mm / 2
-    ref = machine.laser(calibration.reference_laser).xy_centre_mm
-    da, db = xy_to_ab(
-        calibration.x_along, calibration.y_along,
-        calibration.corner_xy_mm[0] - half_xy - ref[0],
-        calibration.corner_xy_mm[1] - half_xy - ref[1],
-    )
-    return (
-        calibration.corner_ab_mm[0] - half_ab + da,
-        calibration.corner_ab_mm[1] - half_ab + db,
-    )
 
 
 def run_until_done(session: Session):

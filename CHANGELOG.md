@@ -3,6 +3,31 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.2 - The machine behind the window
+
+Phase 5 step 3, no Tk yet.
+
+- `multilbic/gui/worker.py`: `MachineWorker`, one thread that owns the
+  devices. The window calls it (connect, home, start calibration, jog,
+  move, centre, laser, here, size, trace, save, load, start a run,
+  Stop) and reads its events (state, log, position, photocurrent,
+  laser, calibration and outline, each row, each map, run end). One
+  action at a time: anything sent while the machine is busy is
+  refused, as key mode drops keys. Stop acts at once: a run stops as
+  Ctrl+C stops it, a calibration move halts with the laser left on,
+  and Stop while idle turns the laser off. While idle and homed the
+  photocurrent is read twice a second.
+- `multilbic/run/devices.py`: opening the machine, shared by the
+  command line and the GUI. The real machine is opened only under the
+  **machine lock** (the OS's file lock, SMUniversal's `SingleInstance`,
+  in MultiLBIC's own file), so `calibrate`, `run` and the GUI can't
+  drive the ports at once (D17); the OS drops it when the process ends.
+  `open_sim` builds the simulated one.
+- Tested against the simulator: calibration, refusal while busy, Stop
+  during a trace, a run, Stop mid-run, Stop in the instant before a run
+  starts, an SMU stall mid-run, closing during a run, a failed
+  connection, the unchecked-directions refusal, the lock.
+
 ## 0.5.1 - Calibration and runs ready for a window
 
 Phase 5 step 2. The command line works as before.
