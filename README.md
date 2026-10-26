@@ -8,7 +8,9 @@ photocurrent while the sample is rastered under the beam.
 **Status: being rewritten.** Project foundations, the device layer
 (drivers + simulators), the scan core and command-line runs are in
 place, and real maps have come off the machine from three lasers. The
-GUI is being built (`multilbic gui`). See [docs/plan.md](docs/plan.md).
+window (`multilbic gui`) is built and has passed in simulation, on
+Windows and on the Pi; its first run of the real machine is next. See
+[docs/plan.md](docs/plan.md).
 
 | To find | Go to |
 |---|---|

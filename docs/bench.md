@@ -243,6 +243,48 @@ If the simulated run is sluggish, try `--speedup 1` (real time, 5 is
 the default): the simulator itself costs CPU, which the real machine
 does not.
 
+## Phase 5: a map from the window
+
+Step 9 of Phase 5, the last: the real machine, driven from the window
+only. **Steps 2 to 6 move the stage and light lasers**: you are at the
+machine and work the window; Claude asks before each step, watches the
+run folders and logs over SSH, and copies the runs back.
+
+The target is the test cell's straight right edge, `~/cal/stdtest-redge.json`
+(2 × 2 mm, used on 2026-10-23). Its command-line maps at 1 mm/s gave a
++20.5 um serpentine shift (+19.6 um from the alignment), so a map from
+the window has numbers to agree with.
+
+Before: the Pi on the branch (`deploy/pi/setup.sh phase-5-gui`, fonts
+smooth); replug the Xiao and the miniSMU if the Pi has rebooted; the
+cell contacted with the leads from the top (the backplate clip gave
+flat maps); the box over it; no `multilbic` process running.
+
+```bash
+cd ~/MultiLBIC && uv run --no-sync multilbic gui
+```
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | **Connect** (no motion). Three green lamps with firmware; if one is red, replug it and Connect again. Claude then tries `multilbic run` over SSH: it must stop with "the machine is in use" | the real devices through the worker; the machine lock (D17) |
+| 2 | **Start** (homes; laser 2 on over the AB centre), **Load...** `stdtest-redge.json`, **Go to corner**. Is the spot on the corner? If not, jog onto it (click the pad: the arrows must move the spot on the cell the way they point) and **Set corner here**. **Trace the outline**, then **Save...** as `~/cal/stdtest-gui.json` | homing repeatability as Phase 4 step 3 did; the jog arrows on the real cell (D19 and `[display]`); the drawing's spot following the real stage |
+| 3 | **A map**: laser 2, pixel 0.01, pitch 0.05, speed **1**, range 25u, baseline 3, warm-up 60 (the default). **Start run**, check the dialog, OK. About 3 min. Watch the warm-up, the time left, the live map filling, then the finished map replacing it | a real run from the window; whether its map, and the shift it reports, agree with the command line's on the same edge (Claude compares the files) |
+| 4 | **STOP mid-row**: step 3 again with warm-up 0; press STOP after a few rows | as Phase 4 step 6, from the button: the file says `stopped` with its finished rows, laser and SMU off, stage still; Home works afterwards |
+| 5 | **Esc mid-row**: the same, with Esc | the key does what the button does |
+| 6 | **Closing mid-run**: step 3 again with warm-up 0; close the window with its X, answer Yes | it asks, stops the run, makes everything safe, then closes; a new window connects at once (the lock is released) |
+
+Pass: steps 1-6 as described, and step 3's map matches the command
+line's (the edge in the same place within the spot size, the shift
+within a few um of +20). Then Phase 5 is done and the branch gets its
+PR. Findings go into [hardware](hardware.md); anything the window got
+wrong into the plan.
+
+Copy the run folders back:
+
+```bash
+scp -r "multilbic:multilbic-runs/*" runs/
+```
+
 ## Afterwards
 
 Copy the reports back:

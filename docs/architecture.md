@@ -38,6 +38,9 @@ Imports point one way only, as in SMUniversal. `scan/` imports nothing
 with I/O, so all the maths behind a map is unit-testable. `gui/` never
 talks to a device directly. It sends requests to `run/` and gets results
 back through a queue (SMUniversal house rule 8, *the UI is a queue*).
+*As built* (Phase 5): the queue is `gui/worker.py`, one thread that owns
+the devices and drives `run/` (`Calibrator`, `Session`); the window
+calls it and drains its events every 50 ms ([gui](gui.md#how-it-is-built)).
 
 ### Package sketch
 

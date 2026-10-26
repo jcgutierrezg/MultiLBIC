@@ -3,6 +3,23 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.10 - The window's docs; the bench session planned
+
+Phase 5 step 8.
+
+- `docs/gui.md`: how it runs on the Pi (D21), and a map of the window's
+  modules and what they stand on. `docs/development.md`: running the
+  window in simulation, and how the window tests work (one Tk per
+  module, the worker closed in `finally`, focus before keys, the thread
+  guard, running them on the Pi's display from SSH).
+  `docs/architecture.md`, `docs/run.md`, `README.md`: the window as
+  built.
+- `docs/bench.md`, "Phase 5: a map from the window": step 9's runbook.
+  The real machine from the window on the cell's straight right edge
+  (`stdtest-redge`), compared with the command line's maps of it; the
+  machine lock; jog arrows on the real cell; STOP, Esc and closing the
+  window mid-run.
+
 ## 0.5.9 - The emblem's lasers in order
 
 - The emblem's dots ran 1-2-3-6-5-4 round the ring (the user spotted

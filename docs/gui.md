@@ -7,16 +7,19 @@ title: "The window"
 
 `multilbic gui` opens it, maximised, and connects to the machine;
 `multilbic gui --sim` to the simulated one, with a synthetic sample on
-the carriage to find. Built in Phase 5 ([plan](plan.md)); still to
-come: a check on the Pi, then a run of the real machine from it.
+the carriage to find. Built in Phase 5 ([plan](plan.md)); it passed
+in simulation on Windows and on the Pi's monitor (2026-10-26). Its first
+run of the real machine is bench step 9 ([bench](bench.md#phase-5-a-map-from-the-window)).
 
 ```bash
 uv run multilbic gui --sim
 ```
 
-On the Pi it runs on the Pi's own monitor, started there (D6). Only one
-MultiLBIC process can have the real machine at a time: a second window
-or a `multilbic run` stops with "the machine is in use"
+On the Pi it runs on the Pi's own monitor, started there (D6), on
+deadsnakes' Python 3.14 with Ubuntu's Tk, whose text is smooth (D21;
+uv's own Python draws it jagged, `deploy/pi/setup.sh` says which you
+have). Only one MultiLBIC process can have the real machine at a time:
+a second window or a `multilbic run` stops with "the machine is in use"
 ([run](run.md#run)).
 
 ## Layout
@@ -174,3 +177,22 @@ The window never touches a device. `multilbic/gui/worker.py` owns them
 on one thread; the window calls it and reads its events every 50 ms
 (SMUniversal rule 8). Theme, console and the thread guard come from
 SMUniversal; the accent is MultiLBIC's own teal.
+
+| Module | Tk | Job |
+|---|---|---|
+| `gui/worker.py` | no | `MachineWorker`: the thread that owns the devices. One action at a time (refused while busy), Stop from any thread, events out |
+| `gui/runform.py` | no | the run setup's text fields to a `RunRequest`, plans and estimate, or the field that is wrong |
+| `gui/livemap.py` | no | `LiveMap` (rows binned as they arrive, at most 600 px a side) and `RunProgress` (time left) |
+| `gui/jogkeys.py` | no | which axis each arrow moves, from `[display]` and `[geometry]` |
+| `gui/spectrum.py` | no | each laser's colour from its wavelength |
+| `gui/app.py` | yes | the window: header, columns, the event pump, Stop, closing; `launch()` for `multilbic gui` |
+| `gui/machine_panels.py` | yes | connection, stage and jog pad, lasers |
+| `gui/sample_panels.py` | yes | calibration and its drawing, run setup and Start |
+| `gui/run_panel.py` | yes | progress, the map tabs, opening earlier runs |
+| `gui/look.py` | yes | the accent, extra styles, laser swatches, the emblem |
+
+Underneath, the same code as the command line: `run/calibrate.py`'s
+`Calibrator` (the prompt is a layer over it), `run/session.py`'s
+`Session` with its `on_row` and `on_map` hooks, and `run/devices.py`,
+which opens the machine under the machine lock. Tests: see
+[development](development.md#the-windows-tests).

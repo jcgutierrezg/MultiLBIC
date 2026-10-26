@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI)** on branch `phase-5-gui`: steps 1-7 done (0.5.7). The window calibrates, runs and shows live and finished maps in simulation, and passed on the Pi's monitor 2026-10-26 after the switch to deadsnakes' Python for smooth text (D21) ([gui](gui.md)). |
-| next | Phase 5 step 8 (docs), then step 9: a short real map driven from the window, with Stop and closing mid-run. The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
+| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI)** on branch `phase-5-gui`: steps 1-8 done (0.5.10). The window calibrates, runs and shows live and finished maps, passed in simulation on Windows and on the Pi's monitor (smooth text after D21); docs written ([gui](gui.md)). |
+| next | Phase 5 step 9: a map of the real machine from the window, with STOP, Esc and closing mid-run ([bench](bench.md#phase-5-a-map-from-the-window)); then the PR. The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
 
 ## Phases
 

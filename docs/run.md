@@ -6,8 +6,10 @@ title: "Running a map"
 # Running a map
 
 From a sample on the stage to its maps, from the command line (Phase 4).
-How a map is computed is in [scan](scan.md); the bench steps that check
-all this on the machine are in [bench](bench.md#phase-4-first-maps).
+The window does the same with buttons ([gui](gui.md)); what is said here
+about placement, the options, Stop, faults and the run folder holds for
+both. How a map is computed is in [scan](scan.md); the bench steps that
+check all this on the machine are in [bench](bench.md#phase-4-first-maps).
 
 ```bash
 uv run multilbic calibrate --sample cell-7 --out ~/cal/cell-7.json
