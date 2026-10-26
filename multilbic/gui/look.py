@@ -40,21 +40,39 @@ def _extra_styles(theme: Theme) -> None:
     p, accent = theme.palette, theme.accent
     style = theme.style
     # A laser that is on: filled with the accent, so it reads at a
-    # glance across the room.
+    # glance across the room - also while a run has the buttons locked,
+    # a little softer.
     lit_hover = blend(accent, p.ink, 0.12)
+    lit_locked = blend(accent, p.bg, 0.35)
     style.configure("Lit.TButton", background=accent,
                     foreground=p.on_accent, bordercolor=accent,
                     lightcolor=accent, darkcolor=accent, font="SMUBold")
     style.map("Lit.TButton",
-              background=[("disabled", p.bg), ("active", lit_hover)],
-              foreground=[("disabled", p.muted)],
-              lightcolor=[("active", lit_hover)],
-              darkcolor=[("active", lit_hover)])
+              background=[("disabled", lit_locked), ("active", lit_hover)],
+              foreground=[("disabled", p.on_accent)],
+              lightcolor=[("disabled", lit_locked), ("active", lit_hover)],
+              darkcolor=[("disabled", lit_locked), ("active", lit_hover)])
     # The jog pad: a ring in the accent while it has the keys.
     style.configure("Keys.TFrame", background=p.bg, borderwidth=2,
                     relief="solid", bordercolor=p.rule)
     style.configure("KeysOn.TFrame", background=p.bg, borderwidth=2,
                     relief="solid", bordercolor=accent)
+    # SMUniversal's theme paints a disabled box plain before it asks
+    # whether it is ticked, so a ticked box looks empty while a run has
+    # the form locked. Ticked and disabled: a grey tick.
+    soft = blend(accent, p.field, 0.72)
+    for widget in ("TCheckbutton", "TRadiobutton"):
+        style.map(widget,
+                  indicatorbackground=[("disabled", "selected", p.muted),
+                                       ("disabled", p.bg),
+                                       ("selected", accent),
+                                       ("pressed", soft)],
+                  indicatorforeground=[("disabled", "selected", p.bg),
+                                       ("selected", p.on_accent)],
+                  upperbordercolor=[("disabled", "selected", p.muted),
+                                    ("selected", accent)],
+                  lowerbordercolor=[("disabled", "selected", p.muted),
+                                    ("selected", accent)])
     style.configure("Big.Stop.TButton", font="SMUCardTitle",
                     padding=(22, 8))
     style.configure("Position.TLabel", font="SMUCardTitle")

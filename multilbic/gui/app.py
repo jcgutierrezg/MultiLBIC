@@ -38,6 +38,7 @@ from multilbic.gui.machine_panels import (
     LaserPanel,
     StagePanel,
 )
+from multilbic.gui.run_panel import RunPanel
 from multilbic.gui.sample_panels import CalibrationPanel, RunSetupPanel
 from multilbic.gui.worker import (
     Event,
@@ -132,13 +133,11 @@ class App:
         for frame in (self.calibration_panel.frame, self.setup.frame):
             frame.pack(fill="x", pady=(0, 8))
 
-        # Step 6 of Phase 5 fills this.
-        self.run_column = look.section(body, "Run")
-        self.run_column.grid(row=0, column=2, sticky="nsew")
-        ttk.Label(self.run_column, text="not built yet",
-                  style="Hint.TLabel").pack(anchor="w")
-        self.panels: tuple[Panel, ...] = (self.connection, self.stage, self.lasers,
-                       self.calibration_panel, self.setup)
+        self.run_panel = RunPanel(self, body)
+        self.run_panel.frame.grid(row=0, column=2, sticky="nsew")
+        self.panels: tuple[Panel, ...] = (
+            self.connection, self.stage, self.lasers,
+            self.calibration_panel, self.setup, self.run_panel)
 
         footer = ttk.Frame(root, padding=(10, 2, 10, 6))
         footer.grid(row=2, column=0, sticky="ew")

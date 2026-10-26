@@ -7,9 +7,8 @@ title: "The window"
 
 `multilbic gui` opens it, maximised, and connects to the machine;
 `multilbic gui --sim` to the simulated one, with a synthetic sample on
-the carriage to find. Being built in Phase 5 ([plan](plan.md)): the
-machine and sample columns are done, and a run can be started; the run
-column (live map, progress) comes next.
+the carriage to find. Built in Phase 5 ([plan](plan.md)); still to
+come: a check on the Pi, then a run of the real machine from it.
 
 ```bash
 uv run multilbic gui --sim
@@ -27,7 +26,7 @@ or a `multilbic run` stops with "the machine is in use"
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
 | machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the photocurrent now |
 | sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
-| run column | live map, progress (step 6) |
+| run column | what the run is doing, a progress bar and the time left; a tab per laser with its map, live and then finished; Open run file..., Open folder |
 | footer | the last thing that happened; everything is in the Console |
 
 ## Stop
@@ -113,10 +112,39 @@ and asks (D20). The run then homes first, as `run` does, and everything
 but STOP is off until it ends. Runs go to `~/multilbic-runs`
 (`runs/` in the checkout when simulated).
 
+## Watching a run
+
+The headline says which laser and row the run is on (or homing,
+warming up); the bar and the line under it how long it has taken and
+how long is left. The time left is the plan's estimate until three rows
+have finished, then the pace the rows actually take, plus the
+baseline, warm-up and laser switch of each laser still to come.
+
+Each laser has a tab. While it scans, the tab shows the **live map**:
+each row binned as it finishes, with the laser-off baseline subtracted
+and mains removed, as the finished map does, but **not corrected for
+the serpentine shift** (D18), so edges look jagged where forward and
+reverse rows sit a little apart. When the laser ends, the **finished
+map**, built from its file exactly as the PNG beside it, takes its
+place, and the caption gives the shift it found and removed. Both are
+drawn as you see the cell, with the corner marked, on white paper in
+both modes.
+
+A map with more pixels than the screen can show (over 600 a side) is
+binned into blocks of pixels as it arrives, so a redraw costs the same
+for any map; the file keeps every sample. Redraws happen at most twice a
+second.
+
+**Open run file...** draws an earlier run's map (any `laserN_*.csv`)
+in a tab of its own; it is off during a run, since mapping a big file
+is heavy work. **Open folder** opens the last run's folder.
+
 ## Lasers and the photocurrent
 
 A laser button lights that laser; Off turns them all off. Lasers whose
 position in `machine.toml` is still a placeholder are marked `*`.
+During a run the buttons are locked, and the one the run has lit is
+filled.
 
 Once homed, the photocurrent is read twice a second while the machine
 is idle: in the dark, an edge is where it halves. A run ends with the

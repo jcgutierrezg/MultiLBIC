@@ -3,6 +3,32 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.5 - Live and finished maps in the window
+
+Phase 5 step 6 (`docs/gui.md`).
+
+- The run column: what the run is doing, a progress bar, time so far
+  and left (the estimate until three rows are done, then their pace),
+  and a tab per laser. The live map bins each row as it finishes,
+  baseline subtracted and mains removed but not corrected for the
+  serpentine shift (D18); the finished map, built from the file as the
+  PNG is, replaces it when the laser ends, with the shift it found.
+  Open run file... draws an earlier run's map; Open folder.
+- `multilbic/gui/livemap.py` (no Tk): `LiveMap` bins straight into a
+  grid of at most 600 pixels a side, so a redraw of a 30 x 30 mm map at
+  10 um costs 74 ms here instead of 243 ms, and holds no 9-million-pixel
+  arrays; `RunProgress` for the time left.
+- The live map removes mains on the SMU's timestamps, as the finished
+  map does: on the host's arrival times, which come in ~100 ms bursts,
+  the fit wrecked the map (caught by a test comparing the two maps of
+  one simulated run).
+- `multilbic/store/image.py`: `draw_map`, shared by the PNG and the
+  window. The "corner" label now sits on the map's side of the corner
+  whichever way the view turns it, instead of over the colour bar.
+- The laser a run lights is shown filled in the Lasers panel. Ticked
+  boxes stay visibly ticked while a run locks the form (SMUniversal's
+  theme drew them empty; overridden here).
+
 ## 0.5.4 - Calibrating and starting runs from the window
 
 Phase 5 step 5 (`docs/gui.md`).

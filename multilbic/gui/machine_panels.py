@@ -28,9 +28,11 @@ from multilbic.gui.worker import (
     LaserChanged,
     Position,
     Reading,
+    RowEvent,
     State,
     StateChanged,
 )
+from multilbic.scan.mapping import BASELINE_ROW
 
 if TYPE_CHECKING:
     from multilbic.gui.app import App
@@ -349,6 +351,12 @@ class LaserPanel:
             for n, button in self.buttons.items():
                 button.configure(
                     style="Lit.TButton" if n == event.laser else "TButton")
+        elif isinstance(event, RowEvent):
+            # A run switches lasers without asking the panel: its
+            # blocks say which is on (none during the baseline).
+            lit = 0 if event.row.row == BASELINE_ROW else event.row.laser
+            if lit != self.lit:
+                self.handle(LaserChanged(lit))
         elif isinstance(event, Reading):
             self.current.configure(text=look.amps(event.current_a))
         elif isinstance(event, StateChanged) and event.state in (

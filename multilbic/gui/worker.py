@@ -134,6 +134,7 @@ class CalibrationChanged:
 class RunStarted:
     folder: Path
     plans: tuple[LaserPlan, ...]
+    request: RunRequest
 
 
 @dataclass(frozen=True)
@@ -542,7 +543,8 @@ class MachineWorker:
             if self._state is State.STOPPING:
                 raise RunStopped("stopped before it started")
             self._session = session
-        self._emit(RunStarted(session.folder, tuple(session.plans)))
+        self._emit(RunStarted(session.folder, tuple(session.plans),
+                              request))
         # The run ends with the SMU output off: no readings until the
         # next home. It homes at its start: until that is done, the
         # stage counts as not homed.

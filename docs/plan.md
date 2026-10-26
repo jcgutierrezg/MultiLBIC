@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) started** 2026-10-26 on branch `phase-5-gui`: plan agreed (0.5.0), steps 2-5 done (0.5.4): `multilbic gui` calibrates and starts runs ([gui](gui.md)). |
-| next | Phase 5 step 6: live map, progress, the end-of-run map. The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
+| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI)** on branch `phase-5-gui`: steps 1-6 done (0.5.5), the window calibrates, runs and shows live and finished maps, in simulation ([gui](gui.md)). |
+| next | Phase 5 step 7: the simulated window on the Pi's monitor (fit, Tk 9, redraw speed). The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
 
 ## Phases
 

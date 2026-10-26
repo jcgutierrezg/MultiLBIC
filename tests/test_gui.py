@@ -366,6 +366,25 @@ def test_a_run_from_the_window(window, tmp_path, monkeypatch):
     assert folder.name.endswith("_cell")
     assert '"status": "complete"' in (folder / "run.json").read_text()
     assert "run complete" in app.status_label.cget("text")
+    # The run column: the finished map in laser 2's tab, the bar full.
+    run = app.run_panel
+    window.pump(lambda: run.tabs[2].final)
+    assert run.headline.cget("text") == "Run complete"
+    assert float(run.bar.cget("value")) == pytest.approx(1.0)
+    assert run.timing.cget("text").startswith("took")
+    assert "serpentine shift" in run.tabs[2].caption.cget("text")
+    assert run.live[2].rows_done == 4
+    assert run.folder == folder
+    assert "disabled" not in run.folder_btn.state()
+
+    # And an earlier run's file opens in a tab of its own.
+    csv = folder / "laser2_519nm.csv"
+    monkeypatch.setattr("multilbic.gui.run_panel.filedialog"
+                        ".askopenfilename", lambda **k: str(csv))
+    tabs = len(run.notebook.tabs())
+    run.open_btn.invoke()
+    window.pump(lambda: len(run.notebook.tabs()) == tabs + 1)
+    assert "opened" in app.status_label.cget("text")
 
 
 def test_cancelling_start_starts_nothing(window, tmp_path, monkeypatch):
@@ -377,3 +396,15 @@ def test_cancelling_start_starts_nothing(window, tmp_path, monkeypatch):
     window.app.setup.start_btn.invoke()
     window.ready()
     assert not (tmp_path / "runs").exists()
+
+
+def test_the_laser_a_run_lights_shows(window, tmp_path, monkeypatch):
+    from multilbic.gui.worker import RowEvent
+    from multilbic.run.rows import RowDone
+
+    lasers = window.app.lasers
+    window.app.handle(RowEvent(RowDone(3, -1, 4, ())))  # baseline: off
+    assert lasers.lit == 0
+    window.app.handle(RowEvent(RowDone(3, 0, 4, ())))
+    assert lasers.lit == 3
+    assert str(lasers.buttons[3].cget("style")) == "Lit.TButton"
