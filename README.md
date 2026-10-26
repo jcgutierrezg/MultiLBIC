@@ -6,9 +6,9 @@ lasers on a servo revolver, and an Undalogic miniSMU that measures the
 photocurrent while the sample is rastered under the beam.
 
 **Status: being rewritten.** Project foundations, the device layer
-(drivers + simulators) and the scan core are in place, the last in
-simulation only; running a whole map on the machine comes next. See
-[docs/plan.md](docs/plan.md).
+(drivers + simulators), the scan core and command-line runs are in
+place, and real maps have come off the machine from three lasers. The
+GUI comes next. See [docs/plan.md](docs/plan.md).
 
 | To find | Go to |
 |---|---|
@@ -16,6 +16,7 @@ simulation only; running a whole map on the machine comes next. See
 | How the software is meant to be built | [docs/architecture.md](docs/architecture.md) |
 | How the software talks to each device; the simulators | [docs/devices.md](docs/devices.md) |
 | How a map is made: position sync, cleaning, the run file | [docs/scan.md](docs/scan.md) |
+| Calibrating a sample and running its maps | [docs/run.md](docs/run.md) |
 | Phases, what's next, decisions | [docs/plan.md](docs/plan.md) |
 | Setting up, running the gates, the workflow | [docs/development.md](docs/development.md) |
 | Running the probes on the machine over SSH | [docs/bench.md](docs/bench.md) |

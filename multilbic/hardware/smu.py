@@ -293,6 +293,7 @@ class PhotocurrentSmu:
         )
 
         self._transport = transport
+        self._client = transport.client
         self.channels = tuple(channels)
         self.drivers = {
             channel: UndalogicMiniSMU(transport, channel=channel)
@@ -320,17 +321,30 @@ class PhotocurrentSmu:
         bias_v: float = 0.0,
         current_limit_a: float = 1e-3,
         nplc: float | None = None,
+        current_range_a: float | None = None,
     ) -> None:
         """Reset each channel and set it to source `bias_v` and measure
-        current. The output stays off until `output_on()`."""
+        current. The output stays off until `output_on()`.
+
+        `current_range_a` fixes the measurement range to the smallest
+        that holds that current, with autoranging off; None leaves the
+        instrument autoranging. While streaming, every autorange switch
+        drops 10-15 ms of samples (bench, 2026-10-21), so scans fix it.
+        """
         self._refuse_while_streaming()
-        for driver in self.drivers.values():
+        for channel, driver in self.drivers.items():
             driver.reset()
             driver.set_source_function("voltage")
             driver.set_voltage_level(bias_v)
             driver.set_current_limit(current_limit_a)
             if nplc is not None:
                 driver.set_nplc(nplc)
+            if current_range_a is None:
+                self._client.set_autorange(channel, True)
+            else:
+                self._client.set_current_range_by_limit(
+                    channel, abs(current_range_a), disable_autorange=True
+                )
 
     def output_on(self) -> None:
         self._refuse_while_streaming()

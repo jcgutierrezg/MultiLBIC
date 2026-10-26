@@ -6,10 +6,12 @@ title: "Architecture"
 # Architecture
 
 This is the design agreed before any code was written. Decisions are
-recorded in [plan](plan.md#decisions). The device layer (Phase 2) and
-the scan core (Phase 3) are built; where the build differs from what
-follows, the difference is noted here and the detail is in
-[devices](devices.md) and [scan](scan.md).
+recorded in [plan](plan.md#decisions). The device layer (Phase 2), the
+scan core (Phase 3) and command-line runs (Phase 4) are built; where the
+build differs from what follows, the difference is noted here and the
+detail is in [devices](devices.md), [scan](scan.md) and [run](run.md).
+*As built,* placing the sample uses XY as well as AB (D11), and the
+command line is `multilbic calibrate` and `multilbic run` (D13).
 
 ## Goals
 

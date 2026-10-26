@@ -10,7 +10,10 @@ so a run file can be re-mapped later with better calibration. The steps:
 3. each row's samples get host times, then A positions from that row's
    anchored motion; only samples taken while the row moved are kept;
 4. mains is removed per row, the offset subtracted;
-5. the serpentine shift is measured and corrected (`alignment`);
+5. the serpentine shift is measured and corrected (`alignment`), which
+   puts each sample where the stage really was; half the known A
+   backlash is then added, to match positions read after moving up as
+   corner calibration reads them (`ab_backlash_mm`, machine.toml);
 6. samples are binned into the pixel grid (`binning`).
 """
 
@@ -34,6 +37,10 @@ from multilbic.scan.geometry import SampleFrame
 from multilbic.scan.timing import ClockMap, RowAnchor, fit_clock
 
 BASELINE_ROW = -1
+#: Samples taken with the laser on and the stage still, before the first
+#: row: how the laser's output settles after switching on. Kept in the
+#: file, never mapped.
+WARMUP_ROW = -2
 
 
 @dataclass(frozen=True)
@@ -54,6 +61,8 @@ class ScanData:
     host_s: np.ndarray
     current_a: np.ndarray
     laser: int = 0
+    #: From machine.toml when the run was made.
+    ab_backlash_mm: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -125,6 +134,8 @@ def build_map(
     for anchor, a, values, device_ms in positioned:
         direction = anchor.motion().direction
         a = alignment.corrected(a, direction)
+        if alignment.found:
+            a = a + data.ab_backlash_mm / 2
         u = a - data.frame.origin_ab_mm[0]
         rows.append(MappedRow(anchor.index, direction, u, values, device_ms))
 

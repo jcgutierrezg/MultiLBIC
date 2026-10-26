@@ -256,3 +256,20 @@ def test_delivered_rate_follows_the_instrument_not_the_request(clock):
     clock.sleep(2.0)
     stats = smu.stream.stop()
     assert stats.rate_hz(1) == pytest.approx(238.0, rel=0.02)
+
+
+def test_prepare_fixes_the_range_or_leaves_it_auto(clock):
+    smu, fake = make(clock)
+    smu.prepare(current_range_a=25e-6)
+    assert fake.autorange[1] is False
+    assert fake.current_range[1] == 1  # the 25 uA range
+    smu.prepare(current_range_a=None)
+    assert fake.autorange[1] is True
+
+
+def test_a_fixed_range_clips(clock):
+    smu, fake = make(clock, signal=lambda ch, t: 40e-6)
+    smu.prepare(current_range_a=25e-6)
+    smu.output_on()
+    _, amps = smu.measure(1)
+    assert amps == pytest.approx(25e-6)

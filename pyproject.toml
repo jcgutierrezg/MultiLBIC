@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.2.2"
+version = "0.4.13"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -26,6 +26,9 @@ dependencies = [
     "numpy>=2.0",
     "matplotlib>=3.8",
 ]
+
+[project.scripts]
+multilbic = "multilbic.cli:main"
 
 [tool.uv.sources]
 # A commit, not a branch: an upstream push must never change what a
@@ -109,6 +112,13 @@ files = [
     "multilbic/scan/mapping.py",
     "multilbic/store/runfile.py",
     "multilbic/run/rows.py",
+    # Phase 4: placement, the run, the command line
+    "multilbic/scan/geometry.py",
+    "multilbic/run/motion.py",
+    "multilbic/run/session.py",
+    "multilbic/run/calibrate.py",
+    "multilbic/run/keys.py",
+    "multilbic/cli.py",
 ]
 python_version = "3.14"
 ignore_missing_imports = true
@@ -123,4 +133,5 @@ addopts = "-ra --strict-markers"
 markers = [
     "hardware: needs the real machine; never run in CI",
     "gui: builds a real Tk window (needs a display, or Xvfb on CI)",
+    "sim_timing: checks the simulator's timing to a millisecond; needs a fast host (skipped by deploy/pi/setup.sh)",
 ]

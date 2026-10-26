@@ -1,6 +1,199 @@
 # Changelog
 
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
+From Phase 4 on, the middle number is the phase.
+
+## 0.4.13 - Saturation test without a servo turn
+
+- The saturation test is back on laser 2 with a cell twice as bright:
+  laser 3's servo turn, at 20x simulated speed, left the board's reply
+  about 0.15 s of real time, which the Pi missed once (2026-10-26).
+
+## 0.4.12 - Command-line test with a short warm-up
+
+- On the Pi, `test_run_sim_end_to_end` failed with a stalled stream
+  after 0.4.11's default 60 s warm-up: at 20x simulated speed the
+  24,000 warm-up samples took longer to sort on the Pi than the 0.1 s
+  real (2 s simulated) the stream check allows. On the machine the same
+  work fits easily. The test now passes `--warmup 1`; the warm-up is
+  tested in `test_session.py`.
+
+## 0.4.11 - Laser warm-up; Phase 4 done
+
+- `multilbic run --warmup` (default 60 s): each laser stays on with the
+  stage still before its first row. Laser 2's output rose about 2x over
+  the two minutes after it was switched on (bench, 2026-10-23). The
+  warm-up samples are kept in the run file as row −2, so the settling
+  can be checked; maps ignore them. Stop works during the warm-up.
+- Step 7 on the bench: lasers 1, 2 and 3 on the cell's straight right
+  edge. Lasers 1 and 3 give 60-80 uA and need the 650 uA range; laser 2
+  gives 0.7 uA. Spots after refocusing by eye: 65, 41 and 244 um
+  (10-90 %). Registered to within about 0.3 mm on today's
+  `xy_centre_mm`; the photodiode corrects them in Phase 6. Findings in
+  `docs/hardware.md`; decisions D15 (fixed range) and D16 (warm-up) in
+  the plan.
+- Phase 4 is done: real maps from the command line, without the GUI.
+
+## 0.4.10 - Alignment that works with a real spot
+
+- On the bench the serpentine alignment found nothing, even with a
+  sharp edge crossing every row: it smoothed rows over 2 um, right for
+  the simulator's 5 um spot but pure noise against laser 2's ~0.2 mm
+  spot. It now tries smoothing widths from 2 to 80 um, finest first,
+  and keeps the first that a clear majority of row pairs (at least half,
+  at least 3) trust and agree on (spread within the smoothing plus
+  20 um). On the bench runs it now finds +19.6 um at 1 mm/s and
+  +138.7 um at 4 mm/s, against +20.5 and +131.9 um from fitting the edge
+  row by row, and still reports "not found" on rows of pure noise.
+  The search reaches 0.4 mm (was 0.2), and shortens on short rows.
+- The smoothing used is recorded with the shift.
+- `docs/hardware.md`: findings from the first maps (box, lead, signal,
+  spot, the shift and its 18.6 ms stamp lag, the cell, Stop).
+
+## 0.4.9 - Maps drawn as the operator sees the cell
+
+- Bench, 2026-10-23: watched with the box off, a scan starts at the
+  sample's top-right corner, runs each row leftwards (+A) and steps the
+  rows downwards (+B). The PNGs were drawn with u to the right and v up,
+  turned 180 degrees from that. `machine.toml` gains `[display]`
+  (`u_points = "left"`, `v_points = "down"`), and maps are now drawn
+  that way, at true scale, with the calibration corner marked.
+- `multilbic map RUNFILE` rebuilds a map from its run file alone and
+  draws it again, e.g. for runs made before this change.
+- `docs/hardware.md`: the orientation note now says what the bench
+  showed; the step 1 pairing (X with A, Y with B) is unchanged.
+
+## 0.4.8 - The saturation test no longer depends on noise
+
+- `test_a_saturated_range_stops_the_run` used laser 2, under which the
+  synthetic cell gives 0.87 uA: it only reached the 0.98 uA threshold
+  when simulated noise pushed it there, so it passed on Windows and
+  failed on the Pi. It now uses laser 3, where the cell gives the full
+  1 uA and clips every time. The check itself is unchanged.
+
+## 0.4.7 - The channel-2 photodiode is chosen
+
+- `docs/hardware.md` records the reference photodiode for channel 2:
+  Hamamatsu S1223-01 (RS 415-5722), with the Vishay BPW34 as a cheap
+  fallback, the photodiode types to avoid, and how to mount it and pick
+  its range. Not bought yet.
+- The miniSMU's envelope is now in `docs/hardware.md` too: ±12 V,
+  ±180 mA, five current ranges up to 180 mA, and 50 mA per channel on
+  USB power alone.
+
+## 0.4.6 - Scans use a fixed current range
+
+- First real maps (bench, 2026-10-21): with laser 2 on the cell the
+  photocurrent sat at 0.6-2.1 uA, across the miniSMU's 1 uA / 25 uA
+  boundary. Autoranging dropped 10-15 ms of samples at every crossing,
+  the stream fell to ~200 Hz, and the run stopped itself after 12 rows
+  (the under-delivery check, as designed: motion stopped, laser and SMU
+  off, rows kept). Findings in `docs/hardware.md`.
+- `multilbic run --current-range` (`1u`, `25u`, `650u`, `15m`, `auto`;
+  default `25u`) fixes the measurement range with autoranging off
+  (`PhotocurrentSmu.prepare(current_range_a=...)`). A baseline or row
+  that reaches the end of the range stops the run: clipped data is wrong,
+  not just noisy. The range goes into every file header.
+- The fake SMU clips at a fixed range, and gains
+  `set_current_range_by_limit` like the library.
+
+## 0.4.5 - Axis directions checked on the machine
+
+- Bench step 1 (2026-10-21, laser 2 on a mark): +X and +A move the
+  sample up, +Y and +B move it right, as the operator sees it; both
+  stages home to the bottom-left. `machine.toml` keeps `x_along = "+A"`,
+  `y_along = "+B"` and now says `directions_measured = true`, so `run`
+  accepts the machine.
+- That makes the calibration corner the sample's **top-right** corner
+  as seen at the machine. The calibrate prompt and the docs now say so.
+
+## 0.4.4 - setup.sh runs the steps it just checked out
+
+- The run of `deploy/pi/setup.sh` that fetched 0.4.3 still failed the
+  three timing tests: `git checkout` replaces the script with a new file,
+  and bash goes on reading the old one it had open, so the rest of that
+  run was the previous version's. After checking out, the script now
+  starts again from the fresh copy (once).
+
+## 0.4.3 - Simulator timing tests skipped on the Pi
+
+- `deploy/pi/setup.sh` on the Pi failed three tests that check the
+  simulator's timing to about a millisecond (`test_sim_scan.py`, and the
+  two-laser test in `test_session.py`): sample times off by 4-8 ms.
+  `ScaledClock(precise=True)` spin-waits in several threads, and on the
+  Pi's slower cores they contend for Python's GIL and delay the readers.
+  Real runs use the real clock and never spin, so this says nothing
+  about the machine. These tests are now marked `sim_timing` and
+  skipped by `setup.sh`; CI, including its ARM runner, still runs them.
+
+## 0.4.2 - Ready for room light
+
+The room light can't be fully turned off for the first maps.
+
+- The lowest stream rate is now 400 Hz (was 200). Room light flickers
+  at 100 Hz; at 200 Hz that flicker, and the 150 Hz mains harmonic, sit
+  at or near half the sample rate, where the per-row cleaning can't fit
+  them. A 10 µm pixel at 1 mm/s now streams at 400 Hz.
+- `multilbic run --note "..."` writes free text (lighting, contacts)
+  into every file header and `run.json`.
+
+## 0.4.1 - Jog with keys during calibration
+
+- `keys` in `multilbic calibrate`: `wasd` jogs (`d`/`a` X or A,
+  `w`/`s` Y or B), `q` switches XY/AB, `e` cycles the step 0.1, 1, 10 mm;
+  Esc, Enter or Ctrl+C go back to typed commands. Keys pressed during a
+  move are dropped, so a held key can't queue moves. Arrow keys are
+  ignored rather than read as Esc.
+- `multilbic/run/keys.py`: single key presses through `msvcrt` on
+  Windows and cbreak mode elsewhere (the Pi, SSH), terminal restored on
+  the way out. Tested with scripted keys, and through a pseudo-terminal
+  on Linux CI.
+
+## 0.4.0 - Phase 4: calibrate and run from the command line
+
+Built and tested against the simulated machine; the bench session is
+owed (`docs/bench.md`, "Phase 4: first maps").
+
+- **`multilbic calibrate`** (`multilbic/run/calibrate.py`): homes, puts
+  the reference laser over the AB centre, and gives a prompt to jog XY
+  and AB, light lasers, read the photocurrent, record the corner, give
+  the size, trace the outline with the laser, and save a calibration
+  file. `--check FILE` puts a saved corner back under the beam.
+- **`multilbic run`** (`multilbic/run/session.py`): checks everything
+  before moving (lasers exist and are measured, XY reach, AB safe range,
+  pixel against speed), homes, then per laser: XY under it, baseline,
+  rows, run file, PNG. One folder per run with `run.json`,
+  `calibration.json`, `events.jsonl` (SMUniversal's EventLog) and a file
+  and map per laser. Runs on a worker thread; Ctrl+C, SIGINT or SIGTERM
+  is Stop. `--sim` for either command.
+- **XY placement** (D11, `scan/geometry.py`): calibration in XY under
+  the reference laser; each laser's XY centres the sample on AB.
+  `machine.toml` gains `[geometry]`: reference laser, which AB axis X
+  and Y move along (`x_along`, `y_along`, not yet measured, so `run`
+  refuses the machine until the bench checks them), take-up distances,
+  and `ab_backlash_mm` (0 until measured).
+- **Every placing move ends moving up** (`run/motion.py`), so backlash
+  is always taken up the same way: calibration jogs, XY under each
+  laser, AB to the first row.
+- **Stop and faults** (`run/rows.py`): Stop is checked before every row
+  and after every wait, and stops motion at once; a row in progress is
+  not written. Marlin timeouts and halts, a silent laser board, and a
+  stream that stalls, errors or under-delivers end the run the same way.
+  However it ends: motion stopped, laser off, SMU off, file marked
+  `complete`, `stopped` or `failed: <why>`.
+- **Maps agree with calibration**: aligned maps are shifted by half the
+  known A/B backlash, since calibration reads AB after moving up.
+- **Simulator**: the rig is XY-aware (true sample position on the
+  carriage, true axis directions and laser positions, 0.1 mm XY
+  backlash), can produce the calibration a perfect operator would
+  record, and the fake SMU can stall. `python -m multilbic.sim.scan` now
+  goes through the same session as a real run.
+- Tests: XY geometry for all eight axis arrangements; scripted
+  calibration; two lasers lining up with swapped and reversed axes;
+  Stop mid-run; the three faults; refusals; the command line end to
+  end. The suite takes ~65 s.
+- Docs: [run](docs/run.md) is new; bench, plan (D11–D14), architecture,
+  README and development updated.
 
 ## 0.2.2 - Fake Marlin stops motors and stage at one instant
 

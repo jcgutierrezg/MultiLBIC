@@ -26,6 +26,13 @@ from multilbic.sim.scan import (
 from multilbic.store.image import save_png
 from multilbic.store.runfile import read_run
 
+# The precise clock spin-waits in several threads, which contend for
+# Python's GIL. On the Pi's slower cores that delayed the readers by
+# several simulated ms (2026-10-21), failing checks of the simulator's
+# own timing. Real runs use the real clock and never spin. CI, including
+# its ARM runner, runs these.
+pytestmark = pytest.mark.sim_timing
+
 PIXEL_MM = 0.005
 PITCH_MM = 0.05
 SPEED_MM_S = 1.0

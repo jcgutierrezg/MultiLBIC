@@ -58,6 +58,17 @@ Every device has a simulator, so the whole device layer runs on Windows:
 uv run python -m multilbic.hardware.check --sim --home --move --lasers
 ```
 
+The command line runs against the simulated machine too
+([run](run.md)):
+
+```bash
+uv run multilbic calibrate --sim --sample test
+```
+
+```bash
+uv run multilbic run test.json --sim --lasers 1,2,3 --pixel 0.01 --pitch 0.05
+```
+
 A whole scan of a synthetic sample, with latency, backlash and clock
 drift injected, writes a run file and a PNG and prints how far the map
 is from the truth ([scan](scan.md#the-simulated-scan)):

@@ -59,6 +59,20 @@ replaced it, and nothing should still refer to it.
   the grub screw slips. The safe range is about 0–35 mm. The grub screw
   sits on the shaft's thread. A flat ground into the shaft is the
   planned fix (small hardware change, owed).
+- **XY and AB move the sample the same ways** (bench, 2026-10-21,
+  laser 2 on a mark): +X moves it the same way as +A, +Y the same way as
+  +B, and both stages home to the same corner. So `x_along = "+A"`,
+  `y_along = "+B"` in `machine.toml`. (The note at the time said "+X and
+  +A move it up, +Y and +B right"; that was from a different viewpoint
+  than the one below, and only the pairing matters.)
+- **What a scan looks like at the machine** (bench, 2026-10-23, watched
+  with the box off, seen as in the reference photo of the test cell):
+  the spot starts at the sample's **top-right corner**, each row runs
+  **leftwards** (+A), and the rows step **downwards** (+B). So the
+  calibration corner is the top-right one (the old script asked for the
+  top-right corner too), and on the test cell the rows run along the
+  fingers. `[display]` in `machine.toml` (`u_points = "left"`,
+  `v_points = "down"`) draws map PNGs the same way round.
 - **Z has a driver and no motor.** Marlin would not build XYAB without
   Z. The software never moves Z.
 - **Samples** are solar cells, 100–300 µm thick, typically 10, 20 or
@@ -256,6 +270,98 @@ was noticeably noisier and vibrated more than 3–5 mm/s.** Vibration
 moves the beam spot relative to the sample, so scans should stay at
 **5 mm/s or below** unless a map shows otherwise (D9).
 
+## First maps, 2026-10-21 to 2026-10-23
+
+Phase 4's bench session ([bench](bench.md#phase-4-first-maps)), on the
+18 x 18 mm test cell ("stdtest"), laser 2 unless stated, in a cardboard
+box with the room lights on. Run folders are named by their UTC stamp.
+
+- **The box works.** Laser-off baseline −0.4 to −20 nA with 0.7-1.5 nA
+  RMS, mostly drift below 0.5 Hz. With the room lights on, the bench had
+  measured 1.7 uA RMS: about a thousand times quieter.
+- **The lead to the backplate matters.** It is a crocodile clip biting
+  the copper backplate. Homing A drives the stage to the end away from
+  where the lead came in and tugs it. A loose clip gave a flat map
+  (`20261021T174652Z`, lead off) and, partly loose, row-to-row jumps of
+  2-3x in the photocurrent (`20261023T151932Z`). With the leads coming
+  in from the top and strain-relieved, the level is steady
+  (`20261023T153728Z`) and about twice what it was before. A soldered or
+  screwed connection to the backplate would be better than a clip.
+- **Signal**, laser 2 on the cell: −0.3 to −1.0 uA, rising towards the
+  wire contact. Laser 1 (444 nm) gave more than 25 uA, clipping the
+  25 uA range (`20261023T163133Z`, stopped by the saturation check).
+- **Spot**, laser 2, focused by eye: the cell's straight right edge goes
+  from 10 % to 90 % in 123-132 um at both 1 and 4 mm/s, so sigma is
+  about 50 um and the 1/e^2 diameter about 0.2 mm. Resolution is set by
+  the spot, not the pixels. Lasers 1 and 3 were focused by eye too;
+  their spots are measured properly with the photodiode (Phase 6).
+- **On the cell, with the laser on, the signal has 100-200 Hz noise**
+  of about 20 % per 10 um pixel at 1 mm/s, absent with the laser off or
+  off the cell. With a 0.2 mm spot this is not surface texture; most
+  likely the laser's own output. Larger pixels average it.
+- **The forward/reverse shift** on the straight edge, 40 rows 50 um
+  apart (`20261023T155130Z`, `20261023T155424Z`):
+
+  | Speed | Shift | Spread between row pairs |
+  |---|---|---|
+  | 1 mm/s | +20.5 um | 7.7 um |
+  | 4 mm/s | +131.9 um | 12.5 um |
+
+  It grows by 37 um per mm/s: a timing lag of **18.6 ms with the
+  samples stamped after they were measured**, which supports the
+  "stamped when sent" suspicion above. The fit's offset at zero speed
+  is −17 um, which cannot be backlash; A backlash is too small to see
+  this way, so `ab_backlash_mm` stays 0. The serpentine alignment
+  removes the shift per map; the residual is the 8-13 um row-to-row
+  spread.
+- **The alignment needed broader smoothing.** Smoothing rows over 2 um
+  (right for the simulator's 5 um spot) only correlated noise with a
+  0.2 mm spot. It now tries 2-80 um and keeps the finest that a clear
+  majority of row pairs agree on (0.4.10).
+- **What the cell looks like** (whole-cell surveys, `20261023T125741Z`,
+  `20261023T153728Z`): the rows run along the fingers, so fingers show
+  only as faint bands; the copper strip above the cell's top edge; an
+  electrically dead region at the bottom-right, next to the pad that
+  broke in the first soldering attempt, with a straight slanted
+  boundary; small dead patches at the wire and solder blob; current
+  rising towards the contact. The calibrated corner sat about 1.3 mm
+  inside the cell's right edge and 0.5 mm below its top edge: picking a
+  corner by eye with a 0.2 mm spot is good to about a millimetre.
+- **Stop** (`20261023T160531Z`): SIGINT after row 10 left a readable
+  file with 10 rows and status `stopped`.
+- **Three lasers on the straight right edge** (step 7, after refocusing
+  all three by eye; `20261023T163531Z` laser 2, `20261023T163839Z`
+  laser 1, `20261023T164506Z` laser 3; 2 x 2 mm, 1 mm/s):
+
+  | | Laser 1 (444 nm) | Laser 2 (519 nm) | Laser 3 (652 nm) |
+  |---|---|---|---|
+  | Current on the cell | −60 uA | −0.71 uA | −77 uA |
+  | Range needed | 650 uA | 25 uA | 650 uA |
+  | Edge 10-90 % (spot) | 65 um | 41 um (125-130 um before refocusing) | 244 um |
+  | Offset along A, from the edge | 0 | −0.14 mm | −0.01 mm |
+  | Offset along B, from a finger | 0 | about −0.30 mm | −0.12 mm |
+  | Forward/reverse shift | +10.1 um | +11.9 um | +39.4 um |
+
+  - Offsets are relative to laser 1, with XY placed from today's
+    `xy_centre_mm`. B comes from where a finger (which runs along the
+    rows) appears; fingers repeat every ~1.0 mm, so B is known modulo
+    that, and the small values are taken. Refocusing moved laser 2's
+    edge by ~0.13 mm, so its beam moves with focus; it is also the
+    calibration's reference laser. The lasers register to within about
+    0.3 mm; the photodiode measures all six properly (Phase 6).
+  - **Laser 2 gives about 1/100 of the current of lasers 1 and 3**,
+    which the cell's response at 519 nm does not explain: laser 2 is
+    probably weak.
+  - **Laser 2's output rose about 2x over its run**, which started right
+    after it was switched on; lasers 1 and 3 stayed within 5 %. Hence
+    `run --warmup` (default 60 s), which also records the warm-up so
+    the settling can be seen (row −2 in the file).
+  - The shift differs by laser (10-39 um at 1 mm/s), so it is not
+    timing alone: the cell's response to each spot adds to it. The
+    alignment measures it per map either way.
+  - The finger shows deeper under the sharp spot (14 %, laser 1) than
+    under the broad one (4 %, laser 3).
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial
@@ -265,7 +371,13 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
 - **Channel 1** measures photocurrent at 0 V bias. Expected signal: low
   µA down to nA, *unverified*.
 - **Channel 2** is free. Agreed use: a reference photodiode on a corner
-  of the AB stage, outside the sample area.
+  of the AB stage, outside the sample area. The part is chosen, not yet
+  bought ([below](#channel-2-reference-photodiode-chosen-2026-10-22)).
+- **Envelope:** two channels, four-quadrant, ±12 V, ±180 mA, 2.1 W per
+  channel. Five current ranges: 1 µA, 25 µA, 650 µA, 15 mA, 180 mA (from
+  `minismu_py` and SMUniversal's driver). On USB-C power alone each
+  channel is limited to 50 mA, and the instrument can't say which
+  supply it is on, so the 12 V adapter stays plugged in.
 - **Streaming** (`SOUR<n>:DATA:STREAM`, rate set with
   `SOUR<n>:DATA:SRATE`, packets timestamped by the SMU's own clock) is
   what makes continuous scanning possible. First measured on this
@@ -275,6 +387,64 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
 - Firmware is still **1.4.6**: Undalogic's update server returned HTTP
   500. The library says 1.5.0+ adds the active current range to each
   packet.
+
+### Channel-2 reference photodiode, chosen 2026-10-22
+
+What it is for is in
+[architecture](architecture.md#the-channel-2-reference-photodiode):
+laser positions, knife-edge spot sizes, and a power reference to
+compare wavelengths.
+
+**Chosen: Hamamatsu S1223-01**, RS 415-5722 (about £17–18 ex VAT on RS
+UK, October 2026). Not yet bought.
+
+| Need | S1223-01 |
+|---|---|
+| All six lasers, 444–848 nm | Si PIN, 320–1100 nm; 0.52 A/W at 780 nm, peak at 960 nm |
+| Active area much larger than any spot | 3.6 × 3.6 mm: a position scan sees a flat plateau with clean edges |
+| An edge for knife-edge scans | The square chip edge, in the chip's plane; a razor blade on top if a spot turns out large |
+| No lens | Metal TO-5 can with a flat window; a lensed part responds differently depending on where the spot lands |
+| A spectral curve to correct by | Hamamatsu publishes the typical curve, which wavelength normalisation needs |
+
+Specifications from Hamamatsu's product page; price and stock from RS's
+listing, which change.
+
+- **Fallback:** Vishay BPW34, RS 699-7616 (pack of 5, a few pounds).
+  Larger (7.5 mm²) but its range starts at 430 nm, close to laser 1,
+  and the clear plastic package is less well defined. Good for trying
+  the mount and the cable first.
+- **Avoid**, although RS lists them as photodiodes: eye-response (V(λ))
+  filtered parts such as BPW21 or Hamamatsu S1087/S7686, which cut off
+  near 700 nm and would miss lasers 5 and 6; daylight-filtered infrared
+  parts such as BPW34F, SFH 205F or BPW41N, whose black epoxy blocks
+  444–652 nm; and domed parts with a built-in lens.
+- **Laser power does not limit the choice.** The lasers are believed
+  to be under 1 mW (*unverified*), which a silicon photodiode takes
+  easily. At silicon's highest responsivity, about 0.6 A/W at 848 nm,
+  even 1 mW is only 0.6 mA, far inside the miniSMU's 180 mA. Any
+  silicon photodiode gives about the same current, so another part
+  would not change that.
+- **What power does decide is the range.** Lower ranges are quieter
+  (about 2 nA RMS on 25 µA, 27 nA on 650 µA, measured below), and
+  streaming needs a fixed range, since autoranging drops samples. The
+  contacted cell gave 0.6–2.1 µA under laser 2, which points to µW-level
+  power at the sample. **Read each laser once on autorange** after
+  mounting, then fix the lowest range that holds the brightest one.
+- **Linearity with a tight spot:** a small spot concentrates the current
+  in a tiny patch of the chip, and the response can bend before any
+  range clips. If a laser is bright, run channel 2 at a few volts of
+  reverse bias (e.g. −5 V; dark current is nA, negligible here), or
+  raise the photodiode slightly for power readings. Knife-edge scans
+  still need it in focus.
+- **Mounting:** there is no focus axis, so the spot size at the
+  photodiode depends on its height. Recess the can so the chip sits at
+  the sample surface's height, or its knife-edge spot sizes describe a
+  different focus from the maps. It has to sit on a corner every laser
+  can reach within XY + AB travel, with a shielded twisted pair to
+  channel 2 and enough slack to follow the stage.
+- **Absolute EQE** would need a calibrated photodiode (for example a
+  Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
+  relative spectral response.
 
 ### Streaming, measured 2026-10-19
 
@@ -326,6 +496,16 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
   above the fastest packet: median **52 ms**, max **109 ms**, with no
   growth. A sample's time has to come from its device stamp, mapped
   through a tracked offset and drift. When it arrived says little.
+- **Autoranging drops samples while streaming** (first real maps,
+  2026-10-21, runs `20261021T174652Z` and `20261021T175325Z`, laser 2 on
+  a contacted cell in the cardboard box). The cell gave 0.6-2.1 uA,
+  right across the 1 uA / 25 uA boundary. On autorange the stream's own
+  stamps showed gaps of 10-15 ms, 91 % of them exactly where the current
+  crossed 1 uA (1,401 gaps, 1,904 crossings in 12 rows), and the
+  delivered rate fell from 400 to ~200 Hz. The Pi was not behind
+  (arrival delay under 50 ms throughout). With the lead off, nothing
+  crossed and the rate held at 400 Hz. So scans fix the range
+  (`run --current-range`, default 25 uA) and stop if it clips.
 - **Noise at 0 V, channel 1 open** (nothing connected; reports
   `20261019T181817Z` and `20261019T181857Z`, back to back) is
   repeatable: **14.3 and 14.8 nA RMS**, p-p ≈ 53 nA, on the auto and

@@ -39,6 +39,14 @@ echo "== checking out $BRANCH"
 git fetch --prune origin
 git checkout -B "$BRANCH" "origin/$BRANCH"
 
+# The checkout may have replaced this very script. Bash goes on reading
+# the old file it opened, so the rest of an update would run the old
+# steps (seen 2026-10-21). Start again from the checked-out copy, once.
+if [ -z "${MULTILBIC_SETUP_RESTARTED:-}" ]; then
+    export MULTILBIC_SETUP_RESTARTED=1
+    exec bash "$DIR/deploy/pi/setup.sh" "$BRANCH"
+fi
+
 echo "== installing Python and dependencies"
 # Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
 uv sync --managed-python
@@ -65,7 +73,9 @@ fi
 echo "== interpreter and Tk"
 uv run python -c "import sys, tkinter; print('python', sys.version.split()[0], '| Tk', tkinter.TkVersion)"
 
-echo "== tests (hardware tests skipped)"
-uv run pytest -q
+echo "== tests (hardware and simulator-timing tests skipped)"
+# sim_timing: the simulator's millisecond timing needs a faster host
+# than the Pi; CI runs those (pyproject.toml markers).
+uv run pytest -q -m "not sim_timing"
 
 echo "== done: $(git log -1 --format='%h %s')"

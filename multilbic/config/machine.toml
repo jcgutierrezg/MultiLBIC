@@ -80,6 +80,39 @@ servo_angle_deg = 30
 xy_centre_mm = [50.0, 50.0]
 measured = false
 
+[geometry]
+# Corner calibration is done under this laser; every other laser's
+# position is taken relative to it (Phase 4).
+reference_laser = 2
+# XY carries the whole AB gantry, so moving XY moves the sample under the
+# beam like moving AB does. These say along which AB axis, and which way:
+# "+A" means X up moves the sample the same way as A up. Checked on the
+# bench 2026-10-21 with laser 2 on a mark: +X and +A both move the mark
+# up, +Y and +B both move it right, as the operator sees it; both stages
+# home to the bottom-left (docs/hardware.md).
+x_along = "+A"
+y_along = "+B"
+directions_measured = true
+# Marlin lists 0.2 mm of X/Y backlash with correction 0, so every placing
+# move ends moving up, from at least this far below. The AB value is
+# above the 20 um the simulations assume.
+xy_take_up_mm = 0.5
+ab_take_up_mm = 0.1
+# A/B backlash. Calibration reads AB after moving up, which puts the
+# stage half the backlash below the reading; the serpentine alignment
+# puts a map on where the stage really was. Half of this is added to
+# aligned maps so the two agree. 0 until the bench measures it (Phase 4:
+# the same rows at two speeds separate backlash from latency).
+ab_backlash_mm = 0.0
+
+[display]
+# How the operator sees the cell (bench, 2026-10-23, with the reference
+# photo's view): each row runs from the cell's right edge leftwards
+# (+u, A) and the rows step downwards (+v, B), from the top-right corner.
+# Map PNGs are drawn that way.
+u_points = "left"
+v_points = "down"
+
 [laser_board]
 # Wait after the servo turns, before the laser comes on. On the worst
 # 120-degree swing, 1000 ms was stable and 500 ms slid (bench,
