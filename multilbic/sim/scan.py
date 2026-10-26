@@ -77,7 +77,7 @@ def simulate_scan(
     request = RunRequest(
         rig.perfect_calibration("synthetic"), (laser,),
         pixel_mm, pitch_mm, speed_mm_s, serpentine,
-        baseline_s=baseline_s, allow_unmeasured=True,
+        baseline_s=baseline_s, warmup_s=0.0, allow_unmeasured=True,
     )
     rig.open()
     try:

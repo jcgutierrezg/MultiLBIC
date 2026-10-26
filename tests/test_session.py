@@ -32,7 +32,7 @@ def make(machine, clock, *, size=(0.6, 0.2), faults=None, **truth):
 
 def request(rig, lasers=(2,), **options):
     settings = dict(pixel_mm=0.005, pitch_mm=0.05, speed_mm_s=1.0,
-                    baseline_s=0.5)
+                    baseline_s=0.5, warmup_s=0.0)
     settings.update(options)
     return RunRequest(rig.perfect_calibration("test cell"), lasers,
                       **settings)
@@ -223,3 +223,47 @@ def test_a_saturated_range_stops_the_run(machine, tmp_path):
     assert not rig.fake_smu.enabled[1]
     header = read_run(outcome.lasers[0].path).header
     assert header["current_range_a"] == 1e-6
+
+
+def test_warmup_is_recorded_but_not_mapped(machine, tmp_path):
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    try:
+        req = replace(request(rig), warmup_s=2.0)
+        outcome = session(rig, machine, clock, req, tmp_path).run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete"
+    run = read_run(outcome.lasers[0].path)
+    rows = run.columns["row"].astype(int)
+    warm = rows == -2
+    # About 2 s at 400 Hz, with the laser on: the cell's current, not dark.
+    assert 600 < warm.sum() < 1000
+    assert abs(run.columns["current_a"][warm]).mean() > 1e-8
+    assert run.header["warmup_s"] == 2.0
+    grid = build_map(run.scan_data()).grid
+    assert grid.values.shape[0] == len(run.anchors)
+
+
+def test_stop_during_warmup(machine, tmp_path):
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    run = session(rig, machine, clock,
+                  replace(request(rig), warmup_s=600.0), tmp_path)
+    done = {}
+    worker = threading.Thread(target=lambda: done.update(o=run.run()))
+    worker.start()
+    try:
+        deadline = time.monotonic() + 60
+        while time.monotonic() < deadline and rig.fake_laser.active == 0:
+            time.sleep(0.02)
+        assert rig.fake_laser.active == 2  # warming up
+        started = time.monotonic()
+        run.request_stop()
+        worker.join(30)
+        # 600 s simulated is 30 s real: it must not wait that out.
+        assert time.monotonic() - started < 5
+    finally:
+        rig.close()
+    assert done["o"].status == "stopped"
+    assert rig.fake_laser.active == 0

@@ -41,6 +41,7 @@ from multilbic.run.motion import approach
 from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
     DEFAULT_CURRENT_RANGE_A,
+    DEFAULT_WARMUP_S,
     RunStopped,
     ScanDevices,
     run_header,
@@ -72,6 +73,8 @@ class RunRequest:
     note: str = ""
     #: Fixed measurement range in A, or None to autorange.
     current_range_a: float | None = DEFAULT_CURRENT_RANGE_A
+    #: Laser on, stage still, before each laser's first row.
+    warmup_s: float = DEFAULT_WARMUP_S
 
 
 @dataclass(frozen=True)
@@ -148,9 +151,17 @@ def _laser(machine: MachineConfig, number: int):
         raise RunPlanError(f"there is no laser {number}") from None
 
 
-def estimate_s(plans: list[LaserPlan], baseline_s: float, settle_s: float) -> float:
-    """Rows, baselines and laser switching; homing not included."""
-    return sum(p.raster.estimate_s + baseline_s + settle_s for p in plans)
+def estimate_s(
+    plans: list[LaserPlan],
+    baseline_s: float,
+    settle_s: float,
+    warmup_s: float = 0.0,
+) -> float:
+    """Rows, baselines, warm-ups and laser switching; homing not
+    included."""
+    return sum(
+        p.raster.estimate_s + baseline_s + settle_s + warmup_s for p in plans
+    )
 
 
 def duration(seconds: float) -> str:
@@ -260,6 +271,7 @@ class Session:
                 firmware=self._firmware(),
                 provenance=self.provenance,
                 current_range_a=self.request.current_range_a,
+                warmup_s=self.request.warmup_s,
             )
             header["run_id"] = self.run_id
             header["note"] = self.request.note
@@ -270,6 +282,7 @@ class Session:
                 self.devices, self.machine, plan.raster, n, writer,
                 self.clock,
                 baseline_s=self.request.baseline_s,
+                warmup_s=self.request.warmup_s,
                 bias_v=self.request.bias_v,
                 current_range_a=self.request.current_range_a,
                 stop=self.stop,
@@ -351,6 +364,7 @@ class Session:
                 "baseline_s": r.baseline_s,
                 "allow_unmeasured": r.allow_unmeasured,
                 "note": r.note,
+                "warmup_s": r.warmup_s,
                 "current_range_a": r.current_range_a,
             },
             "plans": [

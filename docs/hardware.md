@@ -329,6 +329,38 @@ box with the room lights on. Run folders are named by their UTC stamp.
   corner by eye with a 0.2 mm spot is good to about a millimetre.
 - **Stop** (`20261023T160531Z`): SIGINT after row 10 left a readable
   file with 10 rows and status `stopped`.
+- **Three lasers on the straight right edge** (step 7, after refocusing
+  all three by eye; `20261023T163531Z` laser 2, `20261023T163839Z`
+  laser 1, `20261023T164506Z` laser 3; 2 x 2 mm, 1 mm/s):
+
+  | | Laser 1 (444 nm) | Laser 2 (519 nm) | Laser 3 (652 nm) |
+  |---|---|---|---|
+  | Current on the cell | −60 uA | −0.71 uA | −77 uA |
+  | Range needed | 650 uA | 25 uA | 650 uA |
+  | Edge 10-90 % (spot) | 65 um | 41 um (125-130 um before refocusing) | 244 um |
+  | Offset along A, from the edge | 0 | −0.14 mm | −0.01 mm |
+  | Offset along B, from a finger | 0 | about −0.30 mm | −0.12 mm |
+  | Forward/reverse shift | +10.1 um | +11.9 um | +39.4 um |
+
+  - Offsets are relative to laser 1, with XY placed from today's
+    `xy_centre_mm`. B comes from where a finger (which runs along the
+    rows) appears; fingers repeat every ~1.0 mm, so B is known modulo
+    that, and the small values are taken. Refocusing moved laser 2's
+    edge by ~0.13 mm, so its beam moves with focus; it is also the
+    calibration's reference laser. The lasers register to within about
+    0.3 mm; the photodiode measures all six properly (Phase 6).
+  - **Laser 2 gives about 1/100 of the current of lasers 1 and 3**,
+    which the cell's response at 519 nm does not explain: laser 2 is
+    probably weak.
+  - **Laser 2's output rose about 2x over its run**, which started right
+    after it was switched on; lasers 1 and 3 stayed within 5 %. Hence
+    `run --warmup` (default 60 s), which also records the warm-up so
+    the settling can be seen (row −2 in the file).
+  - The shift differs by laser (10-39 um at 1 mm/s), so it is not
+    timing alone: the cell's response to each spot adds to it. The
+    alignment measures it per map either way.
+  - The finger shows deeper under the sharp spot (14 %, laser 1) than
+    under the broad one (4 %, laser 3).
 
 ## Source-measure unit
 

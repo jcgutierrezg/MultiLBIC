@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.11 - Laser warm-up; Phase 4 done
+
+- `multilbic run --warmup` (default 60 s): each laser stays on with the
+  stage still before its first row. Laser 2's output rose about 2x over
+  the two minutes after it was switched on (bench, 2026-10-23). The
+  warm-up samples are kept in the run file as row −2, so the settling
+  can be checked; maps ignore them. Stop works during the warm-up.
+- Step 7 on the bench: lasers 1, 2 and 3 on the cell's straight right
+  edge. Lasers 1 and 3 give 60-80 uA and need the 650 uA range; laser 2
+  gives 0.7 uA. Spots after refocusing by eye: 65, 41 and 244 um
+  (10-90 %). Registered to within about 0.3 mm on today's
+  `xy_centre_mm`; the photodiode corrects them in Phase 6. Findings in
+  `docs/hardware.md`; decisions D15 (fixed range) and D16 (warm-up) in
+  the plan.
+- Phase 4 is done: real maps from the command line, without the GUI.
+
 ## 0.4.10 - Alignment that works with a real spot
 
 - On the bench the serpentine alignment found nothing, even with a

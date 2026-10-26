@@ -107,6 +107,7 @@ board may have restarted since calibration.
 | `--bias 0` | 0 V | |
 | `--current-range 25u` | 25 µA | fixed SMU range: `1u`, `25u`, `650u`, `15m` or `auto`. Autoranging drops 10–15 ms of samples at every range switch; a run stops if the fixed range clips |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
+| `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers with placeholder positions |
 | `--note "room lights on"` | | free text in every file header and `run.json` |

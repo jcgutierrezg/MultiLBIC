@@ -37,6 +37,10 @@ from multilbic.scan.geometry import SampleFrame
 from multilbic.scan.timing import ClockMap, RowAnchor, fit_clock
 
 BASELINE_ROW = -1
+#: Samples taken with the laser on and the stage still, before the first
+#: row: how the laser's output settles after switching on. Kept in the
+#: file, never mapped.
+WARMUP_ROW = -2
 
 
 @dataclass(frozen=True)

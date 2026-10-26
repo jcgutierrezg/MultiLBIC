@@ -40,7 +40,7 @@ from multilbic.hardware.laser import LaserBoard
 from multilbic.hardware.marlin import Marlin
 from multilbic.hardware.smu import PhotocurrentSmu, SmuError, StreamSample
 from multilbic.run.motion import AB_TRAVEL_FEED_MM_S, approach
-from multilbic.scan.mapping import BASELINE_ROW
+from multilbic.scan.mapping import BASELINE_ROW, WARMUP_ROW
 from multilbic.scan.raster import TRAVEL_FEED_MM_S, RasterPlan
 from multilbic.scan.timing import ClockTracker, RowAnchor
 from multilbic.store.runfile import RunWriter, SampleRow
@@ -51,6 +51,10 @@ ROW_MARGIN_S = 0.02
 #: It arrives in bursts about every 100 ms.
 CATCH_UP_S = 2.0
 DEFAULT_BASELINE_S = 3.0
+#: Laser on, stage still, before the first row. Laser 2's output rose
+#: about 2x over the 2 minutes after it was switched on (bench,
+#: 2026-10-23); lasers 1 and 3 stayed within 5 %.
+DEFAULT_WARMUP_S = 60.0
 #: A row with fewer samples than this share of what the stream rate
 #: promises is a fault. The real rate misses the requested one by up to
 #: ~19 % (bench), so half is far outside normal.
@@ -144,6 +148,7 @@ def scan_laser(
     clock: Clock,
     *,
     baseline_s: float = DEFAULT_BASELINE_S,
+    warmup_s: float = DEFAULT_WARMUP_S,
     bias_v: float = 0.0,
     current_range_a: float | None = DEFAULT_CURRENT_RANGE_A,
     stop: threading.Event | None = None,
@@ -194,6 +199,21 @@ def scan_laser(
         check_stop()
         say(f"laser {laser} on")
         board.select(laser)
+
+        if warmup_s > 0:
+            say(f"warm-up: {warmup_s:g} s with laser {laser} on")
+            w0 = clock.now()
+            while clock.now() - w0 < warmup_s:
+                check_stop()
+                clock.sleep(min(0.5, warmup_s - (clock.now() - w0)))
+            w1 = clock.now()
+            collector.wait_past(w1)
+            writer.write_samples(
+                [
+                    _sample_row(s, WARMUP_ROW, 0, stage["A"], stage["B"])
+                    for s, _ in collector.take(w0, w1)
+                ]
+            )
 
         for row in rows:
             check_stop()
@@ -317,6 +337,7 @@ def run_header(
     firmware: dict[str, str | None],
     provenance: dict[str, Any],
     current_range_a: float | None = DEFAULT_CURRENT_RANGE_A,
+    warmup_s: float = DEFAULT_WARMUP_S,
 ) -> dict[str, Any]:
     """The `# key: value` block at the top of a run file."""
     r = plan.request
@@ -342,6 +363,7 @@ def run_header(
         "accel_mm_s2": plan.accel_mm_s2,
         "stream_hz": plan.stream_hz,
         "mains_hz": machine.mains_hz,
+        "warmup_s": warmup_s,
         "current_range_a": current_range_a,
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
         "estimate_s": round(plan.estimate_s, 1),

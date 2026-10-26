@@ -145,7 +145,7 @@ def run(args: argparse.Namespace) -> int:
         calibration, lasers, args.pixel, args.pitch, args.speed,
         serpentine=not args.one_direction, bias_v=args.bias,
         baseline_s=args.baseline, allow_unmeasured=args.allow_unmeasured,
-        note=args.note,
+        note=args.note, warmup_s=args.warmup,
         current_range_a=CURRENT_RANGES[args.current_range],
     )
     try:
@@ -159,7 +159,7 @@ def run(args: argparse.Namespace) -> int:
         )
 
     settle = machine.laser_board.settle_ms / 1000
-    total = estimate_s(plans, args.baseline, settle)
+    total = estimate_s(plans, args.baseline, settle, args.warmup)
     say(f"sample {calibration.sample}: {calibration.width_mm:g} x "
         f"{calibration.height_mm:g} mm")
     for p in plans:
@@ -311,6 +311,9 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--bias", type=float, default=0.0, help="V")
     go.add_argument("--baseline", type=float, default=3.0,
                     help="s of laser-off baseline per laser")
+    go.add_argument("--warmup", type=float, default=60.0,
+                    help="s with each laser on before its first row, "
+                    "for its output to settle (default 60; 0 to skip)")
     go.add_argument("--one-direction", action="store_true")
     go.add_argument("--current-range", default="25u",
                     choices=list(CURRENT_RANGES),

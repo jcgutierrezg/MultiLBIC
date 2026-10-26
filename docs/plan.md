@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2 (bench-tested) and 3 (simulation only, 0.2.x) merged. Phase 4, calibration and runs from the command line, built and tested in simulation (0.4.0, branch `phase-4-run`). |
-| next | The Phase 4 bench session ([bench](bench.md#phase-4-first-maps)): axis directions first, then calibrate a contacted cell and run its first maps. No PR until it has passed on the machine. |
+| status | Phases 0, 2, 3 merged. **Phase 4 done** (0.4.11, branch `phase-4-run`): calibration and runs from the command line, bench session passed 2026-10-21 to 2026-10-23 with real maps from three lasers. |
+| next | Phase 4's PR. Then Phase 5 (GUI), or the channel-2 photodiode (Phase 6: laser positions and spot sizes, chosen part in [hardware](hardware.md)). |
 
 ## Phases
 
@@ -123,8 +123,9 @@ tested against the simulators. Bench: axis directions checked 2026-10-21 (X alon
 along +B; the calibration corner is the sample's top-right as seen at
 the machine). Steps 2-6 done 2026-10-21 to 2026-10-23: first real maps,
 the forward/reverse shift at two speeds (an 18.6 ms stamp lag), Stop
-([hardware](hardware.md#first-maps-2026-10-21-to-2026-10-23)). Owed:
-step 7 (three lasers; laser 1 needs the 650 uA range).
+([hardware](hardware.md#first-maps-2026-10-21-to-2026-10-23)). Step 7
+done 2026-10-23: three lasers on one edge, registered to within about
+0.3 mm. **Phase 4 is done.**
 
 ### Phase 5: GUI
 
@@ -174,4 +175,6 @@ desktop launcher), and the Zensical docs site.
 | D12 | Corner calibration | One corner (the one the sample extends from towards +A and +B), the size typed, and the laser tracing the outline to check it. |
 | D13 | Command line | `multilbic calibrate` (interactive, saves a file) and `multilbic run` (reads it, needs no terminal, so it survives SSH drops under `nohup`). `run` homes first. Ctrl+C or SIGINT/SIGTERM is Stop. No resume within a laser. |
 | D14 | Lasers with placeholder positions | Refused by `run` unless `--allow-unmeasured`. |
+| D15 | SMU range during scans | Fixed, `--current-range`, default 25 uA: autoranging drops 10-15 ms of samples at every switch. A run stops if the range clips. One range per run; lasers 1 and 3 need 650 uA on the test cell. |
+| D16 | Laser warm-up | Each laser stays on with the stage still for `--warmup` (default 60 s) before its first row, recorded in the file: laser 2 drifted 2x after switch-on. |
 | D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open, **set aside** (2026-10-20): no enclosure for now. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. Note for (b): the miniSMU tops out near 1.4 kHz and the Pi's reader near 1.2 kHz, so chopping is limited to the low end. Phase 3 does the mains removal and a dark baseline per map; drift would be removed in the per-row cleaning in `scan/binning.py`. |

@@ -6,9 +6,9 @@ lasers on a servo revolver, and an Undalogic miniSMU that measures the
 photocurrent while the sample is rastered under the beam.
 
 **Status: being rewritten.** Project foundations, the device layer
-(drivers + simulators) and the scan core are in place, the last in
-simulation only; running a whole map on the machine comes next. See
-[docs/plan.md](docs/plan.md).
+(drivers + simulators), the scan core and command-line runs are in
+place, and real maps have come off the machine from three lasers. The
+GUI comes next. See [docs/plan.md](docs/plan.md).
 
 | To find | Go to |
 |---|---|
