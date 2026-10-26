@@ -22,6 +22,7 @@ import datetime
 import tkinter as tk
 from importlib.metadata import version
 from tkinter import messagebox, ttk
+from typing import Protocol
 
 from smuniversal_lab_suite.core.gui.console_panel import (
     ConsoleLog,
@@ -37,6 +38,7 @@ from multilbic.gui.machine_panels import (
     LaserPanel,
     StagePanel,
 )
+from multilbic.gui.sample_panels import CalibrationPanel, RunSetupPanel
 from multilbic.gui.worker import (
     Event,
     Homed,
@@ -45,8 +47,18 @@ from multilbic.gui.worker import (
     State,
     StateChanged,
 )
+from multilbic.scan.geometry import Calibration
 
 PUMP_MS = 50
+
+
+class Panel(Protocol):
+    """What the window asks of each panel."""
+
+    def handle(self, event: Event) -> None: ...
+
+    def refresh(self) -> None: ...
+
 #: Width of the machine column; the other two share the rest.
 MACHINE_COLUMN_PX = 470
 STATE_TEXT = {
@@ -90,7 +102,7 @@ class App:
         # On the window, so it reaches every widget in it (a toplevel's
         # bindings are in each of its widgets' bindtags).
         root.bind("<Escape>", lambda e: self.stop())
-        tk_root = root._root()
+        tk_root = root._root()  # type: ignore[union-attr]
         tk_root.report_callback_exception = self._callback_failed
         self.theme.on_change(self._repaint)
 
@@ -113,14 +125,20 @@ class App:
         for panel in (self.connection, self.stage, self.lasers):
             panel.frame.pack(fill="x", pady=(0, 8))
 
-        # Steps 5 and 6 of Phase 5 fill these.
-        self.sample_column = look.section(body, "Sample")
-        self.sample_column.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        middle = ttk.Frame(body)
+        middle.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        self.calibration_panel = CalibrationPanel(self, middle)
+        self.setup = RunSetupPanel(self, middle)
+        for frame in (self.calibration_panel.frame, self.setup.frame):
+            frame.pack(fill="x", pady=(0, 8))
+
+        # Step 6 of Phase 5 fills this.
         self.run_column = look.section(body, "Run")
         self.run_column.grid(row=0, column=2, sticky="nsew")
-        for frame in (self.sample_column, self.run_column):
-            ttk.Label(frame, text="not built yet",
-                      style="Hint.TLabel").pack(anchor="w")
+        ttk.Label(self.run_column, text="not built yet",
+                  style="Hint.TLabel").pack(anchor="w")
+        self.panels: tuple[Panel, ...] = (self.connection, self.stage, self.lasers,
+                       self.calibration_panel, self.setup)
 
         footer = ttk.Frame(root, padding=(10, 2, 10, 6))
         footer.grid(row=2, column=0, sticky="ew")
@@ -174,6 +192,14 @@ class App:
         self.worker.stop()
         self.status("Stop pressed")
 
+    def calibration(self) -> Calibration | None:
+        """The calibration a run would start from now."""
+        return self.calibration_panel.current()
+
+    def calibration_changed(self) -> None:
+        if hasattr(self, "setup"):
+            self.setup.changed()
+
     def refused(self, what: str) -> None:
         if self.state is State.RUNNING:
             self.status(f"{what}: not during a run", error=True)
@@ -212,7 +238,7 @@ class App:
             self.homed = event.homed
         elif isinstance(event, Log):
             self.status(event.text, error=event.error)
-        for panel in (self.connection, self.stage, self.lasers):
+        for panel in self.panels:
             panel.handle(event)
         if isinstance(event, (StateChanged, Homed)):
             self._refresh()
@@ -223,7 +249,7 @@ class App:
             ["disabled"] if self.state in (State.DISCONNECTED,
                                            State.CONNECTING)
             else ["!disabled"])
-        for panel in (self.connection, self.stage, self.lasers):
+        for panel in self.panels:
             panel.refresh()
 
     def _console(self, text: str, error: bool) -> None:

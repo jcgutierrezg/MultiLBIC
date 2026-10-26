@@ -8,7 +8,8 @@ title: "The window"
 `multilbic gui` opens it, maximised, and connects to the machine;
 `multilbic gui --sim` to the simulated one, with a synthetic sample on
 the carriage to find. Being built in Phase 5 ([plan](plan.md)): the
-machine column is done; the sample and run columns come next.
+machine and sample columns are done, and a run can be started; the run
+column (live map, progress) comes next.
 
 ```bash
 uv run multilbic gui --sim
@@ -25,8 +26,8 @@ or a `multilbic run` stops with "the machine is in use"
 |---|---|
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
 | machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the photocurrent now |
-| sample column | calibration and run setup (step 5) |
-| run column | live map, progress, Start (step 6) |
+| sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
+| run column | live map, progress (step 6) |
 | footer | the last thing that happened; everything is in the Console |
 
 ## Stop
@@ -69,6 +70,48 @@ A key pressed while the stage is still moving is dropped, so holding
 one jogs step by step instead of piling up moves. One action runs at a
 time: a click while the machine is busy says so in the footer and does
 nothing.
+
+## Calibrating
+
+The window's version of `multilbic calibrate` ([run](run.md#calibrate)):
+
+1. **Start** homes the stage and lights the reference laser (2) over
+   the AB centre. Jog until the spot is on the sample's top-right
+   corner as you look at it (the photocurrent halves on an edge, in the
+   dark), then **Set corner here**.
+2. Type the **width** (along A) and **height** (along B) in mm, **Set
+   size**.
+3. **Trace the outline**: the stage places the sample as a run would
+   and the spot runs round it, back to the corner. If it sat on the
+   sample, **Save...**; if not, jog, set the corner and trace again.
+
+**Load...** takes a saved calibration's corner and size without
+moving; **Go to corner** puts that corner back under the beam, to check
+that homing put things back where they were (`calibrate --check`).
+Calibration files are offered in `~/cal` if it exists.
+
+The drawing shows AB's safe range until a corner and size are set, then
+zooms to the sample: its outline as a run places it, the corner, and
+the spot (red while a laser is on), drawn as you see the stage, with a
+scale bar. Jogging XY moves the spot in the drawing as it moves on the
+sample; with a laser other than the reference one lit, the spot is
+drawn where that laser falls.
+
+## Setting up and starting a run
+
+The fields are `multilbic run`'s options ([run](run.md#run)), with the
+same defaults. The plan is checked as you type, with the checks `run`
+makes before anything moves: a field that isn't a number, a laser with
+a placeholder position (tick "allow lasers marked *" to scan it anyway),
+a sample too big for AB, a pixel too fine for the speed. The problem
+shows in red and **Start run** stays off until it is fixed. Above
+5 mm/s, and with autoranging, a warning shows in orange.
+
+The sample's name is the one typed in Calibration, now: it names the
+run folder. **Start run** shows the plan, the estimate and the folder,
+and asks (D20). The run then homes first, as `run` does, and everything
+but STOP is off until it ends. Runs go to `~/multilbic-runs`
+(`runs/` in the checkout when simulated).
 
 ## Lasers and the photocurrent
 

@@ -125,6 +125,9 @@ class CalibrationChanged:
     #: Where a run puts XY for the reference laser, and the outline in
     #: AB there (`Calibrator.outline_ab`), once corner and size are set.
     outline: tuple[tuple[float, float], list[tuple[float, float]]] | None
+    #: The whole calibration, once corner and size are set: what a run
+    #: is started from.
+    calibration: Calibration | None = None
 
 
 @dataclass(frozen=True)
@@ -283,6 +286,7 @@ class MachineWorker:
     def here(self) -> bool:
         def work() -> None:
             self._emit(Position(self._calibrator().here()))
+            self._log("corner set")
             self._calibration_changed()
         return self._moving("here", work)
 
@@ -296,6 +300,7 @@ class MachineWorker:
     def set_size(self, width_mm: float, height_mm: float) -> bool:
         def work() -> None:
             self._calibrator().set_size(width_mm, height_mm)
+            self._log(f"size {width_mm:g} x {height_mm:g} mm")
             self._calibration_changed()
         return self._moving("size", work)
 
@@ -305,11 +310,19 @@ class MachineWorker:
             cal = self._calibrator()
             self._emit(LaserChanged(cal.reference))
             self._emit(Position(cal.trace()))
+            self._log("outline traced: back on the corner. If it sat on "
+                      "the sample, save; if not, jog, set the corner and "
+                      "trace again")
         return self._moving("trace", work)
 
-    def save(self, path: str | Path) -> bool:
+    def save(self, path: str | Path, sample: str | None = None) -> bool:
+        """Write the calibration; `sample` renames it first."""
         def work() -> None:
-            saved = self._calibrator().save(path)
+            cal = self._calibrator()
+            if sample:
+                cal.sample = sample
+                self._sample = sample
+            saved = cal.save(path)
             self._log(f"calibration saved: {saved}")
             self._calibration_changed()
         return self._moving("save", work)
@@ -465,15 +478,16 @@ class MachineWorker:
 
     def _calibration_changed(self) -> None:
         cal = self._calibrator()
-        outline = None
+        outline, calibration = None, None
         if cal.corner_xy is not None and cal.size is not None:
             try:
+                calibration = cal.calibration()
                 outline = cal.outline_ab()
             except ValueError:
-                outline = None
+                outline, calibration = None, None
         self._emit(CalibrationChanged(
             cal.sample, cal.corner_xy, cal.corner_ab, cal.size, cal.saved,
-            outline,
+            outline, calibration,
         ))
 
     # ---- jobs, on the worker thread ----

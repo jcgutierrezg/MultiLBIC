@@ -257,3 +257,123 @@ def _alive(root):
         return bool(root.winfo_exists())
     except tk.TclError:
         return False
+
+
+# ---- the sample column ----
+
+
+def calibrate_through_the_panels(window, tmp_path, monkeypatch):
+    """Start, find the corner, size, trace, save: as an operator would,
+    with the corner typed into Go to instead of jogged to."""
+    app = window.app
+    cal = app.calibration_panel
+    truth = window.rig.perfect_calibration("cell")
+    window.click(cal.start_btn)
+    assert window.rig.fake_laser.active == 2
+    cal.sample.set("cell")
+    stage = app.stage
+    for axis, value in zip("XYAB", (*truth.corner_xy_mm, *truth.corner_ab_mm),
+                           strict=True):
+        stage.targets[axis].delete(0, "end")
+        stage.targets[axis].insert(0, f"{value:.6f}")
+    window.click(stage.go_btn)
+    window.click(cal.here_btn)
+    cal.width.insert(0, f"{SIZE[0]:g}")
+    cal.height.insert(0, f"{SIZE[1]:g}")
+    window.click(cal.size_btn)
+    window.click(cal.trace_btn)
+    path = tmp_path / "cal" / "cell.json"
+    monkeypatch.setattr("multilbic.gui.sample_panels.filedialog"
+                        ".asksaveasfilename", lambda **k: str(path))
+    window.click(cal.save_btn)
+    assert path.exists()
+    return truth, path
+
+
+def test_calibrating_through_the_panels(window, tmp_path, monkeypatch):
+    app = window.app
+    cal = app.calibration_panel
+    assert "disabled" in cal.trace_btn.state()  # nothing to trace yet
+    truth, path = calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    assert cal.calibration is not None
+    assert cal.calibration.corner_xy_mm == pytest.approx(truth.corner_xy_mm,
+                                                         abs=1e-4)
+    assert cal.file_label.cget("text") == str(path)
+    # The trace ended on the corner, and the preview draws the spot there.
+    _, outline = cal.preview.outline
+    assert cal.preview.spot_ab() == pytest.approx(outline[0], abs=1e-3)
+    assert cal.preview.canvas.find_all()
+    # The run setup now has a plan.
+    window.pump(lambda: app.setup.plan is not None)
+    assert app.setup.plan_label.cget("text").startswith("cell: 0.6 x 0.2 mm")
+    assert "disabled" not in app.setup.start_btn.state()
+
+
+def test_loading_a_calibration(window, tmp_path, monkeypatch):
+    import json
+
+    truth = window.rig.perfect_calibration("loaded cell")
+    path = tmp_path / "loaded.json"
+    path.write_text(json.dumps(
+        {"schema": "multilbic-calibration/1", **truth.to_dict()}))
+    monkeypatch.setattr("multilbic.gui.sample_panels.filedialog"
+                        ".askopenfilename", lambda **k: str(path))
+    cal = window.app.calibration_panel
+    window.click(cal.load_btn)
+    assert cal.sample.get() == "loaded cell"
+    assert cal.width.get() == "0.6"
+    # Re-planned once typing would have paused.
+    window.pump(lambda: window.app.setup.plan is not None)
+    # Nothing moved: loading is not homing.
+    assert not window.app.homed
+
+
+def test_a_bad_field_blocks_start(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    setup = window.app.setup
+    setup.fields["pitch_mm"].set("zero")
+    window.pump(lambda: setup.plan is None)
+    assert "pitch" in setup.plan_label.cget("text")
+    assert "disabled" in setup.start_btn.state()
+    setup.fields["pitch_mm"].set("0.05")
+    window.pump(lambda: setup.plan is not None)
+
+
+def test_a_run_from_the_window(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    app = window.app
+    setup = app.setup
+    for key, value in (("baseline_s", "0.5"), ("warmup_s", "0")):
+        setup.fields[key].set(value)
+    out = tmp_path / "runs"
+    setup.out.set(str(out))
+    asked = []
+    monkeypatch.setattr(
+        "multilbic.gui.sample_panels.messagebox.askokcancel",
+        lambda title, text, **k: asked.append(text) or True,
+    )
+    window.pump(lambda: setup.plan is not None
+                and setup.plan.request.warmup_s == 0)
+    setup.start_btn.invoke()
+    assert asked and "Lasers 2" in asked[0]
+    window.pump(lambda: app.state is State.RUNNING)
+    # Everything but Stop is off while it runs.
+    assert "disabled" in app.stage.home_btn.state()
+    assert "disabled" in setup.start_btn.state()
+    assert "disabled" not in app.stop_btn.state()
+    window.pump(lambda: app.state is State.IDLE, timeout=120)
+    (folder,) = out.iterdir()
+    assert folder.name.endswith("_cell")
+    assert '"status": "complete"' in (folder / "run.json").read_text()
+    assert "run complete" in app.status_label.cget("text")
+
+
+def test_cancelling_start_starts_nothing(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "multilbic.gui.sample_panels.messagebox.askokcancel",
+        lambda *a, **k: False)
+    window.app.setup.out.set(str(tmp_path / "runs"))
+    window.app.setup.start_btn.invoke()
+    window.ready()
+    assert not (tmp_path / "runs").exists()

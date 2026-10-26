@@ -41,6 +41,9 @@ from multilbic.run.devices import (
     sim_corner,
 )
 from multilbic.run.session import (
+    CURRENT_RANGES,
+    REAL_RUNS,
+    SIM_RUNS,
     RunPlanError,
     RunRequest,
     Session,
@@ -48,14 +51,6 @@ from multilbic.run.session import (
     estimate_s,
     plan_run,
 )
-
-#: `--current-range` choices: the miniSMU's measurement ranges.
-CURRENT_RANGES: dict[str, float | None] = {
-    "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3, "auto": None,
-}
-#: Simulated runs go here (ignored by git); real ones outside the checkout.
-SIM_RUNS = Path("runs")
-REAL_RUNS = Path.home() / "multilbic-runs"
 
 
 def say(text: str) -> None:

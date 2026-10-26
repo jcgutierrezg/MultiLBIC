@@ -26,7 +26,7 @@ def make_theme(root: tk.Misc, mode: str | None = None) -> Theme:
     smu_theme.ACCENTS.setdefault(ACCENT_KEY, ACCENT)
     theme = smu_theme.theme_for(root)
     if not getattr(theme, "_multilbic", False):
-        theme._multilbic = True  # type: ignore[attr-defined]
+        theme._multilbic = True
         theme.set_accent(ACCENT_KEY)
         theme.on_change(_extra_styles)
     if mode is not None:
@@ -91,6 +91,12 @@ def set_lamp(canvas: tk.Canvas, theme: Theme, state: str) -> None:
     p = theme.palette
     colour = {"good": p.good, "bad": p.bad}.get(state, p.muted)
     canvas.itemconfigure("lamp", fill=colour)
+
+
+def blend_soft(theme: Theme) -> str:
+    """The accent faded into the field colour: a filled shape that
+    doesn't shout."""
+    return blend(theme.accent, theme.palette.field, 0.8)
 
 
 def section(parent: tk.Misc, title: str) -> ttk.LabelFrame:

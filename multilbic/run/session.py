@@ -59,6 +59,16 @@ if TYPE_CHECKING:
     from multilbic.scan.mapping import MapResult
 
 
+#: The miniSMU's measurement ranges, as `--current-range` and the
+#: window name them. "auto" autoranges, and drops samples (D15).
+CURRENT_RANGES: dict[str, float | None] = {
+    "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3, "auto": None,
+}
+#: Simulated runs go here (ignored by git); real ones outside the checkout.
+SIM_RUNS = Path("runs")
+REAL_RUNS = Path.home() / "multilbic-runs"
+
+
 class RunPlanError(ValueError):
     pass
 

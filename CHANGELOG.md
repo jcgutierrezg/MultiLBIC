@@ -3,6 +3,28 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.4 - Calibrating and starting runs from the window
+
+Phase 5 step 5 (`docs/gui.md`).
+
+- Calibration panel: the sample's name, then `calibrate` as three steps
+  (Start, Set corner here; width and height; Trace the outline), with
+  Save, Load and Go to corner. A drawing shows AB's safe range, then
+  zooms to the sample as a run places it, with the corner, the spot as
+  it moves (red while a laser is on) and a scale bar, turned as the
+  operator sees the stage.
+- Run setup: `multilbic run`'s options with its defaults, checked as you
+  type with the checks `run` makes before anything moves; the problem
+  shows in red and Start stays off. Warnings above 5 mm/s (D9) and for
+  autoranging (D15). Start run shows the plan and asks (D20), then the
+  window runs it; everything but STOP is off until it ends.
+- `multilbic/gui/runform.py` (no Tk): the typed fields to a request,
+  plans, estimate and summary, or the field that is wrong.
+- The worker's calibration events carry the calibration; save takes
+  the sample name; it logs the corner, the size and the end of a trace.
+- `CURRENT_RANGES` and the default run folders moved from the command
+  line to `multilbic.run.session`, for the window to share.
+
 ## 0.5.3 - The window: machine column
 
 Phase 5 step 4. `multilbic gui [--sim]` (`docs/gui.md`).
