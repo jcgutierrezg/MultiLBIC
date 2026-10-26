@@ -207,6 +207,40 @@ scp -r "multilbic:multilbic-runs/*" runs/
 Findings go into [hardware](hardware.md); `x_along`, `y_along` and
 `ab_backlash_mm` into `machine.toml`.
 
+## Phase 5: the window on the Pi
+
+Step 7 of Phase 5: the **simulated** window on the Pi's own monitor.
+Nothing moves and no laser lights; the machine's devices stay closed.
+It answers what Windows can't: does the window fit the Pi's screen,
+does Tk draw it right, does a Pi 4 keep up with a run and its live
+map. Claude deploys the branch over SSH; you start the window at the
+Pi, from a terminal on its desktop:
+
+```bash
+cd ~/MultiLBIC && uv run --no-sync multilbic gui --sim
+```
+
+The simulated sample (2 × 1 mm) hides its top-right corner at A 15.2,
+B 16.1 with XY under laser 2. Then:
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | Look before touching: three columns, nothing cut off at the right or bottom, text readable, the STOP button whole | the layout on the Pi's screen |
+| 2 | **Start** (Calibration 1). The stage homes, laser 2 is filled, the photocurrent reads | the worker and readings on the Pi |
+| 3 | Click the jog pad, press arrows; then type A 15.2, B 16.1 into Go to, **Go** | keys, moves, the preview's spot |
+| 4 | **Set corner here**, width 2, height 1, **Set size**, **Trace the outline** | the calibration steps; the preview zooms to the sample |
+| 5 | Run setup: warm-up 0, **Start run**, OK. Watch the live map fill and the time left | whether the Pi keeps up: the window stays responsive, rows appear as they finish |
+| 6 | Light/Dark, Console | the theme switch and the console on the Pi's Tk |
+| 7 | Start a second run, then close the window with its X | it asks, stops the run, and closes |
+
+2026-10-26: everything worked and fitted, and the window tests passed on
+the Pi's desktop, but the text was jagged: uv's Python had a Tk without
+Xft. Hence D21 (deadsnakes' Python 3.14, Ubuntu's Tk).
+
+If the simulated run is sluggish, try `--speedup 1` (real time, 5 is
+the default): the simulator itself costs CPU, which the real machine
+does not.
+
 ## Afterwards
 
 Copy the reports back:

@@ -46,7 +46,8 @@ CI ([`.github/workflows/tests.yml`](../.github/workflows/tests.yml)) runs
 the tests on:
 
 - Windows and Ubuntu, with system Pythons;
-- **Ubuntu on ARM with a uv-managed Python**, the setup the Pi has.
+- **Ubuntu on ARM with a uv-managed Python**: aarch64 Linux, as the Pi
+  (which runs deadsnakes' 3.14 for its Tk's smooth fonts, D21).
 
 A failure that appears only there is a Pi problem found early.
 

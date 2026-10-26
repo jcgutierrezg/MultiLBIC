@@ -3,6 +3,24 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.6 - Smooth text on the Pi
+
+Phase 5 step 7, on the Pi (2026-10-26): the simulated window fitted
+the Pi's screen, every step of the checklist worked (`docs/bench.md`,
+"Phase 5: the window on the Pi"), and the window tests passed on its
+desktop. But the text was jagged.
+
+- Why: uv's Python 3.14 for aarch64 has a Tk 9.0 built without Xft
+  (`::tk::pkgconfig get fontsystem` is `x11`), so Tk can only draw the
+  old X bitmap fonts. Ubuntu's own Tk 8.6 is built with Xft.
+- D21: the Pi uses the deadsnakes PPA's `python3.14` with
+  `python3.14-tk` (Ubuntu's Tk). `deploy/pi/setup.sh` prefers
+  `/usr/bin/python3.14` when it has tkinter, makes `.venv` again if it
+  came from another Python, falls back to uv's with a warning and the
+  commands to fix it, and reports whether the fonts will be smooth.
+- `deploy/pi/README.md` installs that Python; the docs that said the Pi
+  runs a uv-managed 3.14 say why it no longer does.
+
 ## 0.5.5 - Live and finished maps in the window
 
 Phase 5 step 6 (`docs/gui.md`).

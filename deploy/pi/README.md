@@ -12,11 +12,18 @@ setting that up is in [`docs/bench.md`](../../docs/bench.md).
 runbook ([`docs/bench.md`](../../docs/bench.md)) shows how to fetch and
 run it. By hand:
 
-Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
+Ubuntu 24.04 ships Python 3.12, older than 3.14. Python 3.14 comes from
+the deadsnakes PPA, whose `python3.14-tk` uses Ubuntu's Tk 8.6, built
+with Xft: smooth text in the window (D21). uv can provide a 3.14 too,
+and `setup.sh` falls back to it, but that one's Tk 9.0 was built
+without Xft and draws jagged bitmap fonts (seen 2026-10-26).
 
-0. Install git and curl, which Ubuntu does not always include:
+0. Install git and curl, which Ubuntu does not always include, and
+   Python 3.14 with Tk:
    ```bash
    sudo apt install git curl
+   sudo add-apt-repository ppa:deadsnakes/ppa
+   sudo apt install python3.14 python3.14-venv python3.14-tk
    ```
 1. Install uv:
    ```bash
@@ -26,14 +33,14 @@ Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
    ```bash
    git clone https://github.com/jcgutierrezg/MultiLBIC.git
    ```
-3. From inside the clone, install a uv-managed Python 3.14 and the
-   dependencies:
+3. From inside the clone, install the dependencies on that Python:
    ```bash
-   uv sync --managed-python
+   uv sync --python /usr/bin/python3.14
    ```
-4. Check that Tk works on the Pi's display:
+4. Check that Tk works on the Pi's display, and draws smooth text (the
+   answer should be `xft`; `x11` means jagged):
    ```bash
-   uv run python -c "import tkinter; tkinter.Tk().destroy(); print('tk ok')"
+   uv run python -c "import tkinter; r = tkinter.Tk(); print(r.tk.call('::tk::pkgconfig', 'get', 'fontsystem')); r.destroy()"
    ```
 5. Run the tests:
    ```bash

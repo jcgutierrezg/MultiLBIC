@@ -98,7 +98,8 @@ experiments). MultiLBIC needs none of them.
 
 **Python 3.14** is SMUniversal's floor and becomes MultiLBIC's.
 The Pi runs Ubuntu 24.04, which ships Python 3.12, so it gets a
-uv-managed 3.14.
+uv-managed 3.14. *As built:* the Pi uses deadsnakes' 3.14 instead, whose
+Tk draws smooth text (D21).
 Phase 0 confirms that it runs there and that Tk works under it.
 
 ## Position sync

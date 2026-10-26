@@ -48,8 +48,27 @@ if [ -z "${MULTILBIC_SETUP_RESTARTED:-}" ]; then
 fi
 
 echo "== installing Python and dependencies"
-# Ubuntu 24.04 ships Python 3.12, older than 3.14, so uv provides one.
-uv sync --managed-python
+# Ubuntu 24.04 ships Python 3.12, older than 3.14. Deadsnakes' python3.14
+# with python3.14-tk is preferred: its Tk is Ubuntu's 8.6, built with
+# Xft, so the window's text is smooth. uv's own 3.14 works too, but its
+# Tk was built without Xft and draws jagged bitmap fonts (D21,
+# deploy/pi/README.md).
+SYSTEM_PY=/usr/bin/python3.14
+if [ -x "$SYSTEM_PY" ] && "$SYSTEM_PY" -c "import tkinter" 2>/dev/null; then
+    # A .venv made from another interpreter is made again from this one.
+    if [ -f .venv/pyvenv.cfg ] && ! grep -q "^home = /usr/bin" .venv/pyvenv.cfg; then
+        echo "   .venv was made from another Python: making it again"
+        rm -rf .venv
+    fi
+    uv sync --python "$SYSTEM_PY"
+else
+    echo "!! no $SYSTEM_PY with tkinter: using uv's Python 3.14, whose Tk"
+    echo "   draws jagged text. For smooth text:"
+    echo "   sudo add-apt-repository ppa:deadsnakes/ppa"
+    echo "   sudo apt install python3.14 python3.14-venv python3.14-tk"
+    echo "   then run this script again."
+    uv sync --managed-python
+fi
 
 if ! id -nG "$USER" | grep -qw dialout; then
     echo "== adding $USER to dialout so serial ports can be opened"
@@ -71,11 +90,19 @@ if dpkg -s brltty >/dev/null 2>&1; then
 fi
 
 echo "== interpreter and Tk"
-uv run python -c "import sys, tkinter; print('python', sys.version.split()[0], '| Tk', tkinter.TkVersion)"
+uv run --no-sync python -c "import sys, tkinter; print('python', sys.version.split()[0], sys.base_prefix, '| Tk', tkinter.TkVersion)"
+# Smooth text needs a Tk linked with Xft; this asks the linker, so it
+# works over SSH with no display.
+TKMOD=$(uv run --no-sync python -c "import _tkinter; print(_tkinter.__file__)")
+if ldd "$TKMOD" | grep -q libXft; then
+    echo "   fonts: smooth (Tk uses Xft)"
+else
+    echo "!! fonts: jagged (this Tk has no Xft); see above"
+fi
 
 echo "== tests (hardware and simulator-timing tests skipped)"
 # sim_timing: the simulator's millisecond timing needs a faster host
 # than the Pi; CI runs those (pyproject.toml markers).
-uv run pytest -q -m "not sim_timing"
+uv run --no-sync pytest -q -m "not sim_timing"
 
 echo "== done: $(git log -1 --format='%h %s')"

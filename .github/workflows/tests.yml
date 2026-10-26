@@ -28,7 +28,9 @@ jobs:
   test:
     # windows-latest: where development happens.
     # ubuntu-latest: path separators and case sensitivity.
-    # ubuntu-24.04-arm with a uv-managed interpreter: the closest stand-in
+    # ubuntu-24.04-arm with a uv-managed interpreter: aarch64 Linux like the
+    #   Pi (which now prefers deadsnakes' 3.14 for its Tk's fonts, D21; the
+    #   code is the same either way). The closest stand-in
     #   for the Raspberry Pi, which runs aarch64 Linux and gets its Python
     #   3.14 from uv because its Ubuntu 24.04 ships 3.12.
     strategy:
@@ -64,7 +66,7 @@ jobs:
         with:
           enable-cache: true
 
-      - name: Install a uv-managed Python (as on the Pi)
+      - name: Install a uv-managed Python (aarch64, as the Pi)
         if: ${{ matrix.managed }}
         run: uv python install ${{ matrix.python }}
 
