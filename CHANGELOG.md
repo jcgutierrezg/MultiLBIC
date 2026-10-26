@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.7 - The window passes on the Pi
+
+- Phase 5 step 7 passed (2026-10-26): on deadsnakes' Python 3.14.9 with
+  Ubuntu's Tk 8.6 the Pi's text is smooth, the simulated window works
+  as before, all 239 tests pass over SSH and the 15 window tests on the
+  Pi's display.
+
 ## 0.5.6 - Smooth text on the Pi
 
 Phase 5 step 7, on the Pi (2026-10-26): the simulated window fitted

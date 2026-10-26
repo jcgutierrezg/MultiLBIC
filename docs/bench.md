@@ -235,7 +235,9 @@ B 16.1 with XY under laser 2. Then:
 
 2026-10-26: everything worked and fitted, and the window tests passed on
 the Pi's desktop, but the text was jagged: uv's Python had a Tk without
-Xft. Hence D21 (deadsnakes' Python 3.14, Ubuntu's Tk).
+Xft. Hence D21 (deadsnakes' Python 3.14, Ubuntu's Tk 8.6): after the
+switch the text was smooth, the window worked as before, and all 15
+window tests passed on the Pi's display. **Step 7 passed.**
 
 If the simulated run is sluggish, try `--speedup 1` (real time, 5 is
 the default): the simulator itself costs CPU, which the real machine
