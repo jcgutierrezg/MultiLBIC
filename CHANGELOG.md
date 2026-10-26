@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.12 - Command-line test with a short warm-up
+
+- On the Pi, `test_run_sim_end_to_end` failed with a stalled stream
+  after 0.4.11's default 60 s warm-up: at 20x simulated speed the
+  24,000 warm-up samples took longer to sort on the Pi than the 0.1 s
+  real (2 s simulated) the stream check allows. On the machine the same
+  work fits easily. The test now passes `--warmup 1`; the warm-up is
+  tested in `test_session.py`.
+
 ## 0.4.11 - Laser warm-up; Phase 4 done
 
 - `multilbic run --warmup` (default 60 s): each laser stays on with the

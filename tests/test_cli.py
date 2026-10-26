@@ -34,6 +34,11 @@ def test_run_sim_end_to_end(machine, tmp_path, capsys):
         "run", str(path), "--sim", "--yes", "--lasers", "2",
         "--pixel", "0.01", "--pitch", "0.05", "--speed", "2",
         "--baseline", "0.5", "--speedup", "20", "--out", str(out),
+        # A short warm-up: at 20x the default 60 s piles up 24,000
+        # samples, and on the Pi sorting them outlasted the 0.1 s real
+        # (2 s simulated) the stream check allows (2026-10-26). The
+        # warm-up itself is tested in test_session.py.
+        "--warmup", "1",
     ])
     printed = capsys.readouterr().out
     assert code == 0, printed
