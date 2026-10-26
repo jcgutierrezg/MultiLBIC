@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.0 - Phase 5 planned
+
+- The GUI's plan is agreed and in `docs/plan.md`: a worker thread that
+  owns the devices behind queues, the window's three columns, nine
+  steps, and when the Pi is needed (once with the simulator on its
+  monitor, then the bench). D6 is decided (the GUI is not reached
+  remotely) and D17–D20 are new: the run lives in the window, the live
+  map is uncorrected until each laser ends, jog keys work only while
+  the jog panel has focus, and Start asks to confirm. No code yet.
+
 ## 0.4.13 - Saturation test without a servo turn
 
 - The saturation test is back on laser 2 with a cell twice as bright:
