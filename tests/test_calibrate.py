@@ -178,3 +178,106 @@ def test_a_jog_out_of_range_in_key_mode_is_only_reported(rig, machine):
     assert rig.marlin.position()["A"] == pytest.approx(27.5)
     errors = [line for line in out if line.startswith("error")]
     assert len(errors) == 1 and "outside" in errors[0]
+
+
+# ---- the Calibrator, as the GUI drives it ----
+
+
+def calibrator(rig, machine, **kw):
+    from multilbic.run.calibrate import Calibrator
+
+    return Calibrator(ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+                      sample="s", **kw)
+
+
+def test_an_approach_that_is_stopped_does_not_move(rig, machine):
+    import threading
+
+    from multilbic.run.motion import RunStopped
+
+    rig.marlin.home()
+    stop = threading.Event()
+    stop.set()
+    before = rig.marlin.position()
+    with pytest.raises(RunStopped):
+        approach(rig.marlin, machine, x=50.0, a=20.0, stop=stop)
+    assert rig.marlin.position() == before
+
+
+def test_calibrator_refuses_bad_input_before_moving(rig, machine):
+    cal = calibrator(rig, machine)
+    cal.start()
+    before = cal.position()
+    with pytest.raises(ValueError, match="limited"):
+        cal.jog("x", 20.5)
+    with pytest.raises(ValueError, match="no axis"):
+        cal.jog("z", 1.0)
+    with pytest.raises(ValueError, match="some of"):
+        cal.move(z=1.0)
+    with pytest.raises(ValueError, match="positive"):
+        cal.set_size(0.0, 1.0)
+    with pytest.raises(ValueError, match="no corner"):
+        cal.trace()
+    assert cal.position() == before
+    cal.shut_down()
+
+
+def test_calibrator_outline_is_the_sample_as_a_run_places_it(rig, machine):
+    truth = rig.perfect_calibration("cell 7")
+    cal = calibrator(rig, machine)
+    cal.adopt(truth)
+    (x, y), outline = cal.outline_ab()
+    a0, b0 = outline[0]
+    assert outline[-1] == outline[0]
+    assert outline[2] == pytest.approx((a0 + 2.0, b0 + 1.0))
+    # Centred on the AB centre, so the whole of AB is free round it.
+    ca, cb = machine.ab.centre_mm
+    assert (a0 + 1.0, b0 + 0.5) == pytest.approx((ca, cb))
+    # Under the reference laser at that XY, the spot is on the corner.
+    rig.marlin.home()
+    approach(rig.marlin, machine, x=x, y=y, a=a0, b=b0)
+    u, v = rig.spot_uv(rig.fake_marlin.stage_position(),
+                       machine.geometry.reference_laser)
+    assert (u, v) == pytest.approx((0.0, 0.0), abs=1e-3)
+
+
+def test_halt_stops_a_trace_and_the_next_jog_works(rig, machine):
+    import threading
+    import time
+
+    from multilbic.run.motion import RunStopped
+
+    truth = rig.perfect_calibration("cell 7")
+    said = []
+    cal = calibrator(rig, machine, say=said.append)
+    cal.start(check=truth)
+    errors = []
+
+    def trace():
+        try:
+            cal.trace()
+        except RunStopped as exc:
+            errors.append(exc)
+
+    worker = threading.Thread(target=trace)
+    worker.start()
+    deadline = time.monotonic() + 30
+    while "tracing the outline" not in said and time.monotonic() < deadline:
+        time.sleep(0.005)
+    time.sleep(0.05)  # 1 s simulated: part way along the first side
+    cal.halt()
+    worker.join(30)
+    assert not worker.is_alive()
+    assert len(errors) == 1, "the trace should end in RunStopped"
+    assert not rig.fake_marlin.moving()
+    # Stopped part way round, not carried on to the corner.
+    u, v = rig.spot_uv(rig.fake_marlin.stage_position(),
+                       machine.geometry.reference_laser)
+    assert (u, v) != pytest.approx((0.0, 0.0), abs=1e-3)
+    # The laser is left as it was: calibration goes on.
+    assert rig.fake_laser.active == machine.geometry.reference_laser
+    before = cal.position()
+    after = cal.jog("x", 0.5)
+    assert after["X"] - before["X"] == pytest.approx(0.5)
+    cal.shut_down()
+    assert rig.fake_laser.active == 0

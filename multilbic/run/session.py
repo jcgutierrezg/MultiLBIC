@@ -17,8 +17,11 @@ A run gets its own folder:
         laser2_519nm.png    its map, built from that file alone
 
 The session runs on whatever thread calls `run()`; the command line
-calls it on a worker thread so Ctrl+C can reach `request_stop()`, as
-the GUI will (Phase 5). Stop ends the current laser's map at once and
+calls it on a worker thread so Ctrl+C can reach `request_stop()`, and
+the GUI does the same. A display follows a run through two hooks,
+both called on the session's thread: `on_row` with every block of
+samples once it is on disk (`multilbic.run.rows.RowDone`), and `on_map`
+with each laser's finished map, built from its file. Stop ends the current laser's map at once and
 skips the rest. A fault does the same. Either way every finished row is
 on disk, and the laser, stream and SMU output are off.
 """
@@ -33,7 +36,7 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
@@ -42,6 +45,7 @@ from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
     DEFAULT_CURRENT_RANGE_A,
     DEFAULT_WARMUP_S,
+    RowDone,
     RunStopped,
     ScanDevices,
     run_header,
@@ -50,6 +54,9 @@ from multilbic.run.rows import (
 from multilbic.scan.geometry import Calibration, Placement, place
 from multilbic.scan.raster import RasterPlan, ScanRequest, plan_raster
 from multilbic.store.runfile import RunWriter, read_run
+
+if TYPE_CHECKING:
+    from multilbic.scan.mapping import MapResult
 
 
 class RunPlanError(ValueError):
@@ -191,6 +198,8 @@ class Session:
         provenance: dict[str, Any],
         say: Callable[[str], None] = lambda text: None,
         home: bool = True,
+        on_row: Callable[[RowDone], None] | None = None,
+        on_map: Callable[[LaserOutcome, MapResult], None] | None = None,
     ):
         self.devices = devices
         self.machine = machine
@@ -201,6 +210,8 @@ class Session:
         self.provenance = provenance
         self.say = say
         self.home = home
+        self.on_row = on_row
+        self.on_map = on_map
         self.stop = threading.Event()
         stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
         self.folder = Path(out_root) / (
@@ -261,9 +272,8 @@ class Session:
         self._event("laser_start", laser=n)
         try:
             x, y = plan.placement.xy_mm
-            approach(self.devices.marlin, self.machine, x=x, y=y)
-            if self.stop.is_set():
-                raise RunStopped("stopped by the operator")
+            approach(self.devices.marlin, self.machine, x=x, y=y,
+                     stop=self.stop)
             header = run_header(
                 self.machine, plan.raster, n,
                 sample=self.request.calibration.sample,
@@ -287,6 +297,7 @@ class Session:
                 current_range_a=self.request.current_range_a,
                 stop=self.stop,
                 say=self.say,
+                on_row=self.on_row,
             )
             result.status = "complete"
         except RunStopped:
@@ -322,6 +333,13 @@ class Session:
                 result.shift_um = mapped.alignment.shift_mm * 1000
         except Exception as exc:
             self.say(f"laser {result.laser}: no map: {exc}")
+            return
+        if self.on_map is not None:
+            try:
+                self.on_map(result, mapped)
+            except Exception as exc:
+                self.say(f"laser {result.laser}: map display failed: "
+                         f"{type(exc).__name__}: {exc}")
 
     def _firmware(self) -> dict[str, str | None]:
         d = self.devices

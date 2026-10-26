@@ -3,6 +3,28 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.1 - Calibration and runs ready for a window
+
+Phase 5 step 2. The command line works as before.
+
+- `Calibrator` (`multilbic/run/calibrate.py`) does calibration's
+  actions and returns what it found: start, jog, move, centre, laser,
+  read, here, size, trace, save, plus `adopt` (a saved calibration's
+  corner and size) and `outline_ab` (the outline a trace runs, for a
+  preview). `CalibrationPrompt` is now the text layer on top of it.
+- `Calibrator.halt()`, from any thread, stops the move in progress: a
+  trace or a placing move of several steps stops there and raises
+  `RunStopped` instead of carrying on. The laser stays as it was.
+- `approach()` takes a `stop` event and checks it before every move;
+  runs pass theirs, so Stop during XY placement no longer lets the
+  next move of the placement go out.
+- `Session(on_row=..., on_map=...)`: each block of samples (baseline,
+  warm-up, every row) once it is on disk, and each laser's finished
+  map. A hook that raises is reported once and left out; it never ends
+  the run.
+- `RunStopped` lives in `multilbic.run.motion` now (still importable
+  from `multilbic.run.rows`).
+
 ## 0.5.0 - Phase 5 planned
 
 - The GUI's plan is agreed and in `docs/plan.md`: a worker thread that

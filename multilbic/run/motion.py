@@ -16,6 +16,8 @@ the serpentine alignment measures what that does.
 
 from __future__ import annotations
 
+import threading
+
 from multilbic.config.machine import MachineConfig
 from multilbic.hardware.marlin import Marlin
 
@@ -23,6 +25,16 @@ from multilbic.hardware.marlin import Marlin
 XY_TRAVEL_FEED_MM_S = 10.0
 #: AB placing moves; 5 mm/s stays below the noisy 6 mm/s (D9).
 AB_TRAVEL_FEED_MM_S = 5.0
+
+
+class RunStopped(Exception):
+    """The operator asked to stop."""
+
+
+def check(stop: threading.Event | None) -> None:
+    """Raise `RunStopped` if `stop` is set."""
+    if stop is not None and stop.is_set():
+        raise RunStopped("stopped by the operator")
 
 
 def approach(
@@ -33,10 +45,15 @@ def approach(
     y: float | None = None,
     a: float | None = None,
     b: float | None = None,
+    stop: threading.Event | None = None,
 ) -> dict[str, float]:
     """Move to the given axes' targets, each arriving moving up, and
     wait until the stage is there. XY moves first, then AB. Returns the
-    commanded position."""
+    commanded position.
+
+    `stop` is checked before every move and after the wait: whoever sets
+    it also quickstops Marlin, and an approach of several moves must not
+    carry on with the next one. Raises `RunStopped` then."""
     g = machine.geometry
     start = marlin.position()
     lower = {
@@ -58,9 +75,12 @@ def approach(
             if start[axis] > target - take_up
         }
         if below:
+            check(stop)
             _move(marlin, feed, below)
+        check(stop)
         _move(marlin, feed, targets)
     marlin.wait_idle()
+    check(stop)
     return marlin.position()
 
 
