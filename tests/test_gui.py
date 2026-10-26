@@ -426,5 +426,20 @@ def test_laser_colours_follow_the_wavelength():
 
 
 def test_the_header_draws_the_revolver(window):
+    import math
+
+    canvas = window.app.emblem
     # A ring, six laser dots and the spot.
-    assert len(window.app.emblem.find_all()) == 1 + 6 + 1
+    items = canvas.find_all()
+    assert len(items) == 1 + 6 + 1
+    # The dots run 1 to 6 clockwise, each opposite its servo partner.
+    size = int(canvas.cget("width"))
+    angles = []
+    for item in items[1:7]:
+        x0, y0, x1, y1 = canvas.coords(item)
+        x, y = (x0 + x1) / 2 - size / 2, size / 2 - (y0 + y1) / 2
+        angles.append(math.degrees(math.atan2(y, x)) % 360)
+    steps = [(a - b) % 360 for a, b in zip(angles[:-1], angles[1:], strict=True)]
+    assert all(step == pytest.approx(60, abs=1) for step in steps), angles
+    for k in range(3):
+        assert (angles[k] - angles[k + 3]) % 360 == pytest.approx(180, abs=1)

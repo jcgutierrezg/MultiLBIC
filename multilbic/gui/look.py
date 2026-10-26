@@ -177,9 +177,9 @@ EMBLEM_SIZE = 44
 def draw_emblem(canvas: tk.Canvas, theme: Theme,
                 lasers: list[tuple[int, str]]) -> None:
     """MultiLBIC's emblem: the laser revolver seen from below, a ring in
-    the accent with each laser's colour at its place - two groups of
-    three on opposite sides, as the servo turns them - and the beam's
-    spot in the middle. Drawn, so it follows the theme."""
+    the accent with each laser's colour at its place, 1 to 6 clockwise,
+    each opposite the laser it shares a servo angle with - and the
+    beam's spot in the middle. Drawn, so it follows the theme."""
     from multilbic.gui.spectrum import needs_ring
 
     canvas.delete("all")
@@ -188,8 +188,9 @@ def draw_emblem(canvas: tk.Canvas, theme: Theme,
     c, ring = size / 2, size * 0.36
     canvas.create_oval(c - ring, c - ring, c + ring, c + ring,
                        outline=theme.accent, width=2)
-    # Lasers 1-3 across the top, 4-6 across the bottom.
-    angles = (150, 90, 30, 210, 270, 330)
+    # 1 to 6 clockwise from the top left: each laser opposite the one it
+    # shares a servo angle with (1/4, 2/5, 3/6).
+    angles = (150, 90, 30, 330, 270, 210)
     dot = size * 0.1
     for (_, colour), angle in zip(lasers, angles, strict=False):
         x = c + ring * math.cos(math.radians(angle))

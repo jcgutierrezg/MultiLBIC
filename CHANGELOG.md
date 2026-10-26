@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.9 - The emblem's lasers in order
+
+- The emblem's dots ran 1-2-3-6-5-4 round the ring (the user spotted
+  it); they now run 1 to 6 clockwise, each laser opposite the one it
+  shares a servo angle with. A test checks both.
+
 ## 0.5.8 - Colour: laser wavelengths and accents
 
 - Each laser is shown in roughly the colour of its wavelength, as the
