@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.4.13 - Saturation test without a servo turn
+
+- The saturation test is back on laser 2 with a cell twice as bright:
+  laser 3's servo turn, at 20x simulated speed, left the board's reply
+  about 0.15 s of real time, which the Pi missed once (2026-10-26).
+
 ## 0.4.12 - Command-line test with a short warm-up
 
 - On the Pi, `test_run_sim_end_to_end` failed with a stalled stream
