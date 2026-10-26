@@ -19,8 +19,13 @@ stops it on the command line (`Session.request_stop`), a calibration
 move stops through `Calibrator.halt()` with the laser left as it was,
 and Stop while idle turns the laser off.
 
-**While idle**, once the stage has been homed, the photocurrent is read
-every `poll_s` and sent as `Reading`: it is how an edge is found.
+**Homing comes first.** Moves are refused until the stage has been
+homed (`Homed(True)`), and again after the motors are released: pushed
+by hand, the stage's coordinates mean nothing.
+
+**While idle**, once homed with the SMU output on, the photocurrent is
+read every `poll_s` and sent as `Reading`: it is how an edge is found.
+A run ends with the output off, so readings stop until the next home.
 
 States::
 
@@ -90,6 +95,11 @@ class Connected:
 
 
 @dataclass(frozen=True)
+class Homed:
+    homed: bool
+
+
+@dataclass(frozen=True)
 class Position:
     xyab: dict[str, float]
 
@@ -140,7 +150,8 @@ class RunEnded:
 
 
 Event = (
-    StateChanged | Log | Connected | Position | Reading | LaserChanged
+    StateChanged | Log | Connected | Homed | Position | Reading
+    | LaserChanged
     | CalibrationChanged | RunStarted | RowEvent | MapEvent | RunEnded
 )
 
@@ -176,7 +187,10 @@ class MachineWorker:
         self._conn: Connection | None = None
         self._cal: Calibrator | None = None
         self._session: Session | None = None
+        #: The stage's coordinates mean something.
         self._homed = False
+        #: The SMU output is on at 0 V, so readings can be taken.
+        self._reading = False
         self._thread = threading.Thread(
             target=self._loop, name="machine", daemon=False
         )
@@ -227,12 +241,23 @@ class MachineWorker:
         calibration's corner under it (`Calibrator.start`)."""
         def work() -> None:
             cal = self._calibrator()
+            self._set_homed(False)
             position = cal.start(check)
-            self._homed = True
+            self._set_homed(True)
+            self._reading = True
             self._emit(LaserChanged(cal.reference))
             self._emit(Position(position))
             self._calibration_changed()
         return self._moving("start calibration", work)
+
+    def motors_off(self) -> bool:
+        """Release every stepper, so the stage can be pushed by hand.
+        Home again before moving."""
+        def work() -> None:
+            self._calibrator().devices.marlin.motors(False)
+            self._set_homed(False)
+            self._log("motors released: home before moving")
+        return self._moving("motors off", work)
 
     def jog(self, axis: str, distance_mm: float) -> bool:
         return self._move("jog", lambda: self._calibrator().jog(
@@ -252,6 +277,7 @@ class MachineWorker:
         def work() -> None:
             self._calibrator().laser(number)
             self._emit(LaserChanged(number))
+            self._log(f"laser {number} on" if number else "lasers off")
         return self._moving("laser", work)
 
     def here(self) -> bool:
@@ -275,6 +301,7 @@ class MachineWorker:
 
     def trace(self) -> bool:
         def work() -> None:
+            self._require_homed()
             cal = self._calibrator()
             self._emit(LaserChanged(cal.reference))
             self._emit(Position(cal.trace()))
@@ -352,7 +379,19 @@ class MachineWorker:
         return self._submit(name, work, State.MOVING)
 
     def _move(self, name: str, move: Callable[[], dict[str, float]]) -> bool:
-        return self._moving(name, lambda: self._emit(Position(move())))
+        def work() -> None:
+            self._require_homed()
+            self._emit(Position(move()))
+        return self._moving(name, work)
+
+    def _require_homed(self) -> None:
+        if not self._homed:
+            raise RuntimeError("home the stage first")
+
+    def _set_homed(self, homed: bool) -> None:
+        if homed != self._homed:
+            self._homed = homed
+            self._emit(Homed(homed))
 
     def _set_state_locked(self, state: State) -> None:
         if state is not self._state:
@@ -398,14 +437,14 @@ class MachineWorker:
                     )
 
     def _poll(self) -> None:
-        if self.state is not State.IDLE or not self._homed:
+        if self.state is not State.IDLE or not self._reading:
             return
         assert self._conn is not None
         try:
             _, amps = self._conn.devices.smu.measure(1)
         except Exception as exc:
             # Once, not every half second.
-            self._homed = False
+            self._reading = False
             self._log(f"reading stopped: {type(exc).__name__}: {exc}",
                       error=True)
             return
@@ -446,7 +485,8 @@ class MachineWorker:
                          say=self._log)
         with self._lock:
             self._cal = cal
-        self._homed = False
+        self._set_homed(False)
+        self._reading = False
         self._emit(Connected(conn.simulated, conn.firmware()))
         self._log("connected" + (" (simulated)" if conn.simulated else ""))
 
@@ -457,10 +497,12 @@ class MachineWorker:
     def _home(self) -> None:
         d = self._calibrator().devices
         self._log("homing")
+        self._set_homed(False)
         d.marlin.home()
+        self._set_homed(True)
         d.smu.prepare(bias_v=0.0)
         d.smu.output_on()
-        self._homed = True
+        self._reading = True
         self._position()
 
     def _run(
@@ -488,13 +530,17 @@ class MachineWorker:
             self._session = session
         self._emit(RunStarted(session.folder, tuple(session.plans)))
         # The run ends with the SMU output off: no readings until the
-        # next home.
-        self._homed = False
+        # next home. It homes at its start: until that is done, the
+        # stage counts as not homed.
+        self._reading = False
+        self._set_homed(False)
         try:
             outcome = session.run()
         finally:
             self._emit(LaserChanged(0))
         self._emit(RunEnded(outcome))
+        # A laser was started only after homing finished.
+        self._set_homed(bool(outcome.lasers))
         self._position()
 
     def _release(self) -> None:
@@ -503,7 +549,8 @@ class MachineWorker:
         with self._lock:
             self._cal = None
         self._conn = None
-        self._homed = False
+        self._set_homed(False)
+        self._reading = False
         if cal is not None:
             for failure in cal.shut_down():
                 self._log(f"shutdown: {failure}", error=True)

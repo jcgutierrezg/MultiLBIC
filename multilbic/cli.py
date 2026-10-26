@@ -6,6 +6,8 @@ The command line: calibrate a sample, then run its maps.
     uv run multilbic run cell-7.json --lasers 1,2,3 --pixel 0.01 \\
         --pitch 0.05 --speed 2
 
+`gui` opens the window (Phase 5), which does both.
+
 `calibrate` is interactive and needs you at the machine. `run` needs no
 terminal once started: on the Pi, run it under `nohup ... --yes &` so a
 dropped SSH connection doesn't end it. Ctrl+C, or `kill -INT <pid>` /
@@ -237,6 +239,16 @@ def remap(args: argparse.Namespace) -> int:
 # ---- entry ----
 
 
+# ---- gui ----
+
+
+def gui(args: argparse.Namespace) -> int:
+    from multilbic.gui.app import launch
+
+    return launch(load(args.machine), simulated=args.sim,
+                  speedup=args.speedup)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="multilbic", description=__doc__.split("\n\n")[0]
@@ -278,6 +290,14 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--speedup", type=float, default=SIM_SPEED,
                     help="simulated seconds per real second (--sim)")
     go.set_defaults(func=run)
+
+    window = commands.add_parser("gui", help="the window")
+    window.add_argument("--sim", action="store_true",
+                        help="the simulated machine, with a synthetic sample "
+                        "on the carriage to find")
+    window.add_argument("--speedup", type=float, default=SIM_SPEED,
+                        help="simulated seconds per real second (--sim)")
+    window.set_defaults(func=gui)
 
     draw = commands.add_parser("map", help="rebuild and draw a run file's map")
     draw.add_argument("runfile", help="a laser's .csv from a run folder")

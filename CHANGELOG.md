@@ -3,6 +3,31 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.3 - The window: machine column
+
+Phase 5 step 4. `multilbic gui [--sim]` (`docs/gui.md`).
+
+- The window: header with STOP (and Esc anywhere), Light/Dark, Console;
+  the machine column (connection lamps and firmware, Home, Centre AB,
+  Motors off, position, the jog pad, go to, the six lasers and Off, the
+  live photocurrent); a footer with the last thing that happened. The
+  sample and run columns are placeholders until steps 5 and 6.
+- Jog arrows move the spot on the sample the way they point as seen at
+  the machine, worked out from `[display]` and `[geometry]`: on this
+  machine ← is +A or +X, ↓ is +B or +Y. Keys only while the pad has the
+  keyboard (D19). In the window `w a s d` follow the arrows, unlike the
+  command line's key mode, where `d` is X+.
+- The worker refuses moves until the stage is homed, and again after
+  Motors off; it logs laser changes.
+- Closing during a run asks, then stops it and waits until everything
+  is safe.
+- SMUniversal's theme with a MultiLBIC accent (teal), its console
+  window, and its Tk thread guard in the window tests: no worker thread
+  touched a Tk variable.
+- Window tests against the simulator (CI runs them under xvfb, as it
+  already did for Tk). They share one Tk: starting Tcl afresh for every
+  test failed now and then on Windows.
+
 ## 0.5.2 - The machine behind the window
 
 Phase 5 step 3, no Tk yet.

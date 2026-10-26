@@ -8,7 +8,7 @@ photocurrent while the sample is rastered under the beam.
 **Status: being rewritten.** Project foundations, the device layer
 (drivers + simulators), the scan core and command-line runs are in
 place, and real maps have come off the machine from three lasers. The
-GUI comes next. See [docs/plan.md](docs/plan.md).
+GUI is being built (`multilbic gui`). See [docs/plan.md](docs/plan.md).
 
 | To find | Go to |
 |---|---|
@@ -17,6 +17,7 @@ GUI comes next. See [docs/plan.md](docs/plan.md).
 | How the software talks to each device; the simulators | [docs/devices.md](docs/devices.md) |
 | How a map is made: position sync, cleaning, the run file | [docs/scan.md](docs/scan.md) |
 | Calibrating a sample and running its maps | [docs/run.md](docs/run.md) |
+| The window | [docs/gui.md](docs/gui.md) |
 | Phases, what's next, decisions | [docs/plan.md](docs/plan.md) |
 | Setting up, running the gates, the workflow | [docs/development.md](docs/development.md) |
 | Running the probes on the machine over SSH | [docs/bench.md](docs/bench.md) |

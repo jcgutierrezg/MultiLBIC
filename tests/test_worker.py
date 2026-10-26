@@ -339,3 +339,21 @@ def test_the_machine_lock_is_held_by_one_process_at_a_time(tmp_path):
         first.release()
     machine_lock(path).release()
 
+
+
+def test_moves_wait_for_home_and_motors_off_undoes_it(setup):
+    from multilbic.gui.worker import Homed
+
+    worker, watch, rig, machine = setup
+    assert worker.jog("x", 0.1)
+    watch.idle()
+    assert "home the stage first" in watch.errors()[-1]
+    assert worker.home()
+    watch.idle()
+    assert watch.of(Homed)[-1].homed
+    assert worker.motors_off()
+    watch.idle()
+    assert not watch.of(Homed)[-1].homed
+    assert worker.jog("x", 0.1)
+    watch.idle()
+    assert len(watch.errors()) == 2
