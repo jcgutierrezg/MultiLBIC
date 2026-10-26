@@ -56,10 +56,14 @@ class MapTab:
     """One laser's map: live while it scans, then the finished one."""
 
     def __init__(self, notebook: ttk.Notebook, title: str,
-                 view: tuple[str, str]):
+                 view: tuple[str, str], colour: str | None = None):
         self.view = view
         self.frame = ttk.Frame(notebook, padding=4)
-        notebook.add(self.frame, text=title)
+        if colour:
+            notebook.add(self.frame, text=f" {title}", compound="left",
+                         image=look.swatch(notebook, colour, size=12))
+        else:
+            notebook.add(self.frame, text=title)
         self.figure = Figure(figsize=(6, 5), dpi=100, facecolor="white")
         self.axes = self.figure.add_subplot()
         self.canvas = FigureCanvasTkAgg(self.figure, master=self.frame)
@@ -177,7 +181,8 @@ class RunPanel:
         view = machine.display.view
         for plan in event.plans:
             self.tabs[plan.laser] = MapTab(
-                self.notebook, f"{plan.laser}: {plan.wavelength_nm} nm", view)
+                self.notebook, f"{plan.laser}: {plan.wavelength_nm} nm", view,
+                colour=self.app.laser_colour(plan.laser))
             self.tabs[plan.laser].note("waiting")
             self.live[plan.laser] = LiveMap(plan, machine.mains_hz)
         req = event.request

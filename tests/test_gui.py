@@ -215,7 +215,7 @@ def test_laser_buttons_and_escape(window):
     lasers = app.lasers
     window.click(lasers.buttons[2])
     assert window.rig.fake_laser.active == 2
-    assert str(lasers.buttons[2].cget("style")) == "Lit.TButton"
+    assert str(lasers.buttons[2].cget("style")) == "Laser2.Lit.TButton"
     # Esc anywhere is Stop; while idle, Stop turns the laser off.
     focus(window, lasers.off_btn)
     lasers.off_btn.event_generate("<Escape>")
@@ -407,4 +407,24 @@ def test_the_laser_a_run_lights_shows(window, tmp_path, monkeypatch):
     assert lasers.lit == 0
     window.app.handle(RowEvent(RowDone(3, 0, 4, ())))
     assert lasers.lit == 3
-    assert str(lasers.buttons[3].cget("style")) == "Lit.TButton"
+    assert str(lasers.buttons[3].cget("style")) == "Laser3.Lit.TButton"
+
+
+def test_laser_colours_follow_the_wavelength():
+    from multilbic.gui.spectrum import ink_on, needs_ring, wavelength_colour
+
+    # As the old script showed them: blue, green, red, a deeper red,
+    # then dark into the infrared.
+    blue, green, red, deep = (wavelength_colour(nm)
+                              for nm in (444, 519, 652, 676))
+    assert blue.startswith("#00") and blue.endswith("ff")
+    assert green[3:5] == "ff" and red == "#f50000"
+    assert int(deep[1:3], 16) < int(red[1:3], 16)
+    ir = [wavelength_colour(nm) for nm in (785, 848)]
+    assert all(needs_ring(c) for c in ir)
+    assert ink_on(green) == "#000000" and ink_on(ir[1]) == "#ffffff"
+
+
+def test_the_header_draws_the_revolver(window):
+    # A ring, six laser dots and the spot.
+    assert len(window.app.emblem.find_all()) == 1 + 6 + 1

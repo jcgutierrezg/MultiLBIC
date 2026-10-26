@@ -150,6 +150,24 @@ Once homed, the photocurrent is read twice a second while the machine
 is idle: in the dark, an edge is where it halves. A run ends with the
 SMU output off, so readings stop until the next Home.
 
+## Colours
+
+The accent (teal) marks MultiLBIC as SMUniversal's accents mark its
+windows: the stripe down the header's left edge in dark (under it in
+light), panel titles, Start run, the progress bar, the jog pad's ring.
+The emblem is the laser revolver seen from below, a dot per laser.
+
+Each laser is shown in roughly the colour of its wavelength, as the old
+script showed them (`multilbic/gui/spectrum.py`): blue (444 nm), green
+(519), red (652), a deeper red (676), then dark maroons for the infrared
+(785, 848), ringed in grey so they show on the dark theme. The colour
+marks the laser's button, and fills it while that laser is on; its box
+in Run setup; its map tab; and the spot in the calibration drawing. A
+laser added to `machine.toml` gets its colour from its wavelength.
+
+Safety colours never change: STOP is red, a lamp is green when
+connected, a problem in red.
+
 ## How it is built
 
 The window never touches a device. `multilbic/gui/worker.py` owns them

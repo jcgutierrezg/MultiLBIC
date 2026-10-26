@@ -3,6 +3,21 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.8 - Colour: laser wavelengths and accents
+
+- Each laser is shown in roughly the colour of its wavelength, as the
+  old script showed them (`multilbic/gui/spectrum.py`): blue, green,
+  red, a deeper red, then dark maroons into the infrared, ringed in grey
+  on the dark theme. A dot on its button, which fills with that colour
+  while the laser is on (the text black or white, whichever reads); its
+  box in Run setup, now two rows of three like the revolver; its map
+  tab; the spot in the calibration drawing.
+- SMUniversal's header accents: the accent bar (down the left in dark,
+  under the strip in light), a subtitle, and an emblem of MultiLBIC's
+  own, the laser revolver with a dot per laser.
+- The calibration drawing is 220 px tall (was 300), so the sample column
+  fits 1080 px in the light theme too.
+
 ## 0.5.7 - The window passes on the Pi
 
 - Phase 5 step 7 passed (2026-10-26): on deadsnakes' Python 3.14.9 with

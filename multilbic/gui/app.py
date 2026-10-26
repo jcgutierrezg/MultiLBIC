@@ -150,12 +150,29 @@ class App:
     # ---- header ----
 
     def _build_header(self) -> None:
-        header = ttk.Frame(self.root, style="Header.TFrame", padding=(12, 8))
-        header.grid(row=0, column=0, sticky="ew")
-        ttk.Label(header, text="MultiLBIC", style="Title.Header.TLabel") \
+        """SMUniversal's header, MultiLBIC's way: the accent bar (down the
+        left in dark, under the strip in light), the emblem, the name with
+        what it does under it, then the state, and the buttons."""
+        outer = ttk.Frame(self.root, style="Header.TFrame")
+        outer.grid(row=0, column=0, sticky="ew")
+        outer.columnconfigure(1, weight=1)
+        self.header_bar = ttk.Frame(outer, style="AccentBar.TFrame")
+        header = ttk.Frame(outer, style="Header.TFrame", padding=(10, 6))
+        header.grid(row=0, column=1, sticky="ew")
+        self.emblem = tk.Canvas(header, width=look.EMBLEM_SIZE,
+                                height=look.EMBLEM_SIZE,
+                                highlightthickness=0, borderwidth=0)
+        self.emblem.pack(side="left", padx=(0, 10))
+        names = ttk.Frame(header, style="Header.TFrame")
+        names.pack(side="left")
+        top = ttk.Frame(names, style="Header.TFrame")
+        top.pack(anchor="w")
+        ttk.Label(top, text="MultiLBIC", style="Title.Header.TLabel") \
             .pack(side="left")
-        ttk.Label(header, text=version("multilbic"),
+        ttk.Label(top, text=version("multilbic"),
                   style="Sub.Header.TLabel").pack(side="left", padx=(8, 0))
+        ttk.Label(names, text="laser beam induced current, six wavelengths",
+                  style="Sub.Header.TLabel").pack(anchor="w")
         if self.simulated:
             ttk.Label(header, text="SIMULATED", style="Warn.Bold.TLabel") \
                 .pack(side="left", padx=(16, 0))
@@ -182,6 +199,27 @@ class App:
         set_dark_title_bar(self.root, theme.is_dark)
         if hasattr(self, "mode_btn"):
             self.mode_btn.configure(text="Light" if theme.is_dark else "Dark")
+            look.draw_emblem(self.emblem, theme, [
+                (n, self.laser_colour(n)) for n in self.laser_numbers()])
+            # Dark wears the bar down the left, like the band on a rack
+            # instrument; light rules it under the strip (as SMUniversal).
+            bar = self.header_bar
+            bar.grid_forget()
+            if theme.is_dark:
+                bar.configure(width=5)
+                bar.grid(row=0, column=0, sticky="ns")
+            else:
+                bar.configure(height=3)
+                bar.grid(row=1, column=0, columnspan=2, sticky="ew")
+
+    def laser_numbers(self) -> list[int]:
+        return [laser.number for laser in self.machine.lasers]
+
+    def laser_colour(self, number: int) -> str:
+        """The colour laser `number` is shown in (`gui.spectrum`)."""
+        from multilbic.gui.spectrum import wavelength_colour
+
+        return wavelength_colour(self.machine.laser(number).wavelength_nm)
 
     # ---- what panels call ----
 

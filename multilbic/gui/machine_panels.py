@@ -314,12 +314,17 @@ class LaserPanel:
         grid = ttk.Frame(self.frame)
         grid.grid(row=0, column=0, sticky="w")
         unmeasured = False
+        colours = {n: app.laser_colour(n) for n in app.laser_numbers()}
+        app.theme.on_change(lambda t: look.laser_styles(t, colours),
+                            widget=self.frame)
         for i, laser in enumerate(app.machine.lasers):
             mark = "" if laser.measured else " *"
             unmeasured |= not laser.measured
             button = ttk.Button(
-                grid, width=9,
+                grid, width=8,
                 text=f"{laser.number}{mark}\n{laser.wavelength_nm} nm",
+                image=look.swatch(grid, colours[laser.number]),
+                compound="left",
                 command=functools.partial(self.select, laser.number),
             )
             # Two rows of three: the revolver's two groups.
@@ -349,8 +354,8 @@ class LaserPanel:
         if isinstance(event, LaserChanged):
             self.lit = event.laser
             for n, button in self.buttons.items():
-                button.configure(
-                    style="Lit.TButton" if n == event.laser else "TButton")
+                button.configure(style=f"Laser{n}.Lit.TButton"
+                                 if n == event.laser else "TButton")
         elif isinstance(event, RowEvent):
             # A run switches lasers without asking the panel: its
             # blocks say which is on (none during the baseline).

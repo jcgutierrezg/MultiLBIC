@@ -69,7 +69,7 @@ class CalibrationPanel:
         self.corner_label = ttk.Label(one, text="", style="Hint.TLabel")
         self.corner_label.pack(side="left", padx=(10, 0))
         ttk.Label(
-            self.frame, style="Small.Hint.TLabel", wraplength=500,
+            self.frame, style="Small.Hint.TLabel", wraplength=460,
             justify="left",
             text=f"Start homes the stage and lights laser {ref} over the "
                  "AB centre. Jog until the spot is on the sample's "
@@ -234,7 +234,9 @@ class OutlinePreview:
     the placement moves it as AB would (`xy_to_ab`), and a laser other
     than the reference one sits its `xy_centre_mm` offset away."""
 
-    SIZE = 300
+    #: Tall enough to see the sample, short enough that the column fits
+    #: 1080 px in the light theme's bigger fonts too.
+    SIZE = 220
     MARGIN = 18
 
     def __init__(self, app: App, parent: tk.Misc):
@@ -309,10 +311,13 @@ class OutlinePreview:
         if spot is not None:
             x, y = at(*spot)
             lit = self.laser != 0
+            colour = self.app.laser_colour(self.laser) if lit else ""
             r = 6
+            # Drawn in the lit laser's colour; a ring keeps a dark one
+            # (infrared) visible.
             c.create_oval(x - r, y - r, x + r, y + r, width=2,
-                          outline=pal.bad if lit else pal.muted,
-                          fill=pal.bad if lit else "")
+                          outline=look.RING if lit else pal.muted,
+                          fill=colour)
             c.create_line(x - 2 * r, y, x + 2 * r, y, fill=pal.ink2)
             c.create_line(x, y - 2 * r, x, y + 2 * r, fill=pal.ink2)
         arrow = {"left": "←", "right": "→", "up": "↑",
@@ -370,18 +375,24 @@ class RunSetupPanel:
 
         lasers = ttk.Frame(self.frame)
         lasers.grid(row=0, column=0, columnspan=4, sticky="w", pady=(0, 6))
-        ttk.Label(lasers, text="Lasers").pack(side="left", padx=(0, 8))
+        ttk.Label(lasers, text="Lasers").grid(row=0, column=0, sticky="nw",
+                                              padx=(0, 10))
         self.laser_vars: dict[int, tk.BooleanVar] = {}
         self.laser_boxes: dict[int, ttk.Checkbutton] = {}
-        for laser in app.machine.lasers:
+        for i, laser in enumerate(app.machine.lasers):
             ticked = tk.BooleanVar(master=app.root,
                                    value=laser.number in form.lasers)
             box = ttk.Checkbutton(
                 lasers, variable=ticked, command=self.changed,
                 text=f"{laser.number} ({laser.wavelength_nm})"
                      + ("" if laser.measured else " *"),
+                image=look.swatch(lasers, app.laser_colour(laser.number),
+                                  size=10),
+                compound="left",
             )
-            box.pack(side="left", padx=(0, 6))
+            # Two rows of three, the revolver's two groups.
+            box.grid(row=i // 3, column=1 + i % 3, sticky="w",
+                     padx=(0, 14), pady=1)
             self.laser_vars[laser.number] = ticked
             self.laser_boxes[laser.number] = box
         self.allow = tk.BooleanVar(master=app.root, value=False)
