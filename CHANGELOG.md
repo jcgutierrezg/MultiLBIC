@@ -3,6 +3,33 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.19 - Ranges checked at calibration
+
+Ranges step 4 (D25).
+
+- `Calibrator.check_ranges(lasers, bias)`: for each laser, XY places the
+  sample as a run will for it, the laser comes on, and the stage runs a
+  coarse grid over the sample (3 lines along A and 3 along B, at 1/6,
+  1/2 and 5/6, at 2 mm/s) while single readings are taken on autorange
+  at the run's bias. The range is the smallest holding 3x the brightest
+  reading (`multilbic/run/ranges.py`); a reading at the check's own
+  1 mA limit is flagged and gets at least 15 mA. It ends with the
+  reference laser back on the corner; `halt()` stops it, keeping
+  nothing half-checked.
+- Saved in the calibration file (`current_ranges`: per laser the range,
+  the brightest reading, the bias, when); older files load without.
+- `calibrate`'s `ranges 1,2,3 [bias]`; the window's worker gets
+  `check_ranges` (its button comes in step 5), and its calibration
+  events carry the ranges.
+- **`run` without `--current-range` uses the ranges checked for the
+  sample**, 25 uA for a laser not checked, and says which; with
+  `--current-range` it uses that as written.
+- `Calibrator` (and the prompt) take the clock, as the run code does.
+- Tested in simulation: 25 uA for the synthetic cell, 650 uA for one a
+  hundred times brighter, the corner reached again, halt, the round
+  trip through the file, the prompt, the worker, and `run` picking the
+  checked range up or being overridden.
+
 ## 0.5.18 - A clipped laser starts again one range up
 
 Ranges step 3 (D26).

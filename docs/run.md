@@ -60,7 +60,8 @@ AB centre and lights it, and gives you a prompt:
 | `here` | record the corner |
 | `size 10 10` | width along A and height along B, mm |
 | `trace` | place the sample as a run would and run the spot round its outline, ending on the corner |
-| `save [file]` | write the calibration (JSON) |
+| `ranges 1,2,3 [bias]` | each laser's current range on this sample (D25): XY places the sample as a run will for that laser, the laser comes on, and the stage runs a coarse grid over the sample (3 lines along A and 3 along B, at 2 mm/s) reading the photocurrent on autorange; the range is the smallest holding 3x the brightest reading. Uses the run's bias if you give it. About 15 s a laser on a 2 mm sample. Ends with the reference laser back on the corner. `save` keeps the ranges with the calibration |
+| `save [file]` | write the calibration (JSON), with its checked ranges |
 | `help`, `quit` | |
 
 **Key mode** (`keys`), no Enter needed:
@@ -107,7 +108,7 @@ board may have restarted since calibration.
 | `--pitch 0.05` | (required) | mm between rows |
 | `--speed 4` | 4 mm/s | stay at 5 or below (D9); 4 is bench-proven (D27) |
 | `--bias 0` | 0 V | |
-| `--current-range 25u` | 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. Lasers can be 100x apart in brightness on one sample (on the test cell lasers 1 and 3 need 650 µA, laser 2 25 µA), so give each its own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a run stops if a fixed range clips |
+| `--current-range 25u` | checked, else 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. **Without it, each laser uses the range checked for this sample at calibration** (`ranges` above), and 25 µA if it wasn't checked; the plan printed before the start says which. Given, it applies as written. Lasers can be 100x apart in brightness on one sample (on the test cell lasers 1 and 3 need 650 µA, laser 2 25 µA), so they need their own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a clipping range starts that laser again one range up (below) |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |

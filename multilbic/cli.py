@@ -30,7 +30,11 @@ from pathlib import Path
 from multilbic.clock import ScaledClock
 from multilbic.config import load
 from multilbic.config.machine import MachineConfig
-from multilbic.run.calibrate import CalibrationPrompt, load_calibration
+from multilbic.run.calibrate import (
+    CalibrationPrompt,
+    load_calibration,
+    load_ranges,
+)
 from multilbic.run.devices import (
     SIM_SAMPLE_MM,
     SIM_SPEED,
@@ -87,7 +91,10 @@ def calibrate(args: argparse.Namespace) -> int:
     else:
         conn = connect_real(machine)
     prompt = CalibrationPrompt(conn.devices, machine, sample=sample,
-                               default_path=out)
+                               default_path=out, clock=conn.clock)
+    if check is not None:
+        # Its checked ranges come back with it, so a re-save keeps them.
+        prompt.cal.ranges = load_ranges(args.check)
     say("the stage will home and the reference laser will come on")
     try:
         prompt.start(check)
@@ -99,6 +106,14 @@ def calibrate(args: argparse.Namespace) -> int:
 
 
 # ---- run ----
+
+
+def _range_source(laser: int, given: str | None, checked) -> str:  # noqa: ANN001
+    if given is not None:
+        return ""
+    if laser in checked:
+        return f" (checked {checked[laser].when[:10]})"
+    return " (not checked for this sample)"
 
 
 def parse_ranges(text: str) -> tuple[float | None, dict[int, float | None]]:
@@ -135,10 +150,18 @@ def run(args: argparse.Namespace) -> int:
         lasers = tuple(int(n) for n in args.lasers.split(","))
     except ValueError:
         raise SystemExit(f"--lasers {args.lasers!r}: e.g. 1,2,3") from None
-    try:
-        default_range, laser_ranges = parse_ranges(args.current_range)
-    except ValueError as exc:
-        raise SystemExit(f"--current-range: {exc}") from None
+    checked = load_ranges(args.calibration)
+    if args.current_range is None:
+        # D25: each laser's range as checked on this sample at
+        # calibration; 25 uA for a laser the check didn't cover.
+        default_range = CURRENT_RANGES["25u"]
+        laser_ranges: dict[int, float | None] = {
+            n: checked[n].range_a for n in lasers if n in checked}
+    else:
+        try:
+            default_range, laser_ranges = parse_ranges(args.current_range)
+        except ValueError as exc:
+            raise SystemExit(f"--current-range: {exc}") from None
     request = RunRequest(
         calibration, lasers, args.pixel, args.pitch, args.speed,
         serpentine=not args.one_direction, bias_v=args.bias,
@@ -164,7 +187,8 @@ def run(args: argparse.Namespace) -> int:
         say(f"  laser {p.laser} ({p.wavelength_nm} nm): "
             f"{len(p.raster.rows)} rows at {args.speed:g} mm/s, "
             f"{p.raster.stream_hz:g} Hz, range "
-            f"{range_name(request.range_for(p.laser))}, XY "
+            f"{range_name(request.range_for(p.laser))}"
+            f"{_range_source(p.laser, args.current_range, checked)}, XY "
             f"{p.placement.xy_mm[0]:.3f} {p.placement.xy_mm[1]:.3f}, about "
             f"{duration(e.total_s)}")
     say(f"about {duration(estimate.total_s)} in all, homing included")
@@ -306,11 +330,13 @@ def main(argv: list[str] | None = None) -> int:
                     help="s with each laser on before its first row, "
                     "for its output to settle (default 60; 0 to skip)")
     go.add_argument("--one-direction", action="store_true")
-    go.add_argument("--current-range", default="25u",
+    go.add_argument("--current-range", default=None,
                     help="fixed SMU range, one for all lasers or one per "
                     "laser: 25u, or 1=650u,2=25u,3=650u, or 25u,1=650u "
                     f"(ranges: {', '.join(CURRENT_RANGES)}; 'auto' drops "
-                    "samples at every range switch; default 25u)")
+                    "samples at every range switch). Default: the ranges "
+                    "checked at calibration ('ranges' in calibrate), 25u "
+                    "for a laser not checked")
     go.add_argument("--no-step-up", action="store_true",
                     help="a laser whose range clips fails the run, instead "
                     "of starting again one range up (D26)")
