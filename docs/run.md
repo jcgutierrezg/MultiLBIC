@@ -107,7 +107,7 @@ board may have restarted since calibration.
 | `--pitch 0.05` | (required) | mm between rows |
 | `--speed 4` | 4 mm/s | stay at 5 or below (D9); 4 is bench-proven (D27) |
 | `--bias 0` | 0 V | |
-| `--current-range 25u` | 25 µA | fixed SMU range: `1u`, `25u`, `650u`, `15m` or `auto`. Autoranging drops 10–15 ms of samples at every range switch; a run stops if the fixed range clips |
+| `--current-range 25u` | 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. Lasers can be 100x apart in brightness on one sample (on the test cell lasers 1 and 3 need 650 µA, laser 2 25 µA), so give each its own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a run stops if a fixed range clips |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |

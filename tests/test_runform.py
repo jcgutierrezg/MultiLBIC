@@ -168,3 +168,18 @@ def test_the_version_is_the_running_codes():
     pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
     expected = tomllib.loads(pyproject.read_text(encoding="utf-8"))
     assert app_version() == expected["project"]["version"]
+
+
+def test_ranges_per_laser_in_the_form(machine, calibration):
+    plan = plan_form(RunForm(lasers=(1, 2, 3), current_range="25u",
+                             laser_ranges={1: "650u", 3: "650u", 5: "1u"}),
+                     calibration, machine, simulated=True)
+    r = plan.request
+    assert [r.range_for(n) for n in (1, 2, 3)] == [650e-6, 25e-6, 650e-6]
+    assert 5 not in r.laser_ranges_a  # not in the run: dropped
+    auto = plan_form(RunForm(lasers=(1, 2), laser_ranges={2: "auto"}),
+                     calibration, machine, simulated=True)
+    assert any("autoranging" in w for w in auto.warnings)
+    with pytest.raises(FormError, match="no range"):
+        plan_form(RunForm(laser_ranges={2: "2u"}), calibration, machine,
+                  simulated=True)

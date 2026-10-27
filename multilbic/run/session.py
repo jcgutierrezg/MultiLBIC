@@ -60,10 +60,20 @@ if TYPE_CHECKING:
 
 
 #: The miniSMU's measurement ranges, as `--current-range` and the
-#: window name them. "auto" autoranges, and drops samples (D15).
+#: window name them: all five (docs/hardware.md). "auto" autoranges, and
+#: drops samples while streaming (D15).
 CURRENT_RANGES: dict[str, float | None] = {
-    "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3, "auto": None,
+    "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3,
+    "180m": 180e-3, "auto": None,
 }
+
+
+def range_name(current_range_a: float | None) -> str:
+    """'25u' for 25e-6: the name `CURRENT_RANGES` gives a range."""
+    for name, value in CURRENT_RANGES.items():
+        if value == current_range_a:
+            return name
+    return f"{current_range_a:g} A"
 #: Simulated runs go here (ignored by git); real ones outside the checkout.
 SIM_RUNS = Path("runs")
 REAL_RUNS = Path.home() / "multilbic-runs"
@@ -88,10 +98,18 @@ class RunRequest:
     #: Free text for the file headers: lighting, contacts, anything
     #: the data can't say for itself.
     note: str = ""
-    #: Fixed measurement range in A, or None to autorange.
+    #: Fixed measurement range in A, or None to autorange: for every
+    #: laser not in `laser_ranges_a`.
     current_range_a: float | None = DEFAULT_CURRENT_RANGE_A
     #: Laser on, stage still, before each laser's first row.
     warmup_s: float = DEFAULT_WARMUP_S
+    #: A range for some lasers, by number (D15 revised, D25): lasers 100x
+    #: apart in brightness can't share one.
+    laser_ranges_a: dict[int, float | None] = field(default_factory=dict)
+
+    def range_for(self, laser: int) -> float | None:
+        """The measurement range laser `laser` maps with."""
+        return self.laser_ranges_a.get(laser, self.current_range_a)
 
 
 @dataclass(frozen=True)
@@ -124,6 +142,11 @@ def plan_run(request: RunRequest, machine: MachineConfig) -> list[LaserPlan]:
         raise RunPlanError("no lasers requested")
     if len(set(request.lasers)) != len(request.lasers):
         raise RunPlanError(f"a laser is listed twice: {request.lasers}")
+    stray = sorted(set(request.laser_ranges_a) - set(request.lasers))
+    if stray:
+        raise RunPlanError(
+            f"a current range is given for laser(s) {stray}, which the run "
+            f"does not map (lasers {list(request.lasers)})")
     unmeasured = [
         n for n in request.lasers
         if not _laser(machine, n).measured
@@ -368,7 +391,7 @@ class Session:
                 simulated=self.simulated,
                 firmware=self._firmware(),
                 provenance=self.provenance,
-                current_range_a=self.request.current_range_a,
+                current_range_a=self.request.range_for(n),
                 warmup_s=self.request.warmup_s,
             )
             header["run_id"] = self.run_id
@@ -382,7 +405,7 @@ class Session:
                 baseline_s=self.request.baseline_s,
                 warmup_s=self.request.warmup_s,
                 bias_v=self.request.bias_v,
-                current_range_a=self.request.current_range_a,
+                current_range_a=self.request.range_for(n),
                 stop=self.stop,
                 say=self.say,
                 on_row=self.on_row,
@@ -472,12 +495,15 @@ class Session:
                 "note": r.note,
                 "warmup_s": r.warmup_s,
                 "current_range_a": r.current_range_a,
+                "laser_ranges_a": {str(n): v
+                                   for n, v in r.laser_ranges_a.items()},
             },
             "plans": [
                 {
                     "laser": p.laser,
                     "wavelength_nm": p.wavelength_nm,
                     "xy_mm": list(p.placement.xy_mm),
+                    "current_range_a": r.range_for(p.laser),
                     "frame_origin_ab_mm": list(p.placement.frame.origin_ab_mm),
                     "rows": len(p.raster.rows),
                     "stream_hz": p.raster.stream_hz,

@@ -55,6 +55,8 @@ class RunForm:
     serpentine: bool = True
     allow_unmeasured: bool = False
     note: str = ""
+    #: A range name per laser, where it differs from `current_range`.
+    laser_ranges: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -128,8 +130,9 @@ def plan_form(
     bias = _number(form.bias_v, "bias")
     baseline = _number(form.baseline_s, "baseline", minimum=0.0)
     warmup = _number(form.warmup_s, "warm-up", minimum=0.0)
-    if form.current_range not in CURRENT_RANGES:
-        raise FormError("range", f"no range {form.current_range!r}")
+    for name in (form.current_range, *form.laser_ranges.values()):
+        if name not in CURRENT_RANGES:
+            raise FormError("range", f"no range {name!r}")
     if not simulated and not machine.geometry.directions_measured:
         raise FormError(
             "machine",
@@ -142,6 +145,9 @@ def plan_form(
         allow_unmeasured=form.allow_unmeasured, note=form.note.strip(),
         current_range_a=CURRENT_RANGES[form.current_range],
         warmup_s=warmup,
+        laser_ranges_a={n: CURRENT_RANGES[name]
+                        for n, name in form.laser_ranges.items()
+                        if n in form.lasers},
     )
     try:
         plans = plan_run(request, machine)
@@ -164,7 +170,7 @@ def plan_form(
     if speed > QUIET_SPEED_MM_S:
         warnings.append(
             f"above {QUIET_SPEED_MM_S:g} mm/s the B axis is noisy (D9)")
-    if form.current_range == "auto":
+    if any(request.range_for(n) is None for n in request.lasers):
         warnings.append("autoranging drops samples at every switch (D15)")
     return RunPlan(request, tuple(plans), estimate, tuple(lines),
                    tuple(warnings), tuple(notes))

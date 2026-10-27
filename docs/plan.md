@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phases 0 to 5 merged (Phase 5 as PR #6, 0.5.15). **Current ranges per sample** planned (0.5.16, branch `current-ranges`, 2026-10-27), before Phase 6 goes on: a run with lasers 100x apart in brightness needs a range per laser. Phase 6 is planned on its own branch (`phase-6-commissioning`, 0.6.1) and waits for this. |
-| next | Ranges step 2: a range per laser through the run, 180 mA, the current limit following the range ([below](#current-ranges-per-sample)). |
+| next | Ranges step 3: a clipped laser starts again one range up ([below](#current-ranges-per-sample)); step 2 done (0.5.17). |
 
 ## Phases
 
@@ -243,7 +243,9 @@ Steps, each push a 0.5.x:
    screenshots, the Pi's screen.
 6. **Bench** on the test cell: check lasers 1-3 (expect 650 uA, 25 uA,
    650 uA), a three-laser run with them, then laser 1 forced to 25 uA to
-   see it step up and finish. Then the PR.
+   see it step up and finish. Also the first real use of a current
+   limit as low as the 1 uA and 25 uA ranges (it was always 1 mA):
+   check the SMU accepts it. Then the PR.
 
 ### Phase 6: commissioning
 

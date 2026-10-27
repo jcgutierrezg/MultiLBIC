@@ -331,3 +331,55 @@ def test_a_failing_display_never_ends_a_run(machine, tmp_path):
     assert sum("row display failed" in line for line in said) == 1
     assert sum("map display failed" in line for line in said) == 1
     assert outcome.lasers[0].png is not None
+
+
+def test_each_laser_maps_with_its_own_range(machine, tmp_path):
+    """D15 revised: lasers 100x apart in brightness need their own
+    ranges. The file says which, and the SMU's current limit follows."""
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    prepared = []
+    original = rig.smu.prepare
+
+    def watch(**kwargs):
+        prepared.append((kwargs.get("current_range_a"),
+                         kwargs.get("current_limit_a")))
+        original(**kwargs)
+
+    rig.smu.prepare = watch
+    req = replace(request(rig, lasers=(2, 3)),
+                  laser_ranges_a={3: 650e-6, 2: 180e-3})
+    try:
+        outcome = session(rig, machine, clock, req, tmp_path).run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete"
+    assert prepared == [(180e-3, 180e-3), (650e-6, 650e-6)]
+    for result, (want, _) in zip(outcome.lasers, prepared, strict=True):
+        header = read_run(result.path).header
+        assert header["current_range_a"] == want
+        assert header["current_limit_a"] == want
+    summary = json.loads((outcome.folder / "run.json").read_text())
+    assert summary["request"]["laser_ranges_a"] == {"3": 650e-6,
+                                                    "2": 180e-3}
+    assert [p["current_range_a"] for p in summary["plans"]] == [180e-3,
+                                                               650e-6]
+
+
+def test_a_range_for_a_laser_not_in_the_run_is_refused(machine):
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    try:
+        req = replace(request(rig, lasers=(2,)), laser_ranges_a={1: 650e-6})
+        with pytest.raises(RunPlanError, match=r"laser\(s\) \[1\]"):
+            plan_run(req, machine)
+    finally:
+        rig.close()
+
+
+def test_the_current_limit_follows_the_range():
+    from multilbic.run.rows import AUTORANGE_CURRENT_LIMIT_A, current_limit_for
+
+    assert current_limit_for(25e-6) == 25e-6
+    assert current_limit_for(180e-3) == 180e-3
+    assert current_limit_for(None) == AUTORANGE_CURRENT_LIMIT_A == 1e-3

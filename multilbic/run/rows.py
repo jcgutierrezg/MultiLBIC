@@ -65,6 +65,18 @@ SATURATION_SHARE = 0.98
 #: The default range for scans: autoranging drops samples at every
 #: range switch (bench, 2026-10-21). 25 uA had 2.1 nA RMS on the bench.
 DEFAULT_CURRENT_RANGE_A = 25e-6
+#: The SMU's current limit (compliance) when autoranging: what it always
+#: was. With a fixed range the limit is the range's full scale
+#: (`current_limit_for`), so a run never lets through more current than
+#: it can measure, and the 15 mA and 180 mA ranges are usable.
+AUTORANGE_CURRENT_LIMIT_A = 1e-3
+
+
+def current_limit_for(current_range_a: float | None) -> float:
+    """The current limit to set with a measurement range."""
+    if current_range_a is None:
+        return AUTORANGE_CURRENT_LIMIT_A
+    return abs(current_range_a)
 
 
 class StreamFault(SmuError):
@@ -203,7 +215,8 @@ def scan_laser(
         approach(marlin, machine, a=first.a_from_mm, b=first.b_mm, stop=stop)
 
         board.off()
-        smu.prepare(bias_v=bias_v, current_range_a=current_range_a)
+        smu.prepare(bias_v=bias_v, current_range_a=current_range_a,
+                    current_limit_a=current_limit_for(current_range_a))
         smu.output_on()
         smu.stream.start(channels=(1,), rate_hz=plan.stream_hz)
 
@@ -389,6 +402,7 @@ def run_header(
         "mains_hz": machine.mains_hz,
         "warmup_s": warmup_s,
         "current_range_a": current_range_a,
+        "current_limit_a": current_limit_for(current_range_a),
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
         "estimate_s": round(plan.estimate_s, 1),
     }

@@ -3,6 +3,26 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.17 - A current range per laser; all five ranges
+
+Ranges step 2.
+
+- A run maps each laser with its own range: `RunRequest.laser_ranges_a`
+  (`range_for(laser)`), and `run --current-range` takes one range for
+  all, one per laser (`1=650u,2=25u,3=650u`) or both (`25u,1=650u`).
+  The command line prints each laser's range. Each laser's file header
+  and `run.json` record the range it used; a range given for a laser
+  not in the run is refused before anything moves.
+- **180 mA**, the miniSMU's top range, is offered (the list stopped at
+  15 mA, though `docs/hardware.md` and the driver have five).
+- **The SMU's current limit follows the range**, at its full scale; it
+  was always 1 mA, which made 15 mA and 180 mA unusable. Autoranging
+  keeps 1 mA. Recorded in each file header as `current_limit_a`. The
+  real SMU has not yet been given a limit as low as 1 uA or 25 uA:
+  checked at the bench step.
+- The window's run form carries ranges per laser already; its controls
+  come in step 5.
+
 ## 0.5.16 - Current ranges per sample planned; 4 mm/s by default
 
 - The plan for current ranges per laser and per sample, agreed

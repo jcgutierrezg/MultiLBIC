@@ -50,6 +50,7 @@ from multilbic.run.session import (
     duration,
     estimate_run,
     plan_run,
+    range_name,
 )
 
 
@@ -100,6 +101,33 @@ def calibrate(args: argparse.Namespace) -> int:
 # ---- run ----
 
 
+def parse_ranges(text: str) -> tuple[float | None, dict[int, float | None]]:
+    """`--current-range`: '25u' for every laser, '1=650u,2=25u' per
+    laser, or both ('25u,1=650u': 650u for laser 1, 25u for the rest).
+    Returns (the range for lasers not named, {laser: range})."""
+    default: float | None = CURRENT_RANGES["25u"]
+    per_laser: dict[int, float | None] = {}
+    names = ", ".join(CURRENT_RANGES)
+    for item in (part.strip() for part in text.split(",")):
+        if not item:
+            continue
+        laser_text, _, name = item.rpartition("=")
+        if name not in CURRENT_RANGES:
+            raise ValueError(f"no range {name!r} (ranges: {names})")
+        if not laser_text:
+            default = CURRENT_RANGES[name]
+            continue
+        try:
+            laser = int(laser_text)
+        except ValueError:
+            raise ValueError(f"{item!r}: the laser is a number, e.g. "
+                             "1=650u") from None
+        if laser in per_laser:
+            raise ValueError(f"laser {laser} is given twice")
+        per_laser[laser] = CURRENT_RANGES[name]
+    return default, per_laser
+
+
 def run(args: argparse.Namespace) -> int:
     machine = load(args.machine)
     calibration = load_calibration(args.calibration)
@@ -107,12 +135,16 @@ def run(args: argparse.Namespace) -> int:
         lasers = tuple(int(n) for n in args.lasers.split(","))
     except ValueError:
         raise SystemExit(f"--lasers {args.lasers!r}: e.g. 1,2,3") from None
+    try:
+        default_range, laser_ranges = parse_ranges(args.current_range)
+    except ValueError as exc:
+        raise SystemExit(f"--current-range: {exc}") from None
     request = RunRequest(
         calibration, lasers, args.pixel, args.pitch, args.speed,
         serpentine=not args.one_direction, bias_v=args.bias,
         baseline_s=args.baseline, allow_unmeasured=args.allow_unmeasured,
         note=args.note, warmup_s=args.warmup,
-        current_range_a=CURRENT_RANGES[args.current_range],
+        current_range_a=default_range, laser_ranges_a=laser_ranges,
     )
     try:
         plans = plan_run(request, machine)
@@ -130,8 +162,10 @@ def run(args: argparse.Namespace) -> int:
     for p, e in zip(plans, estimate.lasers, strict=True):
         say(f"  laser {p.laser} ({p.wavelength_nm} nm): "
             f"{len(p.raster.rows)} rows at {args.speed:g} mm/s, "
-            f"{p.raster.stream_hz:g} Hz, XY {p.placement.xy_mm[0]:.3f} "
-            f"{p.placement.xy_mm[1]:.3f}, about {duration(e.total_s)}")
+            f"{p.raster.stream_hz:g} Hz, range "
+            f"{range_name(request.range_for(p.laser))}, XY "
+            f"{p.placement.xy_mm[0]:.3f} {p.placement.xy_mm[1]:.3f}, about "
+            f"{duration(e.total_s)}")
     say(f"about {duration(estimate.total_s)} in all, homing included")
     if not args.yes:
         if not sys.stdin.isatty():
@@ -272,9 +306,10 @@ def main(argv: list[str] | None = None) -> int:
                     "for its output to settle (default 60; 0 to skip)")
     go.add_argument("--one-direction", action="store_true")
     go.add_argument("--current-range", default="25u",
-                    choices=list(CURRENT_RANGES),
-                    help="fixed SMU range; 'auto' drops samples at every "
-                    "range switch (default 25u)")
+                    help="fixed SMU range, one for all lasers or one per "
+                    "laser: 25u, or 1=650u,2=25u,3=650u, or 25u,1=650u "
+                    f"(ranges: {', '.join(CURRENT_RANGES)}; 'auto' drops "
+                    "samples at every range switch; default 25u)")
     go.add_argument("--note", default="",
                     help="free text for the file headers, e.g. lighting")
     go.add_argument("--allow-unmeasured", action="store_true",
