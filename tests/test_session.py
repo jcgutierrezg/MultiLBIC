@@ -220,12 +220,13 @@ def test_a_saturated_range_stops_the_run(machine, tmp_path):
     clock = ScaledClock(20.0)
     rig, machine = make(machine, clock, cell_a=2e-6)
     try:
-        req = replace(request(rig), current_range_a=1e-6)
+        req = replace(request(rig), current_range_a=1e-6, step_up=False)
         outcome = session(rig, machine, clock, req, tmp_path).run()
     finally:
         rig.close()
     assert outcome.status.startswith("failed")
-    assert "larger --current-range" in outcome.status
+    assert "RangeClipped" in outcome.status
+    assert "use a larger range" in outcome.status
     assert not rig.fake_smu.enabled[1]
     header = read_run(outcome.lasers[0].path).header
     assert header["current_range_a"] == 1e-6
@@ -383,3 +384,59 @@ def test_the_current_limit_follows_the_range():
     assert current_limit_for(25e-6) == 25e-6
     assert current_limit_for(180e-3) == 180e-3
     assert current_limit_for(None) == AUTORANGE_CURRENT_LIMIT_A == 1e-3
+
+
+def test_a_clipped_laser_starts_again_one_range_up(machine, tmp_path):
+    """D26: the same bright cell as above, at 1 uA with the step-up on:
+    laser 2 clips, its attempt is kept, and its map is made at 25 uA."""
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock, cell_a=2e-6)
+    rows = []
+    try:
+        req = replace(request(rig, warmup_s=0.5), current_range_a=1e-6)
+        run = Session(ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+                      clock, req, tmp_path, simulated=True,
+                      provenance={"commit": "test"}, on_row=rows.append)
+        outcome = run.run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete", outcome.status
+    (result,) = outcome.lasers
+    assert result.status == "complete"
+    assert result.current_range_a == 25e-6
+    assert result.clipped_attempts == ["laser2_519nm_1u.csv"]
+    # The clipped attempt, kept and marked.
+    attempt = read_run(outcome.folder / "laser2_519nm_1u.csv")
+    assert attempt.header["status"].startswith("clipped")
+    assert attempt.header["current_range_a"] == 1e-6
+    # The map: at 25 uA, complete, every row, no second warm-up.
+    final = read_run(result.path)
+    assert final.header["current_range_a"] == 25e-6
+    assert final.header["current_limit_a"] == 25e-6
+    assert final.header["warmup_s"] == 0.0
+    assert final.header["clipped_attempts"] == ["laser2_519nm_1u.csv"]
+    assert len(final.scan_data().anchors) == len(run.plans[0].raster.rows)
+    assert result.png is not None and result.png.exists()
+    # Said and recorded.
+    kinds = [e["event"] for e in events(outcome.folder)]
+    assert kinds.count("laser_step_up") == 1
+    step = next(e for e in events(outcome.folder)
+                if e["event"] == "laser_step_up")
+    assert (step["clipped_range_a"], step["range_a"]) == (1e-6, 25e-6)
+    summary = json.loads((outcome.folder / "run.json").read_text())
+    assert summary["lasers"][0]["clipped_attempts"] == ["laser2_519nm_1u.csv"]
+    # The live view saw a second baseline after the first one.
+    from multilbic.scan.mapping import BASELINE_ROW
+
+    assert [r.row for r in rows].count(BASELINE_ROW) == 2
+
+
+def test_the_ranges_step_up_in_order():
+    from multilbic.run.rows import next_range
+
+    assert next_range(1e-6) == 25e-6
+    assert next_range(25e-6) == 650e-6
+    assert next_range(650e-6) == 15e-3
+    assert next_range(15e-3) == 180e-3
+    assert next_range(180e-3) is None  # the top: the run fails there
+    assert next_range(None) is None  # autorange never clips

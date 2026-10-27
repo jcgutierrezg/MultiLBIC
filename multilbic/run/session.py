@@ -44,9 +44,11 @@ from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
     DEFAULT_CURRENT_RANGE_A,
     DEFAULT_WARMUP_S,
+    RangeClipped,
     RowDone,
     RunStopped,
     ScanDevices,
+    next_range,
     run_header,
     scan_laser,
 )
@@ -106,6 +108,8 @@ class RunRequest:
     #: A range for some lasers, by number (D15 revised, D25): lasers 100x
     #: apart in brightness can't share one.
     laser_ranges_a: dict[int, float | None] = field(default_factory=dict)
+    #: A laser whose range clips starts again one range up (D26).
+    step_up: bool = True
 
     def range_for(self, laser: int) -> float | None:
         """The measurement range laser `laser` maps with."""
@@ -127,6 +131,10 @@ class LaserOutcome:
     status: str
     png: Path | None = None
     shift_um: float | None = None
+    #: The range its map was made with, after any step-up.
+    current_range_a: float | None = None
+    #: The files of attempts that clipped and were started again.
+    clipped_attempts: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -381,35 +389,54 @@ class Session:
             f"{duration(plan.raster.estimate_s)}"
         )
         self._event("laser_start", laser=n)
+        range_a = self.request.range_for(n)
+        warmup_s = self.request.warmup_s
+        result.current_range_a = range_a
         try:
             x, y = plan.placement.xy_mm
             approach(self.devices.marlin, self.machine, x=x, y=y,
                      stop=self.stop)
-            header = run_header(
-                self.machine, plan.raster, n,
-                sample=self.request.calibration.sample,
-                simulated=self.simulated,
-                firmware=self._firmware(),
-                provenance=self.provenance,
-                current_range_a=self.request.range_for(n),
-                warmup_s=self.request.warmup_s,
-            )
-            header["run_id"] = self.run_id
-            header["note"] = self.request.note
-            header["xy_mm"] = list(plan.placement.xy_mm)
-            header["calibration"] = self.request.calibration.to_dict()
-            writer = RunWriter(path, header)
-            scan_laser(
-                self.devices, self.machine, plan.raster, n, writer,
-                self.clock,
-                baseline_s=self.request.baseline_s,
-                warmup_s=self.request.warmup_s,
-                bias_v=self.request.bias_v,
-                current_range_a=self.request.range_for(n),
-                stop=self.stop,
-                say=self.say,
-                on_row=self.on_row,
-            )
+            while True:
+                header = run_header(
+                    self.machine, plan.raster, n,
+                    sample=self.request.calibration.sample,
+                    simulated=self.simulated,
+                    firmware=self._firmware(),
+                    provenance=self.provenance,
+                    current_range_a=range_a,
+                    warmup_s=warmup_s,
+                )
+                header["run_id"] = self.run_id
+                header["note"] = self.request.note
+                header["xy_mm"] = list(plan.placement.xy_mm)
+                header["calibration"] = self.request.calibration.to_dict()
+                if result.clipped_attempts:
+                    header["clipped_attempts"] = result.clipped_attempts
+                writer = RunWriter(path, header)
+                try:
+                    scan_laser(
+                        self.devices, self.machine, plan.raster, n, writer,
+                        self.clock,
+                        baseline_s=self.request.baseline_s,
+                        warmup_s=warmup_s,
+                        bias_v=self.request.bias_v,
+                        current_range_a=range_a,
+                        stop=self.stop,
+                        say=self.say,
+                        on_row=self.on_row,
+                    )
+                except RangeClipped as exc:
+                    bigger = next_range(range_a) if self.request.step_up \
+                        else None
+                    if bigger is None:
+                        raise
+                    range_a = self._step_up(n, path, exc, bigger, result)
+                    # It was on until a moment ago: no second warm-up.
+                    warmup_s = 0.0
+                    if self.stop.is_set():
+                        raise RunStopped("stopped by the operator") from None
+                    continue
+                break
             result.status = "complete"
         except RunStopped:
             result.status = "stopped"
@@ -421,6 +448,29 @@ class Session:
             self._event("laser_end", laser=n, status=result.status)
             if path.exists():
                 self._map(result)
+
+    def _step_up(
+        self, laser: int, path: Path, clip: RangeClipped, bigger: float,
+        result: LaserOutcome,
+    ) -> float:
+        """Set the clipped attempt's file aside, named by its range, and
+        say what happens next (D26). Returns the range to start again
+        with."""
+        kept = path.with_name(
+            f"{path.stem}_{range_name(clip.range_a)}{path.suffix}")
+        path.rename(kept)
+        result.clipped_attempts.append(kept.name)
+        result.current_range_a = bigger
+        self.say(
+            f"laser {laser}: clipped at {range_name(clip.range_a)} ({clip}); "
+            f"starting again at {range_name(bigger)}; the clipped attempt "
+            f"is kept as {kept.name}"
+        )
+        self._event(
+            "laser_step_up", laser=laser, clipped_range_a=clip.range_a,
+            peak_a=clip.peak_a, range_a=bigger, attempt_file=kept.name,
+        )
+        return bigger
 
     def _map(self, result: LaserOutcome) -> None:
         """Build the map from the file alone, as anyone later would.
@@ -497,6 +547,7 @@ class Session:
                 "current_range_a": r.current_range_a,
                 "laser_ranges_a": {str(n): v
                                    for n, v in r.laser_ranges_a.items()},
+                "step_up": r.step_up,
             },
             "plans": [
                 {
@@ -521,6 +572,8 @@ class Session:
                     "status": o.status,
                     "png": o.png.name if o.png else None,
                     "serpentine_shift_um": o.shift_um,
+                    "current_range_a": o.current_range_a,
+                    "clipped_attempts": o.clipped_attempts,
                 }
                 for o in outcome.lasers
             ],

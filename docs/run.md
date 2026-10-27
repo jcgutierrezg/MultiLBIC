@@ -112,6 +112,7 @@ board may have restarted since calibration.
 | `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers with placeholder positions |
+| `--no-step-up` | | a laser whose range clips fails the run, instead of starting again one range up (below) |
 | `--note "room lights on"` | | free text in every file header and `run.json` |
 | `--out DIR` | `~/multilbic-runs` (`runs/` with `--sim`) | |
 | `--yes` | | don't ask; needed without a terminal |
@@ -134,6 +135,15 @@ timeout or halt, a laser board that stops answering (the Xiao still
 drops off USB now and then), a stream that stalls, reports a read error,
 or delivers less than half a row's samples.
 
+**A range that clips** (a row, or the baseline, reaching the end of its
+fixed range) doesn't end the run (D26): that laser stops as for a fault,
+its attempt is kept as `laserN_<nm>nm_<range>.csv` with the status
+`clipped`, and its whole map starts again one range up (1 µA, 25 µA,
+650 µA, 15 mA, 180 mA), with a fresh baseline and no second warm-up. The
+event log has a `laser_step_up`, the final file's header lists the
+clipped attempts, and `run.json` gives each laser's final range.
+Clipping at 180 mA, or with `--no-step-up`, fails the run as before.
+
 **One process at a time.** `calibrate`, `run` and the GUI take the
 machine lock before opening the real machine
 (`multilbic/run/devices.py`), so a second one stops with "the machine
@@ -150,6 +160,8 @@ by a crash. Simulated machines take no lock.
     events.jsonl        run and laser start/end, with status (SMUniversal's EventLog)
     laser2_519nm.csv    the run file (format: scan.md)
     laser2_519nm.png    its map, built from that file alone
+    laser1_444nm_25u.csv  (only if laser 1 clipped at 25 uA) the attempt
+                          that clipped, before it started again one range up
 ```
 
 A map is built from its file alone, so it can be rebuilt later with

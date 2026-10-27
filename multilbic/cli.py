@@ -145,6 +145,7 @@ def run(args: argparse.Namespace) -> int:
         baseline_s=args.baseline, allow_unmeasured=args.allow_unmeasured,
         note=args.note, warmup_s=args.warmup,
         current_range_a=default_range, laser_ranges_a=laser_ranges,
+        step_up=not args.no_step_up,
     )
     try:
         plans = plan_run(request, machine)
@@ -310,6 +311,9 @@ def main(argv: list[str] | None = None) -> int:
                     "laser: 25u, or 1=650u,2=25u,3=650u, or 25u,1=650u "
                     f"(ranges: {', '.join(CURRENT_RANGES)}; 'auto' drops "
                     "samples at every range switch; default 25u)")
+    go.add_argument("--no-step-up", action="store_true",
+                    help="a laser whose range clips fails the run, instead "
+                    "of starting again one range up (D26)")
     go.add_argument("--note", default="",
                     help="free text for the file headers, e.g. lighting")
     go.add_argument("--allow-unmeasured", action="store_true",

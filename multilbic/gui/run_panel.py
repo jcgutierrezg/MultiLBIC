@@ -208,13 +208,22 @@ class RunPanel:
         if live is None or self.progress is None:
             return
         first = not (live.baseline_done or live.warmup_done or live.rows_done)
+        restarts = live.restarts
         live.add(block)
         self.progress.block(block, time.monotonic())
         tab = self.tabs[block.laser]
         name = f"Laser {block.laser} ({live.wavelength_nm} nm)"
         if first:
             self.notebook.select(tab.frame)
-        if block.row >= 0:
+        if live.restarts > restarts:
+            # D26: the range clipped; the laser starts again one up.
+            self.headline.configure(
+                text=f"{name}: range clipped, starting again one up")
+            tab.note("the range clipped: the map starts again one range "
+                     "up (the clipped attempt is kept in its own file)")
+            self._dirty.add(block.laser)
+            self._schedule_redraw()
+        elif block.row >= 0:
             self.headline.configure(
                 text=f"{name}: row {block.row + 1} of {block.rows}")
             self._dirty.add(block.laser)

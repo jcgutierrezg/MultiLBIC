@@ -57,6 +57,8 @@ class RunForm:
     note: str = ""
     #: A range name per laser, where it differs from `current_range`.
     laser_ranges: dict[int, str] = field(default_factory=dict)
+    #: A laser that clips starts again one range up (D26).
+    step_up: bool = True
 
 
 @dataclass(frozen=True)
@@ -148,6 +150,7 @@ def plan_form(
         laser_ranges_a={n: CURRENT_RANGES[name]
                         for n, name in form.laser_ranges.items()
                         if n in form.lasers},
+        step_up=form.step_up,
     )
     try:
         plans = plan_run(request, machine)

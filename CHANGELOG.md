@@ -3,6 +3,24 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.18 - A clipped laser starts again one range up
+
+Ranges step 3 (D26).
+
+- A range that clips no longer ends the run. The clip is its own fault
+  (`RangeClipped`); the laser stops as for any fault, its attempt is kept
+  as `laserN_<nm>nm_<range>.csv` with the status `clipped`, and its
+  whole map starts again one range up, with a fresh baseline and no
+  second warm-up. A `laser_step_up` event, the final file's header and
+  `run.json` (each laser's final range and clipped attempts) record it.
+  At 180 mA there is no range left, and the run fails as before.
+- On by default; `run --no-step-up` (and `RunRequest.step_up`) turns it
+  off. The window's box comes in step 5.
+- The live map and the progress start that laser again too, so rows
+  from the two ranges never mix; the run column says the range clipped.
+- Tested on the synthetic cell twice as bright: at 1 uA, laser 2 clips,
+  starts again at 25 uA and completes with every row.
+
 ## 0.5.17 - A current range per laser; all five ranges
 
 Ranges step 2.

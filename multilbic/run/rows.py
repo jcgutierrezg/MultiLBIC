@@ -83,6 +83,34 @@ class StreamFault(SmuError):
     """The SMU stream stopped delivering what it should."""
 
 
+class RangeClipped(StreamFault):
+    """A fixed range reached its end: the data are wrong, not just
+    noisy. A run can start the laser again one range up (D26)."""
+
+    def __init__(self, where: str, peak_a: float, range_a: float):
+        super().__init__(
+            f"{where}: {peak_a * 1e6:.3g} uA reaches the end of the "
+            f"{range_a * 1e6:g} uA range: use a larger range"
+        )
+        self.peak_a = peak_a
+        self.range_a = range_a
+
+
+#: The miniSMU's fixed ranges, smallest first: a clipped laser steps up
+#: through them (D26).
+FIXED_RANGES_A = (1e-6, 25e-6, 650e-6, 15e-3, 180e-3)
+
+
+def next_range(range_a: float | None) -> float | None:
+    """The next range up, or None from the top one or from autorange."""
+    if range_a is None:
+        return None
+    for candidate in FIXED_RANGES_A:
+        if candidate > range_a * (1 + 1e-9):
+            return candidate
+    return None
+
+
 @dataclass
 class ScanDevices:
     marlin: Marlin
@@ -304,6 +332,9 @@ def scan_laser(
     except RunStopped:
         status = "stopped"
         raise
+    except RangeClipped as exc:
+        status = f"clipped: {exc}"
+        raise
     except BaseException as exc:
         status = f"failed: {type(exc).__name__}: {exc}"
         raise
@@ -326,11 +357,7 @@ def _check_range(
         return
     peak = max(abs(s.current_a) for s, _ in taken)
     if peak >= SATURATION_SHARE * current_range_a:
-        raise StreamFault(
-            f"{where}: {peak * 1e6:.3g} uA reaches the end of the "
-            f"{current_range_a * 1e6:g} uA range: use a larger "
-            "--current-range"
-        )
+        raise RangeClipped(where, peak, current_range_a)
 
 
 def _shut_down(
