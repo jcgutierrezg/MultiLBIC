@@ -105,3 +105,70 @@ def test_open_leaves_a_matching_settle_alone(machine, clock):
     board = LaserBoard(connect(fake, clock), machine, clock)
     board.open()
     assert not [line for line in fake.received if line.startswith("SETTLE ")]
+
+
+def dark_before_last_on(history, laser):
+    """How long `laser` was off before it last came on, from the fake's
+    history of (time, lit laser)."""
+    went_off, gap, lit = None, None, 0
+    for t, now in history:
+        if lit == laser and now != laser:
+            went_off = t
+        if now == laser and lit != laser and went_off is not None:
+            gap = t - went_off
+        lit = now
+    return gap
+
+
+def test_a_laser_is_not_relit_too_soon(rig, machine):
+    # Laser 1 relit within a second comes back at 40 % (bench, 2026-10-27).
+    board, fake, clock = rig
+    relight = machine.laser_board.relight_ms / 1000.0
+    board.select(1)
+    board.off()
+    start = clock.now()
+    board.select(1)  # same angle: no settle, so it waits instead
+    assert clock.now() - start == pytest.approx(relight, abs=0.3)
+    assert dark_before_last_on(fake.history, 1) >= relight - 0.05
+
+
+def test_the_servo_settle_counts_towards_the_wait(rig, machine):
+    board, fake, clock = rig
+    relight = machine.laser_board.relight_ms / 1000.0
+    board.set_settle(500)
+    board.select(1)
+    board.select(2)  # 150 -> 90: laser 1 dark for the 0.5 s settle
+    start = clock.now()
+    board.select(1)  # waits 2 s, then the 0.5 s settle: 3 s dark in all
+    assert clock.now() - start == pytest.approx(relight - 0.5, abs=0.3)
+    assert dark_before_last_on(fake.history, 1) >= relight - 0.05
+    # With the full 2 s settle each way it is dark long enough already.
+    board.set_settle(2000)
+    board.select(2)
+    start = clock.now()
+    board.select(1)
+    assert clock.now() - start == pytest.approx(2.0, abs=0.3)
+    # Laser 2 was never off before: it came on without a wait.
+    assert board.relight_wait_s(3) == 0.0
+
+
+def test_selecting_the_laser_already_on_sends_nothing(rig):
+    board, fake, clock = rig
+    board.select(3)
+    sent = len(fake.received)
+    lit = len(fake.history)
+    start = clock.now()
+    board.select(3)
+    assert len(fake.received) == sent and len(fake.history) == lit
+    assert clock.now() - start < 0.1
+    assert fake.active == 3
+
+
+def test_open_reads_what_is_lit(machine, clock):
+    fake = FakeLaserBoard()
+    fake.active, fake.servo_angle = 2, 90
+    board = LaserBoard(connect(fake, clock), machine, clock)
+    board.open()
+    sent = len(fake.received)
+    board.select(2)  # on already, as the board said
+    assert len(fake.received) == sent

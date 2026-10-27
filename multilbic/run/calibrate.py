@@ -406,7 +406,7 @@ class Calibrator:
                 assert fixed is not None  # top is below the largest range
                 self.say(
                     f"laser {n}: autorange read near the top of "
-                    f"{top * 1e6:g} uA, where it may stay: reading the grid "
+                    f"{top * 1e6:g} uA, which may hide more: reading the grid "
                     f"again on {fixed * 1e6:g} uA"
                 )
                 d.smu.prepare(bias_v=bias_v, current_range_a=fixed,

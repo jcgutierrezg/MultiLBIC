@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.25 - A laser stays dark before it relights
+
+- Laser 1 relit within about 1.5 s of going off comes back at 40 % of
+  its power and stays there (bench, 2026-10-27; laser 3 doesn't). That,
+  not warm-up or autorange, is why a check read it at 24 uA where runs
+  read 90 uA. The laser driver now waits until a laser has been dark
+  for `[laser_board] relight_ms` (3000, new and optional in
+  machine.toml), counting the servo's settle, and selecting the laser
+  already on sends nothing (the firmware would switch it off and on).
+- Correction to 0.5.24: the miniSMU's autorange did not stick at the
+  bench; it climbs within two readings. The re-read near a range's top
+  stays as a safety net; its docs and log say so.
+
 ## 0.5.24 - A check stuck at a range's top reads again
 
 - The miniSMU's autorange stayed on 25 uA for laser 1 on the test cell:

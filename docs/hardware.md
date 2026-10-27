@@ -401,15 +401,38 @@ patch (`stdtest-redge`), 0 V.
 | Map's brightest (after 60 s warm-up) | 96.9 uA | 3.06 uA | 118 uA |
 | Map / check | 4.0 | 1.3 | 1.3 |
 
-- **Laser 1 read 4x less in the check than in the run: autorange
-  stayed on 25 uA.** Not warm-up: the run's warm-up samples show laser
-  1 only 10 % brighter after its minute (-2.04 to -2.26 uA, spot parked
-  off the sample), lasers 2 and 3 flat. The check's brightest, 24 uA,
-  sits at the 25 uA range's top, and its lines over a ~90 uA patch read
-  7-24 uA: a range read past its end, as the fixed 25 uA range read up
-  to 26.8 uA in 6.3. Laser 3 (93 uA) did reach 650 uA. So the check
-  now reads a laser's grid again on a fixed range when its brightest
-  reading is near a range's top (0.5.24).
+- **Laser 1 read 4x less in the check than in the run.** Not warm-up:
+  the run's warm-up samples show laser 1 only 10 % brighter after its
+  minute (-2.04 to -2.26 uA, spot parked off the sample), lasers 2 and
+  3 flat. Not autorange either (below). It is laser 1 being relit too
+  soon after going off (next point); a check run from a script read
+  84.3 uA against 84.5 uA parked.
+- **Laser 1 relit too soon comes back at 40 % and stays there.** Parked
+  on the bright part, the servo kept on laser 1's angle, only the time
+  dark changed (three tries each):
+
+  | Dark before relighting | 0.25 s | 0.5 s | 1 s | 1.5 s | 2 s | 3-5 s |
+  |---|---|---|---|---|---|---|
+  | Laser 1, uA | 38-41 | 38-39 | 38-39 | 39, 86, 40 | 85-86 | 85-87 |
+  | Laser 3, uA | 101.4 | 101.5 | 101.6 | 101.5 | 101.5 | 101.6 |
+
+  Held on after a short break it crept from 38 to 42 uA in 30 s, no
+  further. It is the laser (or its driver), not the servo: the firmware
+  doesn't move the servo for a laser already at its angle, and from
+  laser 2 or 3 (at least 2.5 s dark, servo moving) laser 1 always came
+  back at 86 uA. Runs were safe (a 3 s baseline dark before each
+  laser); checks and clicks were not. Since 0.5.25 the driver keeps a
+  laser dark for `[laser_board] relight_ms` (3000) before relighting
+  it, and selecting the laser already on sends nothing (the firmware
+  would switch it off and on).
+- **Autorange doesn't stick.** Parked on laser 1's bright part (93 uA),
+  single readings on autorange read 93.3 uA against 92.7 uA on fixed
+  650 uA. After each reset the first reading or two sit at 1.03 uA (the
+  1 uA range's end) while it climbs. A range that truly clips reads its
+  end exactly: 26.78 uA every time on 25 uA. The check's re-read near a
+  range's top (0.5.24) stays as a safety net.
+- **Laser 1 drifts**: parked, 93 to 80 uA over half a minute in one
+  session, 84-87 uA in the next.
 - **The current limit at the range's full scale works**: the SMU took
   25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
   full scale.

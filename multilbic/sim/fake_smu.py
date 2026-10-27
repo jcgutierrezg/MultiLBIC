@@ -93,8 +93,8 @@ class FakeMiniSMU:
         self.autorange = {1: True, 2: True}
         self.current_range: dict[int, int | None] = {1: None, 2: None}
         #: A fault: on autorange, stay on this range (an index) and read
-        #: no further than its end, as the real one did for laser 1 on
-        #: the test cell (bench, 2026-10-27).
+        #: no further than its end. Not seen on the real one (bench,
+        #: 2026-10-27); it tests the check's re-read.
         self.autorange_stuck: int | None = None
         self.rate_hz = {1: 1000.0, 2: 1000.0}
         self._next_due: dict[int, float] = {}

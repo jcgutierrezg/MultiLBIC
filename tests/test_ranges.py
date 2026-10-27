@@ -64,8 +64,7 @@ def test_the_grid_crosses_the_sample_three_times_each_way():
     assert check_duration_s(frame, 2) == pytest.approx(2 * (13.5 + 8.0))
 
 
-def test_a_reading_at_a_ranges_top_may_be_autorange_stuck():
-    # Laser 1 on the test cell: 24 uA on autorange over a 97 uA patch.
+def test_a_reading_at_a_ranges_top_is_not_trusted():
     assert near_top(24e-6) == 25e-6
     assert near_top(26.8e-6) == 25e-6  # a range reads a little past its end
     assert near_top(0.9e-6) == 1e-6
@@ -138,8 +137,8 @@ def test_checking_ranges_on_the_sample(machine, clock, tmp_path, cell_a,
 
 
 def test_autorange_stuck_at_a_ranges_top_is_read_again(machine, clock):
-    # The cell gives ~100 uA, but autorange stays on 25 uA, as the real
-    # one did for laser 1 (bench, 2026-10-27).
+    # The cell gives ~100 uA, but autorange stays on 25 uA (simulated:
+    # not seen on the real one, 2026-10-27).
     rig, cal = calibrator(machine, clock, cell_a=1e-4)
     rig.fake_smu.autorange_stuck = 1  # 25 uA
     said = []

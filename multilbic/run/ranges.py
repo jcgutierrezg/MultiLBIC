@@ -10,12 +10,13 @@ autorange (single readings, not the stream, so autoranging costs
 nothing), and the range is the smallest that holds `HEADROOM` times the
 brightest reading. The calibration file keeps the result.
 
-The miniSMU's autorange can stay on a range while the current is above
-it, reading no further than its end: laser 1 on the test cell read 24 uA
-on autorange where a map on 650 uA read 97 uA (bench, 2026-10-27). So a
-brightest reading near a range's top (`near_top`) is not trusted: the
-grid is read again with the next range up fixed, which reads the truth
-or reaches that range's top in turn.
+A brightest reading near a range's top (`near_top`) is read again: the
+grid runs once more with the next range up fixed, which reads the truth
+or reaches that range's top in turn. A safety net, not a fix for
+something seen: on the bench (2026-10-27) the miniSMU's autorange
+climbed from 1 uA to 650 uA within two readings, and a range that truly
+clips reads its end exactly (25 uA: 26.78 uA every time). The 24 uA
+check that prompted it was laser 1 relit too soon (`hardware.laser`).
 
 No devices here: the choice, the grid, the time it takes, the record.
 `Calibrator.check_ranges` does the moving and reading.
@@ -45,9 +46,8 @@ CHECK_OVERHEAD_S = 8.0
 #: may be brighter still.
 AT_LIMIT_SHARE = 0.98
 #: A brightest reading from this share of a range's end up to
-#: `OVER_TOP_SHARE` of it may be autorange stuck on that range. A stuck
-#: 25 uA range read 7-24 uA over a 90 uA patch; a fixed one read up to
-#: 26.8 uA (bench, 2026-10-27).
+#: `OVER_TOP_SHARE` of it may have been held by its range: a clipped
+#: 25 uA range reads 26.78 uA (bench, 2026-10-27).
 NEAR_TOP_SHARE = 0.8
 OVER_TOP_SHARE = 1.1
 

@@ -91,12 +91,20 @@ class Ports:
     smu: str
 
 
+DEFAULT_RELIGHT_MS = 3000
+MAX_RELIGHT_MS = 60000
+
+
 @dataclass(frozen=True)
 class LaserBoardSettings:
     #: Wait after the servo turns before a laser comes on. The firmware
     #: forgets a value set at runtime on power-up, so the driver applies
     #: this one at every open().
     settle_ms: int
+    #: A laser stays off at least this long before it comes on again:
+    #: laser 1 relit sooner comes back at 40 % and stays there (bench,
+    #: 2026-10-27). Optional in machine.toml.
+    relight_ms: int = 3000
 
 
 #: How an XY axis lines up with the raster stage: "+A" means moving that
@@ -323,8 +331,13 @@ def _parse_display(t: _Table) -> Display:
 
 
 def _parse_laser_board(t: _Table) -> LaserBoardSettings:
-    settings = LaserBoardSettings(settle_ms=t.read_int("settle_ms"))
+    settle = t.read_int("settle_ms")
+    relight = (t.read_int("relight_ms") if t.has("relight_ms")
+               else DEFAULT_RELIGHT_MS)
+    settings = LaserBoardSettings(settle_ms=settle, relight_ms=relight)
     t.done()
+    if not 0 <= relight <= MAX_RELIGHT_MS:
+        raise t.error(f"relight_ms {relight} is outside 0..{MAX_RELIGHT_MS}")
     low, high = SETTLE_RANGE_MS
     if not low <= settings.settle_ms <= high:
         raise t.error(
