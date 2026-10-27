@@ -38,12 +38,19 @@ max_accel_mm_s2 = 100.0
 # Two groups of three on a 180-degree servo revolver: lasers 1/4, 2/5 and
 # 3/6 share an angle, and XY picks the group. xy_centre_mm is where XY
 # puts the AB centre under that beam.
+# spot_um: the spot's size, the 10-90 % width of an edge scanned through
+# it. Lasers 1-3 from the test cell's straight edge after refocusing by
+# eye (bench, 2026-10-23); the photodiode measures all six properly
+# (Phase 6). Left out where unknown. The window compares it with the
+# row pitch; nothing else uses it yet.
+
 [[lasers]]
 number = 1
 wavelength_nm = 444
 servo_angle_deg = 150
 xy_centre_mm = [79.6, 71.3]
 measured = true
+spot_um = 65
 
 [[lasers]]
 number = 2
@@ -51,6 +58,7 @@ wavelength_nm = 519
 servo_angle_deg = 90
 xy_centre_mm = [75.6, 71.7]
 measured = true
+spot_um = 41
 
 [[lasers]]
 number = 3
@@ -58,6 +66,7 @@ wavelength_nm = 652
 servo_angle_deg = 30
 xy_centre_mm = [75.0, 70.0]
 measured = true
+spot_um = 244
 
 [[lasers]]
 number = 4

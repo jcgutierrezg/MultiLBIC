@@ -48,7 +48,7 @@ from multilbic.run.session import (
     RunRequest,
     Session,
     duration,
-    estimate_s,
+    estimate_run,
     plan_run,
 )
 
@@ -124,16 +124,15 @@ def run(args: argparse.Namespace) -> int:
             "not been checked on the machine (directions_measured = false)"
         )
 
-    settle = machine.laser_board.settle_ms / 1000
-    total = estimate_s(plans, args.baseline, settle, args.warmup)
+    estimate = estimate_run(plans, request, machine)
     say(f"sample {calibration.sample}: {calibration.width_mm:g} x "
         f"{calibration.height_mm:g} mm")
-    for p in plans:
+    for p, e in zip(plans, estimate.lasers, strict=True):
         say(f"  laser {p.laser} ({p.wavelength_nm} nm): "
             f"{len(p.raster.rows)} rows at {args.speed:g} mm/s, "
             f"{p.raster.stream_hz:g} Hz, XY {p.placement.xy_mm[0]:.3f} "
-            f"{p.placement.xy_mm[1]:.3f}")
-    say(f"about {duration(total)}, plus homing")
+            f"{p.placement.xy_mm[1]:.3f}, about {duration(e.total_s)}")
+    say(f"about {duration(estimate.total_s)} in all, homing included")
     if not args.yes:
         if not sys.stdin.isatty():
             raise SystemExit("no terminal to confirm on: pass --yes")

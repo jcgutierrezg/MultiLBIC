@@ -135,6 +135,7 @@ class App:
 
         self.run_panel = RunPanel(self, body)
         self.run_panel.frame.grid(row=0, column=2, sticky="nsew")
+        self.setup.replan()  # fills the Plan tab
         self.panels: tuple[Panel, ...] = (
             self.connection, self.stage, self.lasers,
             self.calibration_panel, self.setup, self.run_panel)

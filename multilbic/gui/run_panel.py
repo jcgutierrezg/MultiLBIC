@@ -30,6 +30,7 @@ from matplotlib.figure import Figure
 
 from multilbic.gui import look
 from multilbic.gui.livemap import LiveMap, RunProgress, shrink
+from multilbic.gui.plan_view import PlanView
 from multilbic.gui.worker import (
     Event,
     MapEvent,
@@ -38,7 +39,7 @@ from multilbic.gui.worker import (
     RunStarted,
     State,
 )
-from multilbic.run.session import duration, estimate_s
+from multilbic.run.session import duration, estimate_run
 from multilbic.store.image import draw_map, image_data, shift_note
 
 if TYPE_CHECKING:
@@ -135,6 +136,8 @@ class RunPanel:
         self.timing.pack(anchor="w")
         self.notebook = ttk.Notebook(self.frame)
         self.notebook.pack(fill="both", expand=True, pady=(8, 6))
+        # The first tab, always there: the run as set up, before it runs.
+        self.plan_view = PlanView(app, self.notebook)
         bottom = ttk.Frame(self.frame)
         bottom.pack(fill="x")
         self.open_btn = ttk.Button(bottom, text="Open run file...",
@@ -173,8 +176,10 @@ class RunPanel:
             self._ended(event)
 
     def _started(self, event: RunStarted) -> None:
+        plan_tab = str(self.plan_view.frame)
         for tab_id in self.notebook.tabs():
-            self.notebook.forget(tab_id)
+            if tab_id != plan_tab:
+                self.notebook.forget(tab_id)
         self.tabs.clear()
         self.live.clear()
         machine = self.app.machine
@@ -185,13 +190,11 @@ class RunPanel:
                 colour=self.app.laser_colour(plan.laser))
             self.tabs[plan.laser].note("waiting")
             self.live[plan.laser] = LiveMap(plan, machine.mains_hz)
-        req = event.request
-        settle = machine.laser_board.settle_ms / 1000
-        estimate = estimate_s(list(event.plans), req.baseline_s, settle,
-                              req.warmup_s)
+        estimate = estimate_run(list(event.plans), event.request, machine)
+        fixed = [e.total_s - e.rows_s for e in estimate.lasers]
         self.progress = RunProgress(
-            event.plans, estimate, time.monotonic(),
-            req.baseline_s + req.warmup_s + settle)
+            event.plans, estimate.total_s, time.monotonic(),
+            sum(fixed) / len(fixed))
         self.folder = event.folder
         self.running = True
         self.headline.configure(text="Homing")

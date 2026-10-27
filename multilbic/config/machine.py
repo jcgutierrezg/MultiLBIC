@@ -77,6 +77,10 @@ class Laser:
     xy_centre_mm: tuple[float, float]
     #: False while the position is still a placeholder.
     measured: bool
+    #: The spot's size in um, once measured: the 10-90 % width of an
+    #: edge scanned through it (a knife edge, or a cell's edge). None
+    #: until then. The window compares it with the row pitch.
+    spot_um: float | None = None
 
 
 @dataclass(frozen=True)
@@ -254,6 +258,8 @@ def _parse_laser(t: _Table) -> Laser:
         servo_angle_deg=t.read_int("servo_angle_deg"),
         xy_centre_mm=t.read_pair("xy_centre_mm"),
         measured=t.read_bool("measured"),
+        spot_um=(t.read_positive_float("spot_um") if t.has("spot_um")
+                 else None),
     )
     t.done()
     if laser.number not in LASER_NUMBERS:
@@ -370,6 +376,9 @@ class _Table:
         if key not in self._data:
             raise self.error(f"missing '{key}'")
         return self._data.pop(key)
+
+    def has(self, key: str) -> bool:
+        return key in self._data
 
     def done(self) -> None:
         if self._data:

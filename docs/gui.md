@@ -29,7 +29,7 @@ a second window or a `multilbic run` stops with "the machine is in use"
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
 | machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the photocurrent now |
 | sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
-| run column | what the run is doing, a progress bar and the time left; a tab per laser with its map, live and then finished; Open run file..., Open folder |
+| run column | what the run is doing, a progress bar and the time left; the **Plan** tab (the run as set up, drawn and timed); a tab per laser with its map, live and then finished; Open run file..., Open folder |
 | footer | the last thing that happened; everything is in the Console |
 
 ## Stop
@@ -109,6 +109,46 @@ a sample too big for AB, a pixel too fine for the speed. The problem
 shows in red and **Start run** stays off until it is fixed. Above
 5 mm/s, and with autoranging, a warning shows in orange.
 
+Each field's unit is in its label: Pixel (mm), Row pitch (mm), Speed
+(mm/s), Bias (V), Baseline (s), Warm-up per laser (s).
+
+### The Plan tab
+
+The run column's first tab shows what the run as set up would do, and
+follows every change to the fields (it comes to the front while you
+edit them):
+
+- **The sweep**, drawn as you see the stage: the sample as the run
+  places it, each row with its direction (serpentine: alternate rows
+  run back), the run-up and run-out off the sample dashed, a green dot
+  where the run starts, and the first laser's spot at true scale where
+  it enters the sample. Too many rows to draw, and every n-th is drawn,
+  saying so.
+- **Close-ups**, one per laser, all at one true scale with a scale bar:
+  a few rows at the pitch with the laser's spot on each, and the pixels
+  along the middle row. They show at a glance whether rows overlap,
+  touch, or leave a strip only the spot's rim reaches. The spot is
+  `spot_um` in `machine.toml` (lasers 1-3 from the 2026-10-23 bench;
+  the photodiode measures all six in Phase 6); a laser without one
+  says so.
+- **Times**: homing, then each laser (its rows, the time per row, its
+  warm-up, its total) with the clock time it would be done by if
+  started now, and the whole run.
+- **Notes** in plain words: rows and time (halving the pitch doubles
+  both), samples per pixel at this speed, each laser's spot against
+  the pitch, pixels against the spot.
+
+**The estimate** (`estimate_run` in `run/session.py`, shared with
+`multilbic run`) computes what depends on the sample from it: the rows
+from the raster (how many, how long with run-up, at what speed), the
+XY travel from the distances between placements, the map's building
+time from the samples it will hold. Homing (28 s), a laser's fixed cost
+(13 s plus the servo's settle) and the per-row overhead (0.13 s) are
+measured constants from the bench runs of 2026-10-23 and 26; on the
+step 9 run the estimate gave 3 min 43 s against 3 min 41 s. Every run
+records its estimate in `run.json`, so the constants can be checked
+against later runs.
+
 The sample's name is the one typed in Calibration, now: it names the
 run folder. **Start run** shows the plan, the estimate and the folder,
 and asks (D20). The run then homes first, as `run` does, and everything
@@ -185,6 +225,7 @@ SMUniversal; the accent is MultiLBIC's own teal.
 | `gui/livemap.py` | no | `LiveMap` (rows binned as they arrive, at most 600 px a side) and `RunProgress` (time left) |
 | `gui/jogkeys.py` | no | which axis each arrow moves, from `[display]` and `[geometry]` |
 | `gui/spectrum.py` | no | each laser's colour from its wavelength |
+| `gui/plan_view.py` | yes | the Plan tab: the sweep, close-ups, times and notes |
 | `gui/app.py` | yes | the window: header, columns, the event pump, Stop, closing; `launch()` for `multilbic gui` |
 | `gui/machine_panels.py` | yes | connection, stage and jog pad, lasers |
 | `gui/sample_panels.py` | yes | calibration and its drawing, run setup and Start |

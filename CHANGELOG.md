@@ -3,6 +3,31 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.13 - The Plan tab; a fuller time estimate
+
+Asked for after the bench session, on the same branch.
+
+- **The Plan tab**, the run column's first: the run as set up, drawn and
+  timed, following the fields as they are typed. The sweep as the
+  operator sees the stage (rows and their direction, run-up and run-out,
+  where it starts, the spot at true scale); a true-scale close-up per
+  laser of its spot on a few rows and the pixels; each laser's time and
+  the clock time it would be done by; plain-word notes on pitch, pixel,
+  speed and spot (`multilbic/gui/plan_view.py`).
+- **Spot sizes** in `machine.toml`: an optional `spot_um` per laser,
+  the 10-90 % width of an edge through the spot. Lasers 1-3 from the
+  bench of 2026-10-23 (65, 41, 244 um); 4-6 wait for the photodiode.
+- **A fuller estimate** (`estimate_run`, for the window and `multilbic
+  run`): homing, XY travel from the distances between placements, per
+  laser the fixed cost, baseline, warm-up, rows and the map's building
+  time from its samples; everything that depends on the sample is
+  computed from it. The per-row overhead is now 0.13 s (was 0.02), as
+  measured. On the step 9 run: 3 min 43 s estimated, 3 min 41 s taken
+  (it said "3 min, plus homing" before). Each run records its estimate
+  in `run.json`.
+- Run setup: each field's unit is in its label. On the Pi the units
+  were in a dim colour at the panel's edge and easy to miss.
+
 ## 0.5.12 - A window test that waited for the wrong plan
 
 - `test_a_bad_field_blocks_start` failed on the ARM CI runner: the run

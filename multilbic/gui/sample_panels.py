@@ -371,6 +371,7 @@ class RunSetupPanel:
         self.frame = look.section(parent, "Run setup")
         self.plan: RunPlan | None = None
         self._after: str | None = None
+        self._show_plan_tab = False
         form = RunForm()
 
         lasers = ttk.Frame(self.frame)
@@ -403,18 +404,20 @@ class RunSetupPanel:
 
         self.fields: dict[str, tk.StringVar] = {}
         self.entries: list[ttk.Widget] = []
+        # The unit is part of the label, in the label's own colour: a
+        # separate dim unit at the panel's edge was easy to miss.
         rows = (
-            ("pixel_mm", "Pixel along rows", "mm"),
-            ("pitch_mm", "Row pitch", "mm"),
-            ("speed_mm_s", "Speed", "mm/s"),
-            ("bias_v", "Bias", "V"),
-            ("baseline_s", "Baseline (laser off)", "s"),
-            ("warmup_s", "Warm-up per laser", "s"),
+            ("pixel_mm", "Pixel (mm)"),
+            ("pitch_mm", "Row pitch (mm)"),
+            ("speed_mm_s", "Speed (mm/s)"),
+            ("bias_v", "Bias (V)"),
+            ("baseline_s", "Baseline, laser off (s)"),
+            ("warmup_s", "Warm-up per laser (s)"),
         )
         grid = ttk.Frame(self.frame)
         grid.grid(row=2, column=0, columnspan=4, sticky="w", pady=(4, 0))
-        for i, (key, label, unit) in enumerate(rows):
-            r, col = i // 2, (i % 2) * 3
+        for i, (key, label) in enumerate(rows):
+            r, col = i // 2, (i % 2) * 2
             ttk.Label(grid, text=label).grid(
                 row=r, column=col, sticky="w", pady=2,
                 padx=(0 if col == 0 else 18, 6))
@@ -422,8 +425,6 @@ class RunSetupPanel:
             text.trace_add("write", lambda *a: self.changed())
             entry = ttk.Entry(grid, textvariable=text, width=7)
             entry.grid(row=r, column=col + 1, sticky="w")
-            ttk.Label(grid, text=unit, style="Hint.TLabel").grid(
-                row=r, column=col + 2, sticky="w", padx=(4, 0))
             self.fields[key] = text
             self.entries.append(entry)
 
@@ -494,7 +495,9 @@ class RunSetupPanel:
         )
 
     def changed(self) -> None:
-        """Re-plan shortly: once typing pauses, not on every key."""
+        """Re-plan shortly: once typing pauses, not on every key. The
+        Plan tab comes to the front, to show what the change does."""
+        self._show_plan_tab = True
         if self._after is not None:
             self.app.root.after_cancel(self._after)
         self._after = self.app.root.after(PLAN_DELAY_MS, self.replan)
@@ -508,12 +511,21 @@ class RunSetupPanel:
                                   simulated=self.app.simulated)
         except FormError as exc:
             self.plan = None
-            self.plan_label.configure(text=str(exc), style="Bad.TLabel")
+            error = str(exc)
+            self.plan_label.configure(text=error, style="Bad.TLabel")
             self.warn_label.configure(text="")
         else:
-            self.plan_label.configure(text="\n".join(self.plan.lines),
-                                      style="TLabel")
+            error = ""
+            self.plan_label.configure(
+                text=f"{self.plan.lines[-1]}; the Plan tab shows the sweep "
+                     "and each laser's time", style="TLabel")
             self.warn_label.configure(text="\n".join(self.plan.warnings))
+        run_panel = getattr(self.app, "run_panel", None)
+        if run_panel is not None:
+            run_panel.plan_view.show(self.plan, error)
+            if self._show_plan_tab and self.app.state is not State.RUNNING:
+                run_panel.notebook.select(run_panel.plan_view.frame)
+        self._show_plan_tab = False
         self.refresh()
 
     def _unmeasured_boxes(self) -> None:

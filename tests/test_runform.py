@@ -24,8 +24,8 @@ def test_the_defaults_make_a_plan(machine, calibration):
     assert plan.request.current_range_a == 25e-6
     assert plan.lines[0] == "cell 7: 2 x 1 mm"
     assert plan.lines[1].startswith("laser 2 (519 nm): 20 rows")
-    assert "in all, plus homing" in plan.lines[-1]
-    assert plan.estimate_s > 60  # the warm-up alone
+    assert "in all, homing included" in plan.lines[-1]
+    assert plan.estimate_s > 60 + 28  # the warm-up and homing alone
     assert not plan.warnings
 
 
@@ -85,3 +85,65 @@ def test_the_preview_zooms_to_the_sample():
     _, _, wide = view_box(square, (30.0, 17.0), 0.0, 35.0)
     assert wide > 13.5
     assert scale_bar_mm(3.0) == 1.0 and scale_bar_mm(35.0) == 10.0
+
+
+# The 2026-10-26 bench run from the window: the cell's right edge,
+# laser 2 at 1 mm/s, 40 rows, 60 s warm-up. It took 221 s, homing
+# included.
+BENCH_CALIBRATION = {
+    "sample": "stdtest-redge", "reference_laser": 2,
+    "reference_xy_mm": [75.6, 71.7], "corner_xy_mm": [67.1, 58.9],
+    "corner_ab_mm": [15.5, 18.5], "size_mm": [2.0, 2.0],
+    "x_along": "+A", "y_along": "+B",
+}
+
+
+def test_the_estimate_matches_the_bench_run(machine):
+    from multilbic.scan.geometry import Calibration
+
+    cal = Calibration.from_dict(BENCH_CALIBRATION)
+    plan = plan_form(RunForm(speed_mm_s="1"), cal, machine, simulated=False)
+    assert plan.estimate_s == pytest.approx(221, rel=0.05)
+
+
+def test_the_estimate_follows_the_sample(machine):
+    """Rows, travel and the map come from the sample; only homing and a
+    laser's fixed cost are constants."""
+    from multilbic.scan.geometry import Calibration
+
+    small = Calibration.from_dict(BENCH_CALIBRATION)
+    tall = replace(small, height_mm=4.0)
+    wide = replace(small, width_mm=4.0)
+    est = {name: plan_form(RunForm(speed_mm_s="1", warmup_s="0"), c,
+                           machine, simulated=True).estimate.lasers[0]
+           for name, c in (("small", small), ("tall", tall), ("wide", wide))}
+    # Twice the rows, twice the row time.
+    assert est["tall"].rows_s == pytest.approx(2 * est["small"].rows_s,
+                                               rel=0.02)
+    # Twice as long rows: more than the 2 mm extra at 1 mm/s per row.
+    assert est["wide"].rows_s - est["small"].rows_s == pytest.approx(
+        40 * 2.0, rel=0.05)
+    # More samples, a longer map; the fixed costs stay.
+    assert est["tall"].map_s > est["small"].map_s
+    assert est["tall"].switch_s == est["small"].switch_s
+    # A second laser moves XY from the first's placement, not from home.
+    two = plan_form(RunForm(lasers=(2, 3), speed_mm_s="1"), small, machine,
+                    simulated=True).estimate.lasers
+    assert two[1].travel_s < two[0].travel_s
+
+
+def test_eta_text():
+    from multilbic.gui.runform import eta
+
+    assert eta(45) == "45 s"
+    assert eta(223) == "3 min 43 s"
+    assert eta(3900) == "1 h 05 min"
+
+
+def test_spot_against_pitch():
+    from multilbic.gui.runform import spot_against_pitch
+
+    assert "9 µm strip" in spot_against_pitch(41, 50)
+    assert "just touch" in spot_against_pitch(41, 40)
+    assert "every point is lit" in spot_against_pitch(65, 50)
+    assert "faster for the same detail" in spot_against_pitch(244, 50)

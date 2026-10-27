@@ -168,17 +168,95 @@ def _laser(machine: MachineConfig, number: int):
         raise RunPlanError(f"there is no laser {number}") from None
 
 
-def estimate_s(
-    plans: list[LaserPlan],
-    baseline_s: float,
-    settle_s: float,
-    warmup_s: float = 0.0,
-) -> float:
-    """Rows, baselines, warm-ups and laser switching; homing not
-    included."""
-    return sum(
-        p.raster.estimate_s + baseline_s + settle_s + warmup_s for p in plans
-    )
+#: Homing all four axes (G28). Bench, 2026-10-26: 35-39 s from a run's
+#: start to its first laser, of which XY's move to the sample ~8 s.
+HOMING_S = 28.0
+#: Per laser, beyond what is modelled: the AB approach to the first row,
+#: starting the stream, the baseline's and warm-up's catch-up waits.
+#: Bench, 2026-10-26: a laser's time outside its rows, baseline,
+#: warm-up and settle came to 13 s.
+LASER_OVERHEAD_S = 13.0
+#: Building and drawing a laser's map from its file at the end: a fixed
+#: part (the PNG) and a part that grows with the samples. Bench,
+#: 2026-10-26: 3 s for 42,000 samples on the Pi.
+MAP_FIXED_S = 2.0
+MAP_PER_SAMPLE_S = 2.5e-5
+
+
+@dataclass(frozen=True)
+class LaserEstimate:
+    laser: int
+    #: XY from where it was to this laser's placement.
+    travel_s: float
+    #: The servo's settle and the fixed per-laser cost.
+    switch_s: float
+    baseline_s: float
+    warmup_s: float
+    rows_s: float
+    map_s: float
+
+    @property
+    def total_s(self) -> float:
+        return (self.travel_s + self.switch_s + self.baseline_s
+                + self.warmup_s + self.rows_s + self.map_s)
+
+
+@dataclass(frozen=True)
+class RunEstimate:
+    homing_s: float
+    lasers: tuple[LaserEstimate, ...]
+
+    @property
+    def total_s(self) -> float:
+        return self.homing_s + sum(e.total_s for e in self.lasers)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "homing_s": round(self.homing_s, 1),
+            "lasers": [
+                {k: (round(v, 1) if isinstance(v, float) else v)
+                 for k, v in asdict(e).items()}
+                for e in self.lasers
+            ],
+            "total_s": round(self.total_s, 1),
+        }
+
+
+def estimate_run(
+    plans: list[LaserPlan], request: RunRequest, machine: MachineConfig
+) -> RunEstimate:
+    """How long a run should take, laser by laser. What depends on the
+    sample is computed from it: the rows from the raster (rows, their
+    length, the speed), XY travel from the distances between placements,
+    the map from the samples it will hold. Homing and a laser's fixed
+    cost are measured constants (above)."""
+    from multilbic.run.motion import XY_TRAVEL_FEED_MM_S
+    from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid
+
+    settle = machine.laser_board.settle_ms / 1000
+    accel = machine.xy.max_accel_mm_s2
+    take_up = machine.geometry.xy_take_up_mm
+    where = (0.0, 0.0)  # XY after homing
+    lasers = []
+    for p in plans:
+        x, y = p.placement.xy_mm
+        distance = ((x - where[0]) ** 2 + (y - where[1]) ** 2) ** 0.5
+        # The placing move ends moving up from below: one more short move.
+        travel = (Trapezoid(distance, XY_TRAVEL_FEED_MM_S, accel).duration_s
+                  + Trapezoid(take_up, XY_TRAVEL_FEED_MM_S, accel).duration_s
+                  + 2 * FIRST_MOVE_DELAY_S) if distance > 0 else 0.0
+        where = (x, y)
+        samples = p.raster.stream_hz * p.raster.estimate_s
+        lasers.append(LaserEstimate(
+            laser=p.laser,
+            travel_s=travel,
+            switch_s=settle + LASER_OVERHEAD_S,
+            baseline_s=request.baseline_s,
+            warmup_s=request.warmup_s,
+            rows_s=p.raster.estimate_s,
+            map_s=MAP_FIXED_S + MAP_PER_SAMPLE_S * samples,
+        ))
+    return RunEstimate(HOMING_S, tuple(lasers))
 
 
 def duration(seconds: float) -> str:
@@ -407,6 +485,8 @@ class Session:
                 }
                 for p in self.plans
             ],
+            "estimate": estimate_run(
+                self.plans, self.request, self.machine).as_dict(),
             "geometry": asdict(self.machine.geometry),
             "lasers": [
                 {

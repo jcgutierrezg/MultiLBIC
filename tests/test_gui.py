@@ -305,7 +305,7 @@ def test_calibrating_through_the_panels(window, tmp_path, monkeypatch):
     assert cal.preview.canvas.find_all()
     # The run setup now has a plan.
     window.pump(lambda: app.setup.plan is not None)
-    assert app.setup.plan_label.cget("text").startswith("cell: 0.6 x 0.2 mm")
+    assert "in all, homing included" in app.setup.plan_label.cget("text")
     assert "disabled" not in app.setup.start_btn.state()
 
 
@@ -448,3 +448,30 @@ def test_the_header_draws_the_revolver(window):
     assert all(step == pytest.approx(60, abs=1) for step in steps), angles
     for k in range(3):
         assert (angles[k] - angles[k + 3]) % 360 == pytest.approx(180, abs=1)
+
+
+def test_the_plan_tab_follows_the_setup(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    app = window.app
+    view = app.run_panel.plan_view
+    setup = app.setup
+    window.pump(lambda: view.plan is not None)
+    assert view.headline.cget("text").startswith("1 laser, about ")
+    assert len(view.canvas.find_all()) > 10  # sample, rows, markers
+    # A laser's row in the table, with its colour; homing; the total.
+    texts = [w.cget("text") for w in view.table.winfo_children()]
+    assert any("Laser 2 (519 nm)" in t for t in texts)
+    assert any("Homing" in t for t in texts) and "Whole run" in texts
+    # Laser 2's spot is 41 um: a 50 um pitch leaves a strip, said so.
+    assert "rim" in view.notes.cget("text")
+    # Editing a field brings the Plan tab to the front and re-plans.
+    setup.fields["pitch_mm"].set("0.03")
+    window.pump(lambda: view.plan is not None
+                and view.plan.request.pitch_mm == 0.03)
+    assert app.run_panel.notebook.select() == str(view.frame)
+    assert "every point is lit" in view.notes.cget("text")
+    # A second laser: two close-ups, two table rows.
+    setup.laser_vars[3].set(True)
+    setup.changed()
+    window.pump(lambda: view.plan is not None and len(view.plan.plans) == 2)
+    assert view.headline.cget("text").startswith("2 lasers")
