@@ -86,9 +86,18 @@ The window's version of `multilbic calibrate` ([run](run.md#calibrate)):
 3. **Trace the outline**: the stage places the sample as a run would
    and the spot runs round it, back to the corner. If it sat on the
    sample, **Save...**; if not, jog, set the corner and trace again.
+4. **Check ranges** (D25): for each laser ticked in Run setup, XY
+   places the sample as a run will for it, the laser comes on, and the
+   stage runs a grid of six lines over the sample (three along A, three
+   along B) while the photocurrent is read on autorange, at Run setup's
+   bias. Each laser gets the smallest current range that holds 3x its
+   brightest reading. It asks first, saying how long it takes (about
+   15 s a laser on a 2 mm sample), and ends with the reference laser
+   back on the corner. The result shows beside the button and goes into
+   Run setup; **Save...** keeps it with the calibration.
 
-**Load...** takes a saved calibration's corner and size without
-moving; **Go to corner** puts that corner back under the beam, to check
+**Load...** takes a saved calibration's corner, size and checked
+ranges without moving; **Go to corner** puts that corner back under the beam, to check
 that homing put things back where they were (`calibrate --check`).
 Calibration files are offered in `~/cal` if it exists.
 
@@ -112,6 +121,19 @@ shows in red and **Start run** stays off until it is fixed. Above
 Each field's unit is in its label: Pixel (mm), Row pitch (mm), Speed
 (mm/s), Bias (V), Baseline (s), Warm-up per laser (s).
 
+**Ranges** (D15 revised): each ticked laser has its own current range,
+two to a line, saying where it came from: **checked** on this sample
+(Calibration's step 4), **set by hand** (pick one from its menu), or a
+**guess**, which is the "Range if not checked" below it. Changing that
+default moves only the guesses. A new check replaces guesses and older
+checks, not what you set by hand. **step up if clipped** (on): a laser
+whose range clips starts its map again one range up instead of ending
+the run (D26; [run](run.md#run)).
+
+**Start run** with a guessed range asks first whether to check those
+lasers' ranges: **Yes** checks them (then press Start run again),
+**No** starts anyway, **Cancel** does neither.
+
 ### The Plan tab
 
 The run column's first tab shows what the run as set up would do, and
@@ -131,6 +153,8 @@ edit them):
   `spot_um` in `machine.toml` (lasers 1-3 from the 2026-10-23 bench;
   the photodiode measures all six in Phase 6); a laser without one
   says so.
+- **Ranges**: each laser's, in the table, with where it came from
+  (checked, set, guess); a note when any is a guess.
 - **Times**: homing, then each laser (its rows, the time per row, its
   warm-up, its total) with the clock time it would be done by if
   started now, and the whole run.

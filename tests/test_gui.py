@@ -94,8 +94,23 @@ def tk_root():
 
 
 @pytest.fixture
-def window(machine, tk_root):
+def window(machine, tk_root, monkeypatch):
     import gc
+    import tkinter.filedialog
+    import tkinter.messagebox
+
+    # A dialog nobody answers would wait on the developer's screen (it
+    # did, 2026-10-27): every dialog fails the test unless the test
+    # answers it with its own monkeypatch.setattr, which wins.
+    def unexpected(name):
+        def dialog(*args, **kwargs):
+            raise AssertionError(f"unexpected dialog {name}: {args!r}")
+        return dialog
+
+    for module in (tkinter.messagebox, tkinter.filedialog):
+        for name in dir(module):
+            if name.startswith(("ask", "show")):
+                monkeypatch.setattr(module, name, unexpected(name))
 
     from smuniversal_lab_suite.core.thread_guard import install_tk_guard
 
@@ -241,7 +256,10 @@ def test_closing_during_a_run_asks_then_stops_it(window, tmp_path,
     request = RunRequest(window.rig.perfect_calibration("cell"), (2,),
                          0.01, 0.05, 2.0, baseline_s=0.5, warmup_s=0.0)
     assert app.worker.start_run(request, tmp_path, {"commit": "test"})
-    window.pump(lambda: app.state is State.RUNNING)
+    # Until the run has begun (RunStarted), a close stops it before it
+    # makes its folder - right, but not what this test is about; it
+    # raced on a busy machine.
+    window.pump(lambda: app.run_panel.running)
     app.close()
     assert asked
     window.pump(lambda: not window.root.winfo_exists()
@@ -353,13 +371,21 @@ def test_a_run_from_the_window(window, tmp_path, monkeypatch):
     out = tmp_path / "runs"
     setup.out.set(str(out))
     asked = []
+    offered = []
     monkeypatch.setattr(
         "multilbic.gui.sample_panels.messagebox.askokcancel",
         lambda title, text, **k: asked.append(text) or True,
     )
+    # Laser 2's range is not checked: Start offers the check (D25); this
+    # run starts anyway.
+    monkeypatch.setattr(
+        "multilbic.gui.sample_panels.messagebox.askyesnocancel",
+        lambda title, text, **k: offered.append(text) or False,
+    )
     window.pump(lambda: setup.plan is not None
                 and setup.plan.request.warmup_s == 0)
     setup.start_btn.invoke()
+    assert offered and "laser(s) 2" in offered[0]
     assert asked and "Lasers 2" in asked[0]
     window.pump(lambda: app.state is State.RUNNING)
     # Everything but Stop is off while it runs.
@@ -394,6 +420,9 @@ def test_a_run_from_the_window(window, tmp_path, monkeypatch):
 
 def test_cancelling_start_starts_nothing(window, tmp_path, monkeypatch):
     calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    monkeypatch.setattr(
+        "multilbic.gui.sample_panels.messagebox.askyesnocancel",
+        lambda *a, **k: False)  # start anyway, past the ranges offer
     monkeypatch.setattr(
         "multilbic.gui.sample_panels.messagebox.askokcancel",
         lambda *a, **k: False)
@@ -475,3 +504,73 @@ def test_the_plan_tab_follows_the_setup(window, tmp_path, monkeypatch):
     setup.changed()
     window.pump(lambda: view.plan is not None and len(view.plan.plans) == 2)
     assert view.headline.cget("text").startswith("2 lasers")
+
+
+def test_checking_ranges_from_the_window(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    app = window.app
+    cal, setup = app.calibration_panel, app.setup
+    view = app.run_panel.plan_view
+    assert setup.range_source[2] == "guess"
+    asked = []
+    monkeypatch.setattr("multilbic.gui.sample_panels.messagebox.askokcancel",
+                        lambda title, text, **k: asked.append(text) or True)
+    window.click(cal.ranges_btn)
+    assert asked and "Lasers 2" in asked[0]
+    window.pump(lambda: setup.range_source[2] == "checked")
+    assert setup.range_vars[2].get() == "25u"
+    assert cal.ranges_label.cget("text").startswith("2: 25u (checked")
+    window.pump(lambda: setup.plan is not None
+                and setup.plan.range_sources.get(2) == "checked")
+    texts = [w.cget("text") for w in view.table.winfo_children()]
+    assert "25u (checked)" in texts
+    # Nothing left to offer at Start: no dialog but the confirm. (The
+    # fixture fails the test on any other.)
+    monkeypatch.setattr("multilbic.gui.sample_panels.messagebox.askokcancel",
+                        lambda *a, **k: False)
+    setup.start_btn.invoke()
+    window.ready()
+
+
+def test_ranges_set_by_hand_and_the_default(window, tmp_path, monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    setup = window.app.setup
+    setup.laser_vars[3].set(True)
+    setup._lasers_changed()
+    # A range picked for laser 3 is its own from then on.
+    setup.range_vars[3].set("650u")
+    setup._range_set(3)
+    assert setup.range_source[3] == "set"
+    # The default moves only the guesses: laser 2, not laser 3.
+    setup.current_range.set("1u")
+    setup._default_changed()
+    assert setup.range_vars[2].get() == "1u"
+    assert setup.range_vars[3].get() == "650u"
+    window.pump(lambda: setup.plan is not None
+                and setup.plan.request.range_for(2) == 1e-6)
+    request = setup.plan.request
+    assert request.range_for(3) == 650e-6
+    assert setup.plan.guessed() == [2]
+    # The step-up box reaches the run.
+    setup.step_up.set(False)
+    setup.changed()
+    window.pump(lambda: setup.plan is not None
+                and not setup.plan.request.step_up)
+    assert "a clip ends the run" in " ".join(setup.plan.notes)
+
+
+def test_start_offers_the_check_for_guessed_ranges(window, tmp_path,
+                                                   monkeypatch):
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    app = window.app
+    checked_for = []
+    monkeypatch.setattr(
+        "multilbic.gui.sample_panels.messagebox.askyesnocancel",
+        lambda title, text, **k: True)  # yes: check them first
+    monkeypatch.setattr(
+        app.calibration_panel, "check_ranges",
+        lambda lasers=None: checked_for.append(lasers))
+    app.setup.start_btn.invoke()
+    window.ready()
+    assert checked_for == [[2]]
+    assert app.state is State.IDLE  # no run started

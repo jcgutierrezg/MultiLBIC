@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phases 0 to 5 merged (Phase 5 as PR #6, 0.5.15). **Current ranges per sample** planned (0.5.16, branch `current-ranges`, 2026-10-27), before Phase 6 goes on: a run with lasers 100x apart in brightness needs a range per laser. Phase 6 is planned on its own branch (`phase-6-commissioning`, 0.6.1) and waits for this. |
-| next | Ranges step 5: the window ([below](#current-ranges-per-sample)); steps 2-4 done (0.5.19). |
+| next | Ranges step 6: the bench on the test cell ([below](#current-ranges-per-sample)); steps 2-5 done (0.5.20). |
 
 ## Phases
 

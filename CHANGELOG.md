@@ -3,6 +3,30 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.20 - Ranges in the window
+
+Ranges step 5.
+
+- Calibration's step 4, **Check ranges**: for the lasers ticked in Run
+  setup, at its bias; asks first with the time it takes; the result
+  beside the button.
+- Run setup: **Ranges**, a range per ticked laser, two to a line, each
+  saying "checked", "set by hand" or "guess"; "Range if not checked"
+  fills the guesses; **step up if clipped** (on). A check replaces
+  guesses and older checks, never a range set by hand.
+- **Start run** with a guessed range offers the check first (Yes /
+  start anyway / Cancel).
+- The Plan tab's table gives each laser's range and where it came
+  from; a note says when any is a guess, and what a clip will do.
+- The calibration drawing is 150 px tall (was 220), so the column with
+  its new rows still fits the Pi's window.
+- Tests: every dialog in the window tests now fails the test unless
+  the test answers it. The new Start question had popped up for real on
+  the developer's screen and waited (2026-10-27). The test of closing
+  the window mid-run waits for the run to begin before closing; on a
+  busy machine it had closed it a moment before, which stops a run
+  before it makes its folder (correct, but not what the test checks).
+
 ## 0.5.19 - Ranges checked at calibration
 
 Ranges step 4 (D25).

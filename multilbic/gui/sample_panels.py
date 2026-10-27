@@ -9,6 +9,7 @@ keystroke (`runform.plan_form`), and Start, which asks first (D20).
 
 from __future__ import annotations
 
+import functools
 import tkinter as tk
 from dataclasses import replace
 from pathlib import Path
@@ -16,7 +17,7 @@ from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING
 
 from multilbic.gui import look
-from multilbic.gui.runform import FormError, RunForm, RunPlan, plan_form
+from multilbic.gui.runform import FormError, RunForm, RunPlan, eta, plan_form
 from multilbic.gui.worker import (
     CalibrationChanged,
     Event,
@@ -24,8 +25,14 @@ from multilbic.gui.worker import (
     Position,
     State,
 )
-from multilbic.run.session import CURRENT_RANGES, REAL_RUNS, SIM_RUNS
-from multilbic.scan.geometry import Calibration, xy_to_ab
+from multilbic.run.ranges import RangeCheck, check_duration_s
+from multilbic.run.session import (
+    CURRENT_RANGES,
+    REAL_RUNS,
+    SIM_RUNS,
+    range_name,
+)
+from multilbic.scan.geometry import Calibration, SampleFrame, xy_to_ab
 
 if TYPE_CHECKING:
     from multilbic.gui.app import App
@@ -106,8 +113,23 @@ class CalibrationPanel:
                   text="the spot runs round the sample and back to the "
                        "corner").pack(side="left", padx=(10, 0))
 
+        # 4: the sample's current ranges (D25)
+        ttk.Label(self.frame, text="4", style="Accent.Bold.TLabel").grid(
+            row=5, column=0, sticky="nw", padx=(0, 8))
+        four = ttk.Frame(self.frame)
+        four.grid(row=5, column=1, sticky="w", pady=(0, 6))
+        self.ranges_btn = ttk.Button(four, text="Check ranges",
+                                     command=self.check_ranges)
+        self.ranges_btn.pack(side="left")
+        self.ranges_label = ttk.Label(
+            four, style="Small.Hint.TLabel", justify="left", wraplength=330,
+            text="each laser ticked in Run setup, on a grid over the "
+                 "sample")
+        self.ranges_label.pack(side="left", padx=(10, 0))
+        self.ranges: dict[int, RangeCheck] = {}
+
         files = ttk.Frame(self.frame)
-        files.grid(row=5, column=1, sticky="w", pady=(2, 6))
+        files.grid(row=6, column=1, sticky="w", pady=(2, 6))
         self.save_btn = ttk.Button(files, text="Save...", command=self.save)
         self.save_btn.pack(side="left")
         self.load_btn = ttk.Button(files, text="Load...", command=self.load)
@@ -120,7 +142,7 @@ class CalibrationPanel:
         self.file_label.pack(side="left", padx=(10, 0))
 
         self.preview = OutlinePreview(app, self.frame)
-        self.preview.canvas.grid(row=6, column=0, columnspan=3, sticky="ew",
+        self.preview.canvas.grid(row=7, column=0, columnspan=3, sticky="ew",
                                  pady=(4, 0))
         self.frame.columnconfigure(1, weight=1)
 
@@ -152,6 +174,43 @@ class CalibrationPanel:
     def to_corner(self) -> None:
         if not self.app.worker.to_corner():
             self.app.refused("go to corner")
+
+    def check_ranges(self, lasers: list[int] | None = None) -> None:
+        """Each laser's current range on the sample (D25), for the
+        lasers ticked in Run setup unless told which. Asks first: the
+        stage moves and the lasers come on in turn."""
+        setup = self.app.setup
+        lasers = lasers or list(setup.form().lasers)
+        if not lasers:
+            self.app.status("check ranges: tick a laser in Run setup",
+                            error=True)
+            return
+        if self.calibration is None:
+            self.app.status("check ranges: set the corner and the size "
+                            "first", error=True)
+            return
+        try:
+            bias = float(setup.fields["bias_v"].get())
+        except ValueError:
+            self.app.status("check ranges: Bias (V) is not a number",
+                            error=True)
+            return
+        c = self.calibration
+        frame = SampleFrame.centred(self.app.machine.ab.centre_mm,
+                                    c.width_mm, c.height_mm)
+        named = ", ".join(str(n) for n in lasers)
+        if not messagebox.askokcancel(
+            "Check current ranges?",
+            f"Lasers {named}, in turn: XY places the sample as a run will, "
+            "the laser comes on, and the stage runs a grid of six lines "
+            f"over the sample, reading the photocurrent at {bias:g} V. "
+            f"About {eta(check_duration_s(frame, len(lasers)))}.\n\n"
+            "It ends with the reference laser back on the corner.",
+            parent=self.app.root,
+        ):
+            return
+        if not self.app.worker.check_ranges(lasers, bias):
+            self.app.refused("check ranges")
 
     def save(self) -> None:
         name = self.sample.get().strip() or "sample"
@@ -199,6 +258,8 @@ class CalibrationPanel:
                 text=str(event.saved) if event.saved else "not saved")
             self.preview.outline = event.outline
             self.preview.draw()
+            self.ranges = dict(event.ranges)
+            self.ranges_label.configure(text=_ranges_text(self.ranges))
             self.app.calibration_changed()
         elif isinstance(event, Position):
             self.preview.position = event.xyab
@@ -217,6 +278,7 @@ class CalibrationPanel:
         _enable(self.here_btn, moving)
         _enable(self.corner_btn, moving and self.corner_set)
         _enable(self.trace_btn, moving and self.calibration is not None)
+        _enable(self.ranges_btn, moving and self.calibration is not None)
         _enable(self.save_btn, usable and self.calibration is not None)
 
     def current(self) -> Calibration | None:
@@ -236,9 +298,10 @@ class OutlinePreview:
     the placement moves it as AB would (`xy_to_ab`), and a laser other
     than the reference one sits its `xy_centre_mm` offset away."""
 
-    #: Tall enough to see the sample, short enough that the column fits
-    #: 1080 px in the light theme's bigger fonts too.
-    SIZE = 220
+    #: Tall enough to see the sample (it zooms to it), short enough that
+    #: the column, with calibration's step 4 and the ranges, fits the
+    #: Pi's 944 px window.
+    SIZE = 150
     MARGIN = 18
 
     def __init__(self, app: App, parent: tk.Misc):
@@ -386,7 +449,7 @@ class RunSetupPanel:
             ticked = tk.BooleanVar(master=app.root,
                                    value=laser.number in form.lasers)
             box = ttk.Checkbutton(
-                lasers, variable=ticked, command=self.changed,
+                lasers, variable=ticked, command=self._lasers_changed,
                 text=f"{laser.number} ({laser.wavelength_nm})"
                      + ("" if laser.measured else " *"),
                 image=look.swatch(lasers, app.laser_colour(laser.number),
@@ -404,6 +467,21 @@ class RunSetupPanel:
             text="allow lasers marked * (position not measured)")
         self.allow_box.grid(row=1, column=0, columnspan=4, sticky="w")
 
+        # Each ticked laser's current range (D15 revised, D25): checked
+        # on the sample at calibration, set here by hand, or a guess
+        # (the default range). On its own line: next to the laser boxes
+        # it would not fit the Pi's column.
+        numbers = [laser.number for laser in app.machine.lasers]
+        self.range_vars = {n: tk.StringVar(master=app.root,
+                                           value=form.current_range)
+                           for n in numbers}
+        self.range_source = {n: "guess" for n in numbers}
+        self.range_when: dict[int, str] = {}
+        self._range_widgets: list[ttk.Widget] = []
+        self.ranges_frame = ttk.Frame(self.frame)
+        self.ranges_frame.grid(row=2, column=0, columnspan=4, sticky="w",
+                               pady=(4, 0))
+
         self.fields: dict[str, tk.StringVar] = {}
         self.entries: list[ttk.Widget] = []
         # The unit is part of the label, in the label's own colour: a
@@ -417,7 +495,7 @@ class RunSetupPanel:
             ("warmup_s", "Warm-up per laser (s)"),
         )
         grid = ttk.Frame(self.frame)
-        grid.grid(row=2, column=0, columnspan=4, sticky="w", pady=(4, 0))
+        grid.grid(row=3, column=0, columnspan=4, sticky="w", pady=(4, 0))
         for i, (key, label) in enumerate(rows):
             r, col = i // 2, (i % 2) * 2
             ttk.Label(grid, text=label).grid(
@@ -432,13 +510,13 @@ class RunSetupPanel:
 
         more = ttk.Frame(self.frame)
         more.grid(row=5, column=0, columnspan=4, sticky="w", pady=(4, 2))
-        ttk.Label(more, text="Current range").pack(side="left")
+        ttk.Label(more, text="Range if not checked").pack(side="left")
         self.current_range = tk.StringVar(master=app.root,
                                           value=form.current_range)
         combo = ttk.Combobox(more, textvariable=self.current_range,
                              values=list(CURRENT_RANGES), width=6,
                              state="readonly")
-        combo.bind("<<ComboboxSelected>>", lambda e: self.changed())
+        combo.bind("<<ComboboxSelected>>", lambda e: self._default_changed())
         combo.pack(side="left", padx=(6, 0))
         self.entries.append(combo)
         self.serpentine = tk.BooleanVar(master=app.root, value=True)
@@ -446,6 +524,11 @@ class RunSetupPanel:
                                command=self.changed)
         serp.pack(side="left", padx=(16, 0))
         self.entries.append(serp)
+        self.step_up = tk.BooleanVar(master=app.root, value=True)
+        step = ttk.Checkbutton(more, text="step up if clipped",
+                               variable=self.step_up, command=self.changed)
+        step.pack(side="left", padx=(12, 0))
+        self.entries.append(step)
 
         note = ttk.Frame(self.frame)
         note.grid(row=6, column=0, columnspan=4, sticky="ew", pady=2)
@@ -477,6 +560,7 @@ class RunSetupPanel:
                                     style="Run.TButton",
                                     command=self.start)
         self.start_btn.grid(row=10, column=0, sticky="w", pady=(8, 0))
+        self._build_ranges()
         self.frame.columnconfigure(3, weight=1)
         self.replan()
 
@@ -494,7 +578,81 @@ class RunSetupPanel:
             warmup_s=f["warmup_s"].get(),
             serpentine=self.serpentine.get(),
             allow_unmeasured=self.allow.get(), note=self.note.get(),
+            laser_ranges={n: self.range_vars[n].get() for n in lasers},
+            range_sources={n: self.range_source[n] for n in lasers},
+            step_up=self.step_up.get(),
         )
+
+    # ---- ranges ----
+
+    def _build_ranges(self) -> None:
+        """One range per ticked laser, with where it came from."""
+        for child in self.ranges_frame.winfo_children():
+            child.destroy()
+        self._range_widgets = []
+        ticked = [n for n, v in self.laser_vars.items() if v.get()]
+        ttk.Label(self.ranges_frame, text="Ranges").grid(
+            row=0, column=0, sticky="nw", padx=(0, 10))
+        if not ticked:
+            ttk.Label(self.ranges_frame, text="tick a laser",
+                      style="Small.Hint.TLabel").grid(row=0, column=1)
+            return
+        for i, n in enumerate(ticked):
+            cell = ttk.Frame(self.ranges_frame)
+            # Two to a line: three ran past the panel's edge.
+            cell.grid(row=i // 2, column=1 + i % 2, sticky="w",
+                      padx=(0, 14), pady=1)
+            ttk.Label(cell, text=f" {n}", compound="left",
+                      image=look.swatch(cell, self.app.laser_colour(n),
+                                        size=10)).pack(side="left")
+            combo = ttk.Combobox(cell, textvariable=self.range_vars[n],
+                                 values=list(CURRENT_RANGES), width=5,
+                                 state="readonly")
+            combo.bind("<<ComboboxSelected>>",
+                       functools.partial(self._range_picked, n))
+            combo.pack(side="left", padx=(4, 4))
+            source = self.range_source[n]
+            # When it was checked is in Calibration's step 4.
+            text = {"checked": "checked", "set": "set by hand",
+                    "guess": "guess"}[source]
+            ttk.Label(cell, text=text,
+                      style="Accent.TLabel" if source == "checked"
+                      else "Small.Hint.TLabel").pack(side="left")
+            self._range_widgets.append(combo)
+        self.refresh()
+
+    def _range_picked(self, laser: int, event: tk.Event) -> None:
+        self._range_set(laser)
+
+    def _range_set(self, laser: int) -> None:
+        self.range_source[laser] = "set"
+        self._build_ranges()
+        self.changed()
+
+    def _default_changed(self) -> None:
+        for n, source in self.range_source.items():
+            if source == "guess":
+                self.range_vars[n].set(self.current_range.get())
+        self._build_ranges()
+        self.changed()
+
+    def _lasers_changed(self) -> None:
+        self._build_ranges()
+        self.changed()
+
+    def take_ranges(self, ranges: dict[int, RangeCheck]) -> None:
+        """A calibration's checked ranges: they replace guesses and
+        earlier checks, not what the operator set by hand after."""
+        for n in self.range_vars:
+            if n in ranges:
+                self.range_vars[n].set(range_name(ranges[n].range_a))
+                self.range_source[n] = "checked"
+                self.range_when[n] = ranges[n].when[11:16]
+            elif self.range_source[n] == "checked":
+                self.range_source[n] = "guess"
+                self.range_vars[n].set(self.current_range.get())
+        self._build_ranges()
+        self.changed()
 
     def changed(self) -> None:
         """Re-plan shortly: once typing pauses, not on every key. The
@@ -554,6 +712,31 @@ class RunSetupPanel:
         plan = self.plan
         if plan is None:
             return
+        guessed = plan.guessed()
+        if guessed:
+            # D25: offer the check for lasers whose range is a guess.
+            frame = plan.plans[0].placement.frame
+            named = ", ".join(str(n) for n in guessed)
+            answer = messagebox.askyesnocancel(
+                "Check ranges first?",
+                f"The current range of laser(s) {named} has not been "
+                "checked on this sample: it is a guess.\n\n"
+                f"Yes: check them now (about "
+                f"{eta(check_duration_s(frame, len(guessed)))}; the stage "
+                "moves and the lasers come on), then press Start run "
+                "again.\n"
+                "No: start anyway"
+                + (" (a laser that clips starts again one range up)."
+                   if plan.request.step_up else
+                   " (the step-up is off: a clip ends the run).")
+                + "\nCancel: neither.",
+                parent=self.app.root,
+            )
+            if answer is None:
+                return
+            if answer:
+                self.app.calibration_panel.check_ranges(guessed)
+                return
         out = Path(self.out.get()).expanduser()
         lasers = ", ".join(str(p.laser) for p in plan.plans)
         text = "\n".join((
@@ -573,7 +756,12 @@ class RunSetupPanel:
     # ---- redrawing ----
 
     def handle(self, event: Event) -> None:
-        pass
+        if isinstance(event, CalibrationChanged):
+            known = {n: r.when for n, r in event.ranges.items()}
+            mine = {n: self.range_when.get(n) for n in self.range_source
+                    if self.range_source[n] == "checked"}
+            if {n: w[11:16] for n, w in known.items()} != mine:
+                self.take_ranges(event.ranges)
 
     def refresh(self) -> None:
         state = self.app.state
@@ -584,7 +772,19 @@ class RunSetupPanel:
             if self.app.machine.laser(n).measured:
                 _enable(box, editable)
         _enable(self.allow_box, editable)
+        for combo in self._range_widgets:
+            _enable(combo, editable)
         _enable(self.start_btn, state is State.IDLE and self.plan is not None)
+
+
+def _ranges_text(ranges: dict[int, RangeCheck]) -> str:
+    if not ranges:
+        return ("not checked: each laser ticked in Run setup, on a grid "
+                "over the sample")
+    when = max(r.when for r in ranges.values())[11:16]
+    listed = ", ".join(f"{n}: {range_name(r.range_a)}"
+                       for n, r in sorted(ranges.items()))
+    return f"{listed} (checked {when} UTC)"
 
 
 def _cal_dir() -> Path:

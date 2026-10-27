@@ -59,6 +59,9 @@ class RunForm:
     laser_ranges: dict[int, str] = field(default_factory=dict)
     #: A laser that clips starts again one range up (D26).
     step_up: bool = True
+    #: Where each laser's range came from: "checked" on this sample at
+    #: calibration (D25), "set" by hand, or "guess" (the default).
+    range_sources: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -69,6 +72,13 @@ class RunPlan:
     lines: tuple[str, ...]
     warnings: tuple[str, ...] = field(default=())
     notes: tuple[str, ...] = field(default=())
+    #: As in `RunForm`, for the lasers of the run.
+    range_sources: dict[int, str] = field(default_factory=dict)
+
+    def guessed(self) -> list[int]:
+        """Lasers whose range was neither checked nor set by hand."""
+        return [p.laser for p in self.plans
+                if self.range_sources.get(p.laser, "guess") == "guess"]
 
     @property
     def estimate_s(self) -> float:
@@ -169,6 +179,17 @@ def plan_form(
         )
     lines.append(f"about {eta(estimate.total_s)} in all, homing included")
     notes = _notes(plans, request, machine)
+    sources = {n: form.range_sources.get(n, "guess") for n in form.lasers}
+    guessed = [str(n) for n in form.lasers if sources[n] == "guess"]
+    if guessed:
+        which = "lasers " + ", ".join(guessed) if len(guessed) > 1 \
+            else "laser " + guessed[0]
+        notes.append(
+            f"{which}: current range not checked on this sample, so it is "
+            "a guess; " + ("a clipped laser starts again one range up"
+                           if form.step_up else
+                           "with the step-up off, a clip ends the run")
+            + " (Check ranges in Calibration measures it)")
     warnings = []
     if speed > QUIET_SPEED_MM_S:
         warnings.append(
@@ -176,7 +197,7 @@ def plan_form(
     if any(request.range_for(n) is None for n in request.lasers):
         warnings.append("autoranging drops samples at every switch (D15)")
     return RunPlan(request, tuple(plans), estimate, tuple(lines),
-                   tuple(warnings), tuple(notes))
+                   tuple(warnings), tuple(notes), sources)
 
 
 def _notes(
