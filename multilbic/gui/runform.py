@@ -46,7 +46,8 @@ class RunForm:
     lasers: tuple[int, ...] = (2,)
     pixel_mm: str = "0.01"
     pitch_mm: str = "0.05"
-    speed_mm_s: str = "2"
+    #: 4 mm/s: bench-proven, runs ~40 % shorter than 2 (D27).
+    speed_mm_s: str = "4"
     current_range: str = "25u"
     bias_v: str = "0"
     baseline_s: str = f"{DEFAULT_BASELINE_S:g}"

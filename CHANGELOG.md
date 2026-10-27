@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.16 - Current ranges per sample planned; 4 mm/s by default
+
+- The plan for current ranges per laser and per sample, agreed
+  2026-10-27 (`docs/plan.md`, "Current ranges per sample"): ranges
+  checked at calibration on a coarse grid and saved with it, a range per
+  laser in Run setup, Start offering the check, a clipped laser starting
+  again one range up, all five of the miniSMU's ranges with the current
+  limit following the range. D15 revised; D25-D27.
+- **The default scan speed is 4 mm/s** (was 2), in the window and
+  `multilbic run` (D27): the bench maps at 4 mm/s were good, and runs
+  are about 40 % shorter. 5 mm/s is checked in Phase 6 step 3.
+
 ## 0.5.15 - The Plan tab fits any number of lasers; the right version
 
 - On the Pi the Plan tab's notes were cut off at the bottom (reported

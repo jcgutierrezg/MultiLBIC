@@ -262,7 +262,8 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--lasers", required=True, help="e.g. 1,2,3")
     go.add_argument("--pixel", type=float, required=True, help="mm along A")
     go.add_argument("--pitch", type=float, required=True, help="mm between rows")
-    go.add_argument("--speed", type=float, default=2.0, help="mm/s")
+    go.add_argument("--speed", type=float, default=4.0,
+                    help="mm/s (default 4, D27; 5 at most, D9)")
     go.add_argument("--bias", type=float, default=0.0, help="V")
     go.add_argument("--baseline", type=float, default=3.0,
                     help="s of laser-off baseline per laser")

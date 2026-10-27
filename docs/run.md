@@ -13,7 +13,7 @@ check all this on the machine are in [bench](bench.md#phase-4-first-maps).
 
 ```bash
 uv run multilbic calibrate --sample cell-7 --out ~/cal/cell-7.json
-uv run multilbic run ~/cal/cell-7.json --lasers 1,2,3 --pixel 0.01 --pitch 0.05 --speed 2
+uv run multilbic run ~/cal/cell-7.json --lasers 1,2,3 --pixel 0.01 --pitch 0.05
 ```
 
 Add `--sim` to either for the simulated machine (Windows is fine).
@@ -105,7 +105,7 @@ board may have restarted since calibration.
 | `--lasers 1,2,3` | (required) | in this order |
 | `--pixel 0.01` | (required) | mm along A |
 | `--pitch 0.05` | (required) | mm between rows |
-| `--speed 2` | 2 mm/s | stay at 5 or below (D9) |
+| `--speed 4` | 4 mm/s | stay at 5 or below (D9); 4 is bench-proven (D27) |
 | `--bias 0` | 0 V | |
 | `--current-range 25u` | 25 µA | fixed SMU range: `1u`, `25u`, `650u`, `15m` or `auto`. Autoranging drops 10–15 ms of samples at every range switch; a run stops if the fixed range clips |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
