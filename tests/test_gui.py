@@ -331,9 +331,14 @@ def test_loading_a_calibration(window, tmp_path, monkeypatch):
 def test_a_bad_field_blocks_start(window, tmp_path, monkeypatch):
     calibrate_through_the_panels(window, tmp_path, monkeypatch)
     setup = window.app.setup
+    # The plan is made again 150 ms after the last change. Wait for the
+    # one from the calibration first: until then the plan is the "no
+    # calibration yet" one, which a wait for "no plan" would take for the
+    # pitch's (seen on the slower ARM CI runner).
+    window.pump(lambda: setup.plan is not None)
     setup.fields["pitch_mm"].set("zero")
-    window.pump(lambda: setup.plan is None)
-    assert "pitch" in setup.plan_label.cget("text")
+    window.pump(lambda: setup.plan is None
+                and "pitch" in setup.plan_label.cget("text"))
     assert "disabled" in setup.start_btn.state()
     setup.fields["pitch_mm"].set("0.05")
     window.pump(lambda: setup.plan is not None)

@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.12 - A window test that waited for the wrong plan
+
+- `test_a_bad_field_blocks_start` failed on the ARM CI runner: the run
+  setup re-plans 150 ms after a change, and the test's wait for "no
+  plan" after typing a bad pitch was already met by the earlier "no
+  calibration yet" plan when the runner was slow. It now waits for the
+  calibration's plan first, then for the pitch's message. The window
+  itself was right.
+
 ## 0.5.11 - A map from the window; Phase 5 done
 
 Phase 5 step 9, on the machine (2026-10-26 and 27; `docs/bench.md`,
