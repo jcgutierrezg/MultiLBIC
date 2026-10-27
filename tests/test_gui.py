@@ -574,3 +574,18 @@ def test_start_offers_the_check_for_guessed_ranges(window, tmp_path,
     window.ready()
     assert checked_for == [[2]]
     assert app.state is State.IDLE  # no run started
+
+
+def test_the_ranges_line_follows_the_ticked_lasers(window, tmp_path,
+                                                   monkeypatch):
+    """However the lasers get ticked: a laser missing from the line
+    would map with the default range without saying so."""
+    calibrate_through_the_panels(window, tmp_path, monkeypatch)
+    setup = window.app.setup
+    for n in (1, 3):
+        setup.laser_vars[n].set(True)  # not a click
+    setup.changed()
+    window.pump(lambda: setup.plan is not None and len(setup.plan.plans) == 3)
+    assert setup._ranges_shown == [1, 2, 3]
+    combos = [w for w in setup._range_widgets]
+    assert len(combos) == 3

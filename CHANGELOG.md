@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.21 - The ranges line follows every laser ticked
+
+- On the Pi, with lasers 1-3 ticked by a script rather than by clicks,
+  Run setup's Ranges line still showed only laser 2: it was rebuilt
+  only on a click. A laser missing from it would map with the default
+  range without saying so. It is now rebuilt whenever the ticked lasers
+  differ from what it shows. The column with the new rows fits the
+  Pi's window, with about 60 px to spare.
+
 ## 0.5.20 - Ranges in the window
 
 Ranges step 5.

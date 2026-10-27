@@ -478,6 +478,7 @@ class RunSetupPanel:
         self.range_source = {n: "guess" for n in numbers}
         self.range_when: dict[int, str] = {}
         self._range_widgets: list[ttk.Widget] = []
+        self._ranges_shown: list[int] = []
         self.ranges_frame = ttk.Frame(self.frame)
         self.ranges_frame.grid(row=2, column=0, columnspan=4, sticky="w",
                                pady=(4, 0))
@@ -591,6 +592,7 @@ class RunSetupPanel:
             child.destroy()
         self._range_widgets = []
         ticked = [n for n, v in self.laser_vars.items() if v.get()]
+        self._ranges_shown = ticked
         ttk.Label(self.ranges_frame, text="Ranges").grid(
             row=0, column=0, sticky="nw", padx=(0, 10))
         if not ticked:
@@ -665,6 +667,12 @@ class RunSetupPanel:
     def replan(self) -> None:
         self._after = None
         self._unmeasured_boxes()
+        # The ranges line follows the ticked lasers however they were
+        # ticked: a laser missing from it would map with the default
+        # range without saying so.
+        ticked = [n for n, v in self.laser_vars.items() if v.get()]
+        if ticked != self._ranges_shown:
+            self._build_ranges()
         try:
             self.plan = plan_form(self.form(), self.app.calibration(),
                                   self.app.machine,
