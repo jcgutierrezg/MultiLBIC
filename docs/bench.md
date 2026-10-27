@@ -285,6 +285,38 @@ Copy the run folders back:
 scp -r "multilbic:multilbic-runs/*" runs/
 ```
 
+**Done 2026-10-26 and 27: steps 1-6 passed** (runs `20261026T173940Z`,
+`20261026T174747Z`, `20261027T120706Z`, `20261027T121004Z`; findings in
+[hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)).
+
+1. Three green lamps; a second process was refused the lock. (Checked
+   by taking the lock directly from SSH rather than with `multilbic
+   run`: had the lock been free, `run --yes` would have moved the stage.)
+2. Homing, loading, the trace and saving worked; the arrows moved the
+   spot on the cell the way they point. **Runbook flaw:** this
+   calibration's corner is beside the cell, not a feature, so "is the
+   spot on the corner?" can't be seen. The operator found the cell's
+   real top-right corner instead, at A 17.6, B 17.4 with XY unchanged:
+   0.1 mm each way from `stdtest1` (2026-10-21). For a homing check, use
+   a calibration whose corner is a feature.
+3. Complete in 3 min 40 s. The window ran it as the command line does:
+   each row took 2.3158 s from sent to finished against 2.3160 s on
+   2026-10-23, same spread, so the window's redraws delayed nothing.
+   Shift from the edge, row against neighbouring row: +23 um (the
+   reference +17 to +20 um). **Not met:** the edge sits 0.2 mm further
+   into the patch than on 2026-10-23, is much sharper, and bows by about
+   0.1 mm. Laser 2 was refocused by eye after the reference run (spot
+   about 0.2 mm then, 41 um after), which sharpens the edge and can move
+   the spot sideways; the corner check found 0.1 mm of it. Not the
+   window's doing, and only the photodiode (Phase 6) can say how much
+   is the laser. Also: the map's own alignment gave +9.4 um against
+   +23 um from the edge (on the reference both said ~20).
+4. STOP during row 6: the file says `stopped` with 5 rows and a map,
+   laser off, stage stopped at once; Home worked after.
+5. Esc during row 7: the same, 6 rows.
+6. Closing during row 7: it asked, stopped the run (6 rows, `stopped`),
+   closed; the lock was free; a new window connected at once.
+
 ## Afterwards
 
 Copy the reports back:

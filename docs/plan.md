@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI)** on branch `phase-5-gui`: steps 1-8 done (0.5.10). The window calibrates, runs and shows live and finished maps, passed in simulation on Windows and on the Pi's monitor (smooth text after D21); docs written ([gui](gui.md)). |
-| next | Phase 5 step 9: a map of the real machine from the window, with STOP, Esc and closing mid-run ([bench](bench.md#phase-5-a-map-from-the-window)); then the PR. The channel-2 photodiode (Phase 6) waits for the part ([hardware](hardware.md)). |
+| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) done** (0.5.11, branch `phase-5-gui`): the window calibrates, runs and shows live and finished maps; bench session passed 2026-10-26 and 27 ([bench](bench.md#phase-5-a-map-from-the-window)). |
+| next | Phase 5's PR. Then Phase 6 (the channel-2 photodiode: laser positions and spots), which waits for the part ([hardware](hardware.md)). Open: the alignment's shift on sharp-spot maps ([hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)). |
 
 ## Phases
 
@@ -174,6 +174,12 @@ Steps, each push a 0.5.x:
    mid-run. Then the PR.
 
 Until step 7 nothing needs the Pi.
+
+**State (0.5.11): Phase 5 is done.** Steps 1-6 in simulation on Windows;
+step 7 on the Pi's monitor, which led to D21 (smooth text); step 8 the
+docs; step 9 on the machine, 2026-10-26 and 27: a real map from the
+window, STOP, Esc and closing mid-run all passed. Also added on the way:
+laser colours and SMUniversal-style accents.
 
 ### Phase 6: commissioning
 

@@ -3,6 +3,26 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.11 - A map from the window; Phase 5 done
+
+Phase 5 step 9, on the machine (2026-10-26 and 27; `docs/bench.md`,
+findings in `docs/hardware.md`):
+
+- The window connected to the real devices and held the machine lock;
+  calibrated (Start, Load, Go to corner, jog, Trace, Save); ran a full
+  map of the cell's right edge with laser 2 at 1 mm/s; and STOP, Esc
+  and closing the window each stopped a run mid-row, keeping every
+  finished row, with the lock released on closing.
+- Row timing matched the command line's to 0.2 ms: the window's
+  redraws delay nothing. The shift measured from the edge (+23 um)
+  agrees with 2026-10-23's; the edge itself sits 0.2 mm further in and
+  is much sharper, after laser 2 was refocused by eye in between.
+- Found: the map's alignment reported +9.4 um on this sharp-spot map,
+  against +23 um from the edge. Left open in the plan.
+- The runbook's homing check used a calibration whose corner is not a
+  feature; noted in `docs/bench.md`.
+- Phase 5 is done.
+
 ## 0.5.10 - The window's docs; the bench session planned
 
 Phase 5 step 8.

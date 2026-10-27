@@ -362,6 +362,33 @@ box with the room lights on. Run folders are named by their UTC stamp.
   - The finger shows deeper under the sharp spot (14 %, laser 1) than
     under the broad one (4 %, laser 3).
 
+## A map from the window, 2026-10-26 and 27
+
+Phase 5's bench session ([bench](bench.md#phase-5-a-map-from-the-window)):
+the patch on the cell's straight right edge (`stdtest-redge`) again,
+laser 2 at 1 mm/s, from `multilbic gui`.
+
+- **Homing holds to about 0.1 mm over days.** The cell's top-right
+  corner, found by eye with laser 2, was at A 17.6, B 17.4 against
+  A 17.5, B 17.5 on 2026-10-21, XY unchanged.
+- **The edge moved and sharpened.** Against the command-line map of
+  2026-10-23, the edge sits 0.2 mm further into the patch, its 10-90 %
+  width is far narrower, and it now shows a bow of about 0.1 mm over the
+  2 mm. Laser 2 was refocused by eye in between (about 0.2 mm spot then,
+  41 um after), which can move the spot sideways as well as sharpen it.
+  The signal on the cell was about 600 nA against 1000 nA.
+- **The window adds no timing error.** Row times from sent to finished
+  match the command-line run's to 0.2 ms (median 2.3158 s, same 12 ms
+  spread, reverse rows 14 ms longer in both: Marlin, not us).
+- **The shift, measured from the edge:** +23 um (neighbouring rows),
+  against +17 to +20 um on 2026-10-23: the same machine. **The map's
+  alignment said +9.4 um.** On the old, blurrier map it agreed with the
+  edge (19.6 against 19.8 um); on this sharp one it does not. Worth a
+  look at `scan/alignment.py` with sharp-spot maps before relying on its
+  number.
+- STOP, Esc and closing the window each stopped a row in progress at
+  once; the files kept every finished row.
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial
