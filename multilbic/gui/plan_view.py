@@ -34,6 +34,8 @@ VECTORS = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
 #: Drawn rows are at least this far apart; more rows, and every n-th.
 MIN_ROW_PX = 7
 CLOSEUP_PX = (170, 100)
+#: The drawing's height when space is short; it grows into the rest.
+MIN_SWEEP_PX = 150
 CLOCK_MS = 30_000
 
 
@@ -46,20 +48,25 @@ class PlanView:
         self.error = ""
         self._clock_id: str | None = None
 
+        # Packed from the bottom up, the drawing last: when the tab is
+        # short (more lasers, more notes, a smaller screen) the drawing
+        # gives up height, never the text.
         self.headline = ttk.Label(self.frame, text="", style="Bold.TLabel")
-        self.headline.pack(anchor="w")
-        self.canvas = tk.Canvas(self.frame, height=260, highlightthickness=0,
-                                borderwidth=0)
-        self.canvas.pack(fill="both", expand=True, pady=(6, 6))
-        self.canvas.bind("<Configure>", lambda e: self._draw_sweep())
-
-        self.closeups = ttk.Frame(self.frame)
-        self.closeups.pack(fill="x")
-        self.table = ttk.Frame(self.frame)
-        self.table.pack(fill="x", pady=(8, 4))
+        self.headline.pack(side="top", anchor="w")
         self.notes = ttk.Label(self.frame, text="", justify="left",
                                style="Hint.TLabel", wraplength=740)
-        self.notes.pack(anchor="w", fill="x")
+        self.notes.pack(side="bottom", anchor="w", fill="x")
+        self.table = ttk.Frame(self.frame)
+        self.table.pack(side="bottom", fill="x", pady=(8, 4))
+        self.closeups = ttk.Frame(self.frame)
+        self.closeups.pack(side="bottom", fill="x")
+        self.canvas = tk.Canvas(self.frame, height=MIN_SWEEP_PX,
+                                highlightthickness=0, borderwidth=0)
+        self.canvas.pack(side="top", fill="both", expand=True, pady=(6, 6))
+        self.canvas.bind("<Configure>", lambda e: self._draw_sweep())
+        # The notes wrap to the tab's width, whatever it is.
+        self.frame.bind("<Configure>", lambda e: self.notes.configure(
+            wraplength=max(200, e.width - 16)), add="+")
         app.theme.on_change(lambda t: self.render(), widget=self.frame)
 
     # ---- what the run setup calls ----
@@ -210,11 +217,15 @@ class PlanView:
                  for p in plan.plans]
         # One window, and so one scale, for all: spots compare at a glance.
         window_um = max(3.5 * pitch, 2.5 * max(spots), 8 * pixel)
-        w, h = CLOSEUP_PX
+        # As wide as they can be, sharing the tab's width between them.
+        room = self.frame.winfo_width() - 110
+        w = int(min(CLOSEUP_PX[0], max(80, room / len(plan.plans) - 10)))
+        h = CLOSEUP_PX[1]
         k = min(w, h) / window_um
         bar = _round_length(window_um / 4000) * 1000
         ttk.Label(self.closeups, style="Hint.TLabel", justify="left",
-                  text=f"Close-up,\ntrue scale:\nbar {bar:g} µm") \
+                  text=f"Close-up,\ntrue scale:\nbar {bar:g} µm\n"
+                  f"rows {pitch:g} µm") \
             .pack(side="left", anchor="n", padx=(0, 8))
         for p in plan.plans:
             laser = self.app.machine.laser(p.laser)
@@ -243,13 +254,14 @@ class PlanView:
                     c.create_line(x, cy - 3, x, cy + 3, fill=pal.ink2)
                     x += pixel * k
             if spot is None:
-                c.create_text(w / 2, cy, text="spot not measured",
-                              fill=pal.muted, font="SMUSmall")
+                c.create_text(w / 2, cy, text="spot not\nmeasured",
+                              fill=pal.muted, font="SMUSmall",
+                              justify="center")
             ttk.Label(box, image=look.swatch(box, colour, 10),
                       compound="left", style="Small.Hint.TLabel",
-                      text=f" laser {p.laser}: spot "
-                      + (f"{spot:g} µm" if spot else "?")
-                      + f", rows {pitch:g} µm").pack(anchor="w")
+                      text=f" {p.laser}: spot "
+                      + (f"{spot:g} µm" if spot else "?"),
+                      wraplength=w).pack(anchor="w")
 
     # ---- the times ----
 
