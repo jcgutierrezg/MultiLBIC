@@ -3,6 +3,17 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.23 - Ranges on the bench
+
+Ranges step 6, on the test cell (2026-10-27): no code changes.
+
+- Check ranges chose 650u, 25u, 650u for lasers 1-3, as expected; a
+  three-laser run on them completed with no clip; laser 1 set to 25u
+  by hand clipped on row 0, stepped up to 650u and completed.
+- Results in docs/bench.md and docs/hardware.md. Open: laser 1 read 4x
+  brighter after the run's warm-up than in the check, more than the 3x
+  headroom.
+
 ## 0.5.22 - The range check logs each line
 
 Ranges step 6, on the bench. The first check on the test cell found

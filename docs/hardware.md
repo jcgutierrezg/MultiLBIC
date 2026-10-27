@@ -389,6 +389,38 @@ laser 2 at 1 mm/s, from `multilbic gui`.
 - STOP, Esc and closing the window each stopped a row in progress at
   once; the files kept every finished row.
 
+## Current ranges on the test cell, 2026-10-27
+
+Ranges step 6 ([bench](bench.md#current-ranges-the-bench)), the same
+patch (`stdtest-redge`), 0 V.
+
+| | Laser 1 (444) | Laser 2 (519) | Laser 3 (652) |
+|---|---|---|---|
+| Check's brightest (no warm-up) | 24 uA | 2.3 uA | 92.7 uA |
+| Range chosen (3x) | 650 uA | 25 uA | 650 uA |
+| Map's brightest (after 60 s warm-up) | 96.9 uA | 3.06 uA | 118 uA |
+| Map / check | 4.0 | 1.3 | 1.3 |
+
+- **Laser 1 read 4x brighter in the run than in the check**, more than
+  the check's 3x headroom. The check starts each laser a few seconds
+  before its grid, the run after 60 s of warm-up; laser 1 likely
+  brightens over that minute as laser 2 does. Harmless here (650 uA
+  holds it), but a sample whose laser 1 lands near a range's top would
+  clip and step up, costing a restart. A warm-up before each laser's
+  grid, or more headroom, would fix it.
+- **The current limit at the range's full scale works**: the SMU took
+  25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
+  full scale.
+- **Single readings agree with the stream** at the same spot (-37 to
+  -47 nA against -46 nA, laser 2), so the check's readings are good.
+  The light reaches the cell within 0.25 s of `LASER n`, then laser 2
+  brightens about 25 % over 4 s.
+- **A session where the SMU read almost nothing**: the first check
+  read 1-12 nA where the grid holds uA, and the window's readout 140 pA
+  dark. The next window session read normally; the cause (the output
+  not on, or the contact) is not known. A check that reads only nA on a cell that
+  should give uA is the sign.
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial

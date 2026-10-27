@@ -317,6 +317,45 @@ scp -r "multilbic:multilbic-runs/*" runs/
 6. Closing during row 7: it asked, stopped the run (6 rows, `stopped`),
    closed; the lock was free; a new window connected at once.
 
+## Current ranges: the bench
+
+Ranges step 6 ([plan](plan.md#current-ranges-per-sample)), on the test
+cell, from the window, with `stdtest-gui.json` loaded (the 2 x 2 mm
+patch on the cell's right edge).
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | Tick lasers 1-3, **Check ranges**, Yes. Read the log in **Console**: one line per grid line, with its readings | each laser's range on this sample: expect 650u, 25u, 650u |
+| 2 | **Save...**, then **Start run** with lasers 1-3 on the checked ranges | a mixed-range run completes with no clip; each file and `run.json` record the laser's range and limit |
+| 3 | Laser 1 alone, its range set by hand to **25u**, **Start run** | the step-up: the 25u attempt is kept and marked clipped, the laser starts again on 650u and completes |
+
+**Done 2026-10-27: all three passed** (runs `20261027T175902Z`,
+`20261027T181352Z`; findings in
+[hardware](hardware.md#current-ranges-on-the-test-cell-2026-10-27)).
+
+0. The first check (0.5.21, 17:31) read 1-12 nA on every laser and
+   chose 1u for all three. The same calibration's grid read 2-93 uA an
+   hour later. In that session the window's own photocurrent readout
+   also read 140 pA dark and -1 nA lit, against -13 nA and -40 nA from
+   a script on the same spot. So the SMU was not sourcing into the cell
+   then (output, or contact); the code does the same thing in both
+   sessions. A no-motion script showed single readings agree with the
+   stream (-37 to -47 nA against -46 nA) and laser 2's light on the
+   cell within 0.25 s of selecting it. 0.5.22 turns each laser on
+   before its travel and logs every grid line.
+1. Peaks 24 uA, 2.3 uA, 92.7 uA: **650u, 25u, 650u**, as expected.
+   Lines near the cell's edge read hundreds of nA, the rest uA.
+2. Complete in 6 min 32 s (the Plan tab said 6 min 51 s). No clip.
+   Headers: range and current limit 650u / 25u / 650u. The SMU took
+   the 25 uA limit, the first time below 1 mA. Peaks in the maps:
+   96.9 uA, 3.06 uA, 118 uA, each well inside its range.
+3. Row 0 clipped at 26.8 uA, 81 s after the laser started (60 s
+   warm-up, baseline, then the row). `laser1_444nm_25u.csv` says
+   `clipped: row 0: 26.8 uA reaches the end of the 25 uA range`; the
+   laser started again on 650u with no second warm-up and completed
+   49 s later. `run.json` lists the clipped attempt; the map matches
+   step 2's.
+
 ## Afterwards
 
 Copy the reports back:
