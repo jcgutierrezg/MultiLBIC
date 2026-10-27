@@ -205,7 +205,11 @@ D25-D27 below. Phase 6 waits for this (its D22-D24 are on its branch).
   are taken on autorange as fast as the SMU answers (not the stream:
   autoranging costs nothing there). The check uses Run setup's bias.
   The range is the smallest that holds **3x** the brightest reading
-  (laser 2's output doubles in its first two minutes). The time is
+  (laser 2's output doubles in its first two minutes). Autorange can
+  stay on a range while the current is above it (laser 1 read 24 uA
+  for 97 uA, bench 2026-10-27), so a brightest reading at 0.8-1.1 of a
+  range's top has the grid read again with the next range up fixed, and
+  the one after while that clips. The time is
   shown before it starts (about 15 s a laser on a 2 mm sample, 1.5 min
   on 20 mm). It ends with the reference laser back on the corner; STOP
   works throughout. In the window a button, in `calibrate` a `ranges`
@@ -249,6 +253,8 @@ Steps, each push a 0.5.x:
    the run complete; laser 1 stepped up from 25u and completed. Open:
    laser 1 read 4x brighter after the run's warm-up than in the check
    ([hardware](hardware.md#current-ranges-on-the-test-cell-2026-10-27)).
+   Not warm-up (laser 1 brightens 10 % in its minute): autorange stayed
+   on 25 uA. 0.5.24 reads such a grid again on a fixed range.
 
 ### Phase 6: commissioning
 

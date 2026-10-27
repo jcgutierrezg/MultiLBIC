@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.24 - A check stuck at a range's top reads again
+
+- The miniSMU's autorange stayed on 25 uA for laser 1 on the test cell:
+  the check read 24 uA where the map read 97 uA. Not warm-up: laser 1
+  brightens only 10 % over the run's minute. A check whose brightest
+  reading sits at 0.8-1.1 of a range's top now reads that laser's grid
+  again with the next range up fixed (and the next while that clips),
+  then goes back to autorange. The result records `autorange_top_a`;
+  older files load without it.
+- The simulator can pin autorange on a range (`autorange_stuck`), to
+  test it.
+
 ## 0.5.23 - Ranges on the bench
 
 Ranges step 6, on the test cell (2026-10-27): no code changes.

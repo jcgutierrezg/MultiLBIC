@@ -70,10 +70,11 @@ from multilbic.run.ranges import (
     RangeCheck,
     check_result,
     grid_lines,
+    near_top,
     ranges_from_dict,
     ranges_to_dict,
 )
-from multilbic.run.rows import ScanDevices
+from multilbic.run.rows import ScanDevices, next_range
 from multilbic.scan.geometry import Calibration, place
 from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid, axis_accel
 
@@ -88,6 +89,8 @@ KEY_PAIRS = ("xy", "ab")
 AXES = ("x", "y", "a", "b")
 #: How fast `trace` runs the spot round the outline.
 TRACE_FEED_MM_S = 2.0
+#: A line of the range check's grid in AB: (start, end).
+GridLine = tuple[tuple[float, float], tuple[float, float]]
 
 
 def _line_text(
@@ -346,24 +349,11 @@ class Calibrator:
                 d.laser.select(n)
                 self.say(f"checking laser {n}'s range on the sample")
                 self._approach(x=x, y=y, a=a, b=b)
-                readings: list[float] = []
-                for i, ((a0, b0), (a1, b1)) in enumerate(lines, 1):
-                    check(self._halt)
-                    self._approach(a=a0, b=b0)
-                    length = ((a1 - a0) ** 2 + (b1 - b0) ** 2) ** 0.5
-                    d.marlin.move_to(feed_mm_s=CHECK_FEED_MM_S, a=a1, b=b1)
-                    until = (self.clock.now() + FIRST_MOVE_DELAY_S
-                             + Trapezoid(length, CHECK_FEED_MM_S,
-                                         accel).duration_s)
-                    line: list[float] = []
-                    while self.clock.now() < until:
-                        check(self._halt)
-                        line.append(d.smu.measure(1)[1])
-                    d.marlin.wait_idle()
-                    check(self._halt)
-                    readings.extend(line)
-                    self.say(_line_text(i, (a0, b0), (a1, b1), line))
+                readings = self._grid(lines, accel)
                 result = check_result(n, readings, bias_v)
+                top = near_top(result.peak_a)
+                if top is not None:
+                    result = self._recheck(n, lines, accel, bias_v, top)
                 checked[n] = result
                 self.ranges[n] = result
                 self.say(
@@ -372,6 +362,8 @@ class Calibrator:
                     f"{result.range_a * 1e6:g} uA"
                     + (" (at the check's limit: maybe brighter)"
                        if result.at_limit else "")
+                    + (" (read again on a fixed range)"
+                       if result.autorange_top_a is not None else "")
                 )
         except RunStopped:
             self._restore_smu()
@@ -380,6 +372,55 @@ class Calibrator:
         d.laser.select(self.reference)
         self._to_corner()
         return checked
+
+    def _grid(self, lines: list[GridLine], accel: float) -> list[float]:
+        """Run the spot along each grid line, reading as it goes."""
+        d = self.devices
+        readings: list[float] = []
+        for i, ((a0, b0), (a1, b1)) in enumerate(lines, 1):
+            check(self._halt)
+            self._approach(a=a0, b=b0)
+            length = ((a1 - a0) ** 2 + (b1 - b0) ** 2) ** 0.5
+            d.marlin.move_to(feed_mm_s=CHECK_FEED_MM_S, a=a1, b=b1)
+            until = (self.clock.now() + FIRST_MOVE_DELAY_S
+                     + Trapezoid(length, CHECK_FEED_MM_S, accel).duration_s)
+            line: list[float] = []
+            while self.clock.now() < until:
+                check(self._halt)
+                line.append(d.smu.measure(1)[1])
+            d.marlin.wait_idle()
+            check(self._halt)
+            readings.extend(line)
+            self.say(_line_text(i, (a0, b0), (a1, b1), line))
+        return readings
+
+    def _recheck(self, n: int, lines: list[GridLine], accel: float,
+                 bias_v: float, top: float) -> RangeCheck:
+        """Autorange read near the top of `top`, where it may have stayed:
+        read the grid again with the next range up fixed, and the next
+        after that while a fixed range clips. Back on autorange after."""
+        d = self.devices
+        fixed = next_range(top)
+        try:
+            while True:
+                assert fixed is not None  # top is below the largest range
+                self.say(
+                    f"laser {n}: autorange read near the top of "
+                    f"{top * 1e6:g} uA, where it may stay: reading the grid "
+                    f"again on {fixed * 1e6:g} uA"
+                )
+                d.smu.prepare(bias_v=bias_v, current_range_a=fixed,
+                              current_limit_a=fixed)
+                d.smu.output_on()
+                result = check_result(n, self._grid(lines, accel), bias_v,
+                                      limit_a=fixed, autorange_top_a=top)
+                up = next_range(fixed)
+                if not result.at_limit or up is None:
+                    return result
+                fixed = up
+        finally:
+            d.smu.prepare(bias_v=bias_v)
+            d.smu.output_on()
 
     def _restore_smu(self) -> None:
         """Back to calibration's own settings: 0 V, autorange."""

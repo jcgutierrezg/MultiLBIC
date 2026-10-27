@@ -401,13 +401,15 @@ patch (`stdtest-redge`), 0 V.
 | Map's brightest (after 60 s warm-up) | 96.9 uA | 3.06 uA | 118 uA |
 | Map / check | 4.0 | 1.3 | 1.3 |
 
-- **Laser 1 read 4x brighter in the run than in the check**, more than
-  the check's 3x headroom. The check starts each laser a few seconds
-  before its grid, the run after 60 s of warm-up; laser 1 likely
-  brightens over that minute as laser 2 does. Harmless here (650 uA
-  holds it), but a sample whose laser 1 lands near a range's top would
-  clip and step up, costing a restart. A warm-up before each laser's
-  grid, or more headroom, would fix it.
+- **Laser 1 read 4x less in the check than in the run: autorange
+  stayed on 25 uA.** Not warm-up: the run's warm-up samples show laser
+  1 only 10 % brighter after its minute (-2.04 to -2.26 uA, spot parked
+  off the sample), lasers 2 and 3 flat. The check's brightest, 24 uA,
+  sits at the 25 uA range's top, and its lines over a ~90 uA patch read
+  7-24 uA: a range read past its end, as the fixed 25 uA range read up
+  to 26.8 uA in 6.3. Laser 3 (93 uA) did reach 650 uA. So the check
+  now reads a laser's grid again on a fixed range when its brightest
+  reading is near a range's top (0.5.24).
 - **The current limit at the range's full scale works**: the SMU took
   25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
   full scale.

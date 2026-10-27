@@ -14,6 +14,7 @@ from multilbic.run.ranges import (
     check_result,
     choose_range,
     grid_lines,
+    near_top,
     ranges_from_dict,
     ranges_to_dict,
 )
@@ -63,13 +64,28 @@ def test_the_grid_crosses_the_sample_three_times_each_way():
     assert check_duration_s(frame, 2) == pytest.approx(2 * (13.5 + 8.0))
 
 
+def test_a_reading_at_a_ranges_top_may_be_autorange_stuck():
+    # Laser 1 on the test cell: 24 uA on autorange over a 97 uA patch.
+    assert near_top(24e-6) == 25e-6
+    assert near_top(26.8e-6) == 25e-6  # a range reads a little past its end
+    assert near_top(0.9e-6) == 1e-6
+    assert near_top(600e-6) == 650e-6
+    assert near_top(10e-6) is None and near_top(2.3e-6) is None
+    assert near_top(92.7e-6) is None
+    # The check's own 1 mA limit is `at_limit`'s business, not this.
+    assert near_top(14e-3) is None
+
+
 def test_checks_survive_a_round_trip():
     checks = {2: RangeCheck(2, 0.7e-6, 25e-6, 0.0, "2026-10-27T12:00:00+00:00",
                             480),
               1: RangeCheck(1, 1e-3, 15e-3, 0.5, "2026-10-27T12:01:00+00:00",
-                            450, at_limit=True)}
+                            450, at_limit=True),
+              3: RangeCheck(3, 97e-6, 650e-6, 0.0, "2026-10-27T12:02:00+00:00",
+                            900, autorange_top_a=25e-6)}
     data = json.loads(json.dumps(ranges_to_dict(checks)))
-    assert list(data) == ["1", "2"]
+    assert list(data) == ["1", "2", "3"]
+    assert "autorange_top_a" not in data["1"]
     assert ranges_from_dict(data) == checks
     assert ranges_from_dict(None) == {}
 
@@ -103,7 +119,9 @@ def test_checking_ranges_on_the_sample(machine, clock, tmp_path, cell_a,
     assert set(checked) == {2, 3} and cal.ranges == checked
     # Each grid line is in the log, with what it read.
     lines = [s for s in said if s.startswith("  line ")]
-    assert len(lines) == 12 and all("readings" in s for s in lines)
+    # (A 1 uA cell peaks at 0.9 uA, near the 1 uA range's top: its
+    # grid is read again on 25 uA.)
+    assert len(lines) in (12, 18, 24) and all("readings" in s for s in lines)
     for result in checked.values():
         assert result.range_a == expected
         assert result.readings >= 20 and not result.at_limit
@@ -117,6 +135,28 @@ def test_checking_ranges_on_the_sample(machine, clock, tmp_path, cell_a,
     path = cal.save(tmp_path / "cell.json")
     assert load_ranges(path) == checked
     assert load_calibration(path).corner_xy_mm == cal.corner_xy
+
+
+def test_autorange_stuck_at_a_ranges_top_is_read_again(machine, clock):
+    # The cell gives ~100 uA, but autorange stays on 25 uA, as the real
+    # one did for laser 1 (bench, 2026-10-27).
+    rig, cal = calibrator(machine, clock, cell_a=1e-4)
+    rig.fake_smu.autorange_stuck = 1  # 25 uA
+    said = []
+    cal.say = said.append
+    try:
+        checked = cal.check_ranges([2])
+        after = (rig.fake_smu.autorange[1], rig.fake_smu.enabled[1])
+    finally:
+        rig.close()
+    result = checked[2]
+    assert result.autorange_top_a == 25e-6
+    assert result.peak_a > 30e-6 and result.range_a == 650e-6
+    assert not result.at_limit
+    assert any("reading the grid again on 650 uA" in s for s in said)
+    # Two grids in the log, and back on autorange with the output on.
+    assert len([s for s in said if s.startswith("  line ")]) == 12
+    assert after == (True, True)
 
 
 def test_an_older_calibration_file_has_no_ranges(machine, clock, tmp_path):

@@ -91,7 +91,10 @@ The window's version of `multilbic calibrate` ([run](run.md#calibrate)):
    stage runs a grid of six lines over the sample (three along A, three
    along B) while the photocurrent is read on autorange, at Run setup's
    bias. Each laser gets the smallest current range that holds 3x its
-   brightest reading. It asks first, saying how long it takes (about
+   brightest reading. A brightest reading near the top of a range
+   (0.8-1.1 of it) may be autorange stuck there, so that laser's grid
+   is read again on the next range up, fixed; the Console logs each
+   line either way. It asks first, saying how long it takes (about
    15 s a laser on a 2 mm sample), and ends with the reference laser
    back on the corner. The result shows beside the button and goes into
    Run setup; **Save...** keeps it with the calibration.

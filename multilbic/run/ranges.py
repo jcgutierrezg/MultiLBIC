@@ -10,6 +10,13 @@ autorange (single readings, not the stream, so autoranging costs
 nothing), and the range is the smallest that holds `HEADROOM` times the
 brightest reading. The calibration file keeps the result.
 
+The miniSMU's autorange can stay on a range while the current is above
+it, reading no further than its end: laser 1 on the test cell read 24 uA
+on autorange where a map on 650 uA read 97 uA (bench, 2026-10-27). So a
+brightest reading near a range's top (`near_top`) is not trusted: the
+grid is read again with the next range up fixed, which reads the truth
+or reaches that range's top in turn.
+
 No devices here: the choice, the grid, the time it takes, the record.
 `Calibrator.check_ranges` does the moving and reading.
 """
@@ -37,6 +44,12 @@ CHECK_OVERHEAD_S = 8.0
 #: A reading this close to the check's current limit means the laser
 #: may be brighter still.
 AT_LIMIT_SHARE = 0.98
+#: A brightest reading from this share of a range's end up to
+#: `OVER_TOP_SHARE` of it may be autorange stuck on that range. A stuck
+#: 25 uA range read 7-24 uA over a 90 uA patch; a fixed one read up to
+#: 26.8 uA (bench, 2026-10-27).
+NEAR_TOP_SHARE = 0.8
+OVER_TOP_SHARE = 1.1
 
 
 @dataclass(frozen=True)
@@ -54,13 +67,20 @@ class RangeCheck:
     #: laser may be brighter: the range is a floor, and the run's
     #: step-up covers the rest (D26).
     at_limit: bool = False
+    #: Autorange's brightest reading sat at the top of this range, so
+    #: the grid was read again on fixed ranges above it; `peak_a` is
+    #: from that reading. None when autorange's reading stood.
+    autorange_top_a: float | None = None
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        data: dict[str, Any] = {
             "peak_a": self.peak_a, "range_a": self.range_a,
             "bias_v": self.bias_v, "when": self.when,
             "readings": self.readings, "at_limit": self.at_limit,
         }
+        if self.autorange_top_a is not None:
+            data["autorange_top_a"] = self.autorange_top_a
+        return data
 
     @classmethod
     def from_dict(cls, laser: int, data: dict[str, Any]) -> RangeCheck:
@@ -69,6 +89,8 @@ class RangeCheck:
             range_a=float(data["range_a"]), bias_v=float(data["bias_v"]),
             when=str(data["when"]), readings=int(data.get("readings", 0)),
             at_limit=bool(data.get("at_limit", False)),
+            autorange_top_a=(None if data.get("autorange_top_a") is None
+                             else float(data["autorange_top_a"])),
         )
 
 
@@ -82,11 +104,27 @@ def choose_range(peak_a: float, headroom: float = HEADROOM) -> float:
     return FIXED_RANGES_A[-1]
 
 
+def near_top(peak_a: float, below_a: float = AUTORANGE_CURRENT_LIMIT_A,
+             ) -> float | None:
+    """The fixed range below `below_a` whose top `peak_a` sits at, where
+    autorange may have stayed; None if it sits at none."""
+    peak = abs(peak_a)
+    for candidate in FIXED_RANGES_A:
+        if candidate >= below_a:
+            break
+        if NEAR_TOP_SHARE * candidate <= peak <= OVER_TOP_SHARE * candidate:
+            return candidate
+    return None
+
+
 def check_result(
     laser: int, readings: list[float], bias_v: float,
     limit_a: float = AUTORANGE_CURRENT_LIMIT_A,
+    autorange_top_a: float | None = None,
 ) -> RangeCheck:
-    """What a laser's grid of readings says about its range."""
+    """What a laser's grid of readings says about its range. `limit_a`
+    is the current limit they were read with (the fixed range's end on a
+    re-read)."""
     if not readings:
         raise ValueError(f"laser {laser}: no readings on the grid")
     peak = max(abs(r) for r in readings)
@@ -99,7 +137,7 @@ def check_result(
     return RangeCheck(
         laser, peak, range_a, bias_v,
         datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds"),
-        len(readings), at_limit,
+        len(readings), at_limit, autorange_top_a,
     )
 
 
