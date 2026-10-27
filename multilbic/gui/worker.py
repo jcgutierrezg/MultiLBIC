@@ -250,6 +250,9 @@ class MachineWorker:
             self._set_homed(True)
             self._reading = True
             self._emit(LaserChanged(cal.reference))
+            self._log(f"laser {cal.reference} on, "
+                      + ("over the saved corner" if check
+                         else "over the AB centre"))
             self._emit(Position(position))
             self._calibration_changed()
         return self._moving("start calibration", work)

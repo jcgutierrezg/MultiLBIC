@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.14 - Fits the Pi's fonts
+
+- Checked on the Pi's screen (2026-10-27): the Plan tab and everything
+  else fit 1920 x 1080 with the Pi's fonts, except the corner's
+  coordinates and the run setup's summary line, which ran a few
+  characters past their panel. The corner now takes two short lines;
+  the summary wraps sooner.
+- Start (calibration) says in the footer that the laser is on, instead
+  of leaving "homing" there.
+
 ## 0.5.13 - The Plan tab; a fuller time estimate
 
 Asked for after the bench session, on the same branch.

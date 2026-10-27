@@ -66,7 +66,9 @@ class CalibrationPanel:
         self.here_btn = ttk.Button(one, text="Set corner here",
                                    command=self.here)
         self.here_btn.pack(side="left", padx=(6, 0))
-        self.corner_label = ttk.Label(one, text="", style="Hint.TLabel")
+        # Two short lines: one long one ran past the panel on the Pi.
+        self.corner_label = ttk.Label(one, text="", style="Hint.TLabel",
+                                      justify="left")
         self.corner_label.pack(side="left", padx=(10, 0))
         ttk.Label(
             self.frame, style="Small.Hint.TLabel", wraplength=460,
@@ -184,7 +186,7 @@ class CalibrationPanel:
             if event.corner_xy is not None and event.corner_ab is not None:
                 (x, y), (a, b) = event.corner_xy, event.corner_ab
                 self.corner_label.configure(
-                    text=f"X{x:.3f} Y{y:.3f}  A{a:.4f} B{b:.4f}")
+                    text=f"X{x:.3f} Y{y:.3f}\nA{a:.4f} B{b:.4f}")
             if event.size is not None:
                 for entry, value in zip((self.width, self.height),
                                         event.size, strict=True):
@@ -465,7 +467,7 @@ class RunSetupPanel:
         self.entries += [out_entry, browse]
 
         self.plan_label = ttk.Label(self.frame, text="", justify="left",
-                                    wraplength=520)
+                                    wraplength=470)
         self.plan_label.grid(row=8, column=0, columnspan=4, sticky="w",
                              pady=(8, 2))
         self.warn_label = ttk.Label(self.frame, text="", justify="left",
