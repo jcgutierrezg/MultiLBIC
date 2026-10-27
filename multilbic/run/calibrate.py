@@ -90,6 +90,21 @@ AXES = ("x", "y", "a", "b")
 TRACE_FEED_MM_S = 2.0
 
 
+def _line_text(
+    number: int, start: tuple[float, float], end: tuple[float, float],
+    readings: list[float],
+) -> str:
+    """One grid line of a range check, for the log: where it ran and
+    what it read, so a check that reads too little shows where."""
+    where = (f"A{start[0]:.2f} B{start[1]:.2f} -> "
+             f"A{end[0]:.2f} B{end[1]:.2f}")
+    if not readings:
+        return f"  line {number} {where}: no readings"
+    lo, hi = min(readings) * 1e9, max(readings) * 1e9
+    return (f"  line {number} {where}: {len(readings)} readings, "
+            f"{lo:.3g} to {hi:.3g} nA")
+
+
 class Calibrator:
     """The calibration actions, for any interface. One thread drives
     it; `halt()` may be called from any other.
@@ -326,11 +341,13 @@ class Calibrator:
                 lines = grid_lines(placement.frame)
                 x, y = placement.xy_mm
                 (a, b), _ = lines[0]
-                self._approach(x=x, y=y, a=a, b=b)
+                # On before the travel and left on through the whole
+                # grid, so it has warmed while XY moves.
                 d.laser.select(n)
                 self.say(f"checking laser {n}'s range on the sample")
+                self._approach(x=x, y=y, a=a, b=b)
                 readings: list[float] = []
-                for (a0, b0), (a1, b1) in lines:
+                for i, ((a0, b0), (a1, b1)) in enumerate(lines, 1):
                     check(self._halt)
                     self._approach(a=a0, b=b0)
                     length = ((a1 - a0) ** 2 + (b1 - b0) ** 2) ** 0.5
@@ -338,11 +355,14 @@ class Calibrator:
                     until = (self.clock.now() + FIRST_MOVE_DELAY_S
                              + Trapezoid(length, CHECK_FEED_MM_S,
                                          accel).duration_s)
+                    line: list[float] = []
                     while self.clock.now() < until:
                         check(self._halt)
-                        readings.append(d.smu.measure(1)[1])
+                        line.append(d.smu.measure(1)[1])
                     d.marlin.wait_idle()
                     check(self._halt)
+                    readings.extend(line)
+                    self.say(_line_text(i, (a0, b0), (a1, b1), line))
                 result = check_result(n, readings, bias_v)
                 checked[n] = result
                 self.ranges[n] = result

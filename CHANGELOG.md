@@ -3,6 +3,23 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.22 - The range check logs each line
+
+Ranges step 6, on the bench. The first check on the test cell found
+1-12 nA peaks where a map of it reads 40-130 nA.
+
+- Each laser comes on before the stage travels to its grid, not after,
+  and stays on through all six lines. A no-motion test on the bench
+  (2026-10-27) showed laser 2's light on the cell within 0.25 s of
+  selecting it, then about 25 % brighter over the next 4 s; this gives
+  it the travel time to warm.
+- Each grid line goes to the log: where it ran, how many readings, and
+  the lowest and highest. If a check reads too little again, the log
+  shows which lines and where.
+- Also found: single readings agree with the stream (-37 to -47 nA
+  against -46 nA, laser 2, same spot), so the readings themselves are
+  not the cause.
+
 ## 0.5.21 - The ranges line follows every laser ticked
 
 - On the Pi, with lasers 1-3 ticked by a script rather than by clicks,

@@ -94,11 +94,16 @@ def calibrator(machine, clock, cell_a=1e-6):
 def test_checking_ranges_on_the_sample(machine, clock, tmp_path, cell_a,
                                        expected):
     rig, cal = calibrator(machine, clock, cell_a)
+    said = []
+    cal.say = said.append
     try:
         checked = cal.check_ranges([3, 2])
     finally:
         rig.close()
     assert set(checked) == {2, 3} and cal.ranges == checked
+    # Each grid line is in the log, with what it read.
+    lines = [s for s in said if s.startswith("  line ")]
+    assert len(lines) == 12 and all("readings" in s for s in lines)
     for result in checked.values():
         assert result.range_a == expected
         assert result.readings >= 20 and not result.at_limit
