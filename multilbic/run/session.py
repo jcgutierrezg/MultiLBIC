@@ -34,7 +34,6 @@ import re
 import threading
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -54,6 +53,7 @@ from multilbic.run.rows import (
 from multilbic.scan.geometry import Calibration, Placement, place
 from multilbic.scan.raster import RasterPlan, ScanRequest, plan_raster
 from multilbic.store.runfile import RunWriter, read_run
+from multilbic.version import app_version
 
 if TYPE_CHECKING:
     from multilbic.scan.mapping import MapResult
@@ -446,7 +446,7 @@ class Session:
             ),
             "run_id": self.run_id,
             "event": kind,
-            "app_version": version("multilbic"),
+            "app_version": app_version(),
             **fields,
         }
         EventLog(self.folder / "events.jsonl").record(event)
@@ -457,7 +457,7 @@ class Session:
             "run_id": self.run_id,
             "status": outcome.status,
             "simulated": self.simulated,
-            "app_version": version("multilbic"),
+            "app_version": app_version(),
             "provenance": self.provenance,
             "request": {
                 "sample": r.calibration.sample,

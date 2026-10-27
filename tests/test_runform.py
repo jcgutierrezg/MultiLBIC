@@ -147,3 +147,24 @@ def test_spot_against_pitch():
     assert "just touch" in spot_against_pitch(41, 40)
     assert "every point is lit" in spot_against_pitch(65, 50)
     assert "faster for the same detail" in spot_against_pitch(244, 50)
+
+
+def test_unmeasured_spots_share_one_note(machine, calibration):
+    plan = plan_form(RunForm(lasers=(2, 4, 5, 6), allow_unmeasured=True),
+                     calibration, machine, simulated=True)
+    unmeasured = [n for n in plan.notes if "not measured" in n]
+    assert unmeasured == ["lasers 4, 5, 6: spots not measured yet (the "
+                          "photodiode measures them, Phase 6)"]
+
+
+def test_the_version_is_the_running_codes():
+    """Not the installed record, which `uv run --no-sync` leaves behind
+    after a pull (the window showed 0.5.3 while running 0.5.13)."""
+    import tomllib
+    from pathlib import Path
+
+    from multilbic.version import app_version
+
+    pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+    expected = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    assert app_version() == expected["project"]["version"]

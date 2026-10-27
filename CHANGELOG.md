@@ -3,6 +3,26 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.15 - The Plan tab fits any number of lasers; the right version
+
+- On the Pi the Plan tab's notes were cut off at the bottom (reported
+  by the user, reproduced with all six lasers: 83 px short). The tab is
+  now laid out from the bottom up, so the drawing gives up height and
+  the text never does; the close-ups share the tab's width (six fit);
+  the pitch is said once beside them; lasers without a measured spot
+  share one note. Checked on the Pi with three and six lasers. (The
+  first of these changes went out in a commit titled "wip", by
+  mistake.)
+- **The version shown and recorded was the installed one, not the
+  running one.** `importlib.metadata` gives the version recorded at the
+  last install, and `uv run --no-sync` skips installing: the window on
+  the development PC said 0.5.3 while running 0.5.14, and run files
+  (`run.json`, events, file headers, bench reports) would carry the
+  same stale number after a `git pull` on the Pi. `multilbic.version`
+  now reads `pyproject.toml` beside the package, falling back to the
+  installed record only without a checkout. Run files written by
+  0.5.x on the Pi were right, since `setup.sh` installs each time.
+
 ## 0.5.14 - Fits the Pi's fonts
 
 - Checked on the Pi's screen (2026-10-27): the Plan tab and everything

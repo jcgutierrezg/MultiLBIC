@@ -29,7 +29,6 @@ import datetime
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from importlib.metadata import version
 from typing import Any
 
 import numpy as np
@@ -44,6 +43,7 @@ from multilbic.scan.mapping import BASELINE_ROW, WARMUP_ROW
 from multilbic.scan.raster import TRAVEL_FEED_MM_S, RasterPlan
 from multilbic.scan.timing import ClockTracker, RowAnchor
 from multilbic.store.runfile import RunWriter, SampleRow
+from multilbic.version import app_version
 
 #: Samples this close outside a row's move are kept with it.
 ROW_MARGIN_S = 0.02
@@ -371,7 +371,7 @@ def run_header(
         "started": datetime.datetime.now(datetime.UTC).isoformat(
             timespec="seconds"
         ),
-        "app_version": version("multilbic"),
+        "app_version": app_version(),
         "provenance": provenance,
         "firmware": firmware,
         "laser": laser,

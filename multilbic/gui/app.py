@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import datetime
 import tkinter as tk
-from importlib.metadata import version
 from tkinter import messagebox, ttk
 from typing import Protocol
 
@@ -49,6 +48,7 @@ from multilbic.gui.worker import (
     StateChanged,
 )
 from multilbic.scan.geometry import Calibration
+from multilbic.version import app_version
 
 PUMP_MS = 50
 
@@ -170,7 +170,7 @@ class App:
         top.pack(anchor="w")
         ttk.Label(top, text="MultiLBIC", style="Title.Header.TLabel") \
             .pack(side="left")
-        ttk.Label(top, text=version("multilbic"),
+        ttk.Label(top, text=app_version(),
                   style="Sub.Header.TLabel").pack(side="left", padx=(8, 0))
         ttk.Label(names, text="laser beam induced current, six wavelengths",
                   style="Sub.Header.TLabel").pack(anchor="w")

@@ -184,14 +184,19 @@ def _notes(
         f"{raster.stream_hz:g} Hz; faster rows mean fewer",
     ]
     spots = []
+    unknown = []
     for p in plans:
         spot = machine.laser(p.laser).spot_um
         if spot is None:
-            notes.append(f"laser {p.laser}: spot not measured yet "
-                         "(the photodiode measures it, Phase 6)")
+            unknown.append(str(p.laser))
             continue
         spots.append(spot)
         notes.append(f"laser {p.laser}: " + spot_against_pitch(spot, pitch_um))
+    if unknown:
+        which = (f"lasers {', '.join(unknown)}: spots" if len(unknown) > 1
+                 else f"laser {unknown[0]}: spot")
+        notes.append(f"{which} not measured yet (the photodiode measures "
+                     "them, Phase 6)")
     if spots and pixel_um < min(spots) / 2:
         notes.append(
             f"pixels ({pixel_um:g} µm) are finer than the smallest spot "
