@@ -398,8 +398,8 @@ is in `SMUniversal_Lab_Suite/docs/instruments/undalogic-minismu.md`.
 - **Channel 1** measures photocurrent at 0 V bias. Expected signal: low
   µA down to nA, *unverified*.
 - **Channel 2** is free. Agreed use: a reference photodiode on a corner
-  of the AB stage, outside the sample area. The part is chosen, not yet
-  bought ([below](#channel-2-reference-photodiode-chosen-2026-10-22)).
+  of the AB stage, outside the sample area. The part arrived 2026-10-27
+  and is not yet mounted ([below](#channel-2-reference-photodiode-chosen-2026-10-22)).
 - **Envelope:** two channels, four-quadrant, ±12 V, ±180 mA, 2.1 W per
   channel. Five current ranges: 1 µA, 25 µA, 650 µA, 15 mA, 180 mA (from
   `minismu_py` and SMUniversal's driver). On USB-C power alone each
@@ -423,7 +423,7 @@ laser positions, knife-edge spot sizes, and a power reference to
 compare wavelengths.
 
 **Chosen: Hamamatsu S1223-01**, RS 415-5722 (about £17–18 ex VAT on RS
-UK, October 2026). Not yet bought.
+UK, October 2026). **Arrived 2026-10-27**, not yet mounted.
 
 | Need | S1223-01 |
 |---|---|

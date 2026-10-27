@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) done** (0.5.11, branch `phase-5-gui`): the window calibrates, runs and shows live and finished maps; bench session passed 2026-10-26 and 27 ([bench](bench.md#phase-5-a-map-from-the-window)). |
-| next | Phase 5's PR. Then Phase 6 (the channel-2 photodiode: laser positions and spots), which waits for the part ([hardware](hardware.md)). Open: the alignment's shift on sharp-spot maps ([hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)). |
+| status | Phases 0, 2, 3, 4 and 5 merged (Phase 5 as PR #6, 0.5.15). **Phase 6 (commissioning) planned** (0.6.0, branch `phase-6-commissioning`, 2026-10-27): the photodiode has arrived, not yet mounted. |
+| next | Phase 6 step 2: step-and-measure and per-row edge fits, in simulation; then step 3 on the bench, no photodiode needed. Open: the alignment's shift on sharp-spot maps ([hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)), settled in step 3. |
 
 ## Phases
 
@@ -193,6 +193,88 @@ laser colours and SMUniversal-style accents.
 **Done when** maps from all six lasers line up, and the sync error is
 measured and recorded.
 
+Agreed 2026-10-27 (D22–D24 below). The photodiode (Hamamatsu S1223-01)
+has arrived and is not yet mounted, so the bench work that doesn't need
+it comes first. Finding lasers, measuring spots and focusing are a
+command, `multilbic commission`, and a Lasers tab in the window, both on
+the same Tk-free code, as `run` and the run column share theirs.
+
+Steps, each push a 0.6.x:
+
+1. Branch and this plan.
+2. **Step-and-measure and edge fits** (simulation): a step-and-measure
+   mode on a small patch, which stops at each pixel, waits, and
+   averages the SMU there, so its positions involve no timing. Per-row
+   edge fits (an error-function edge, giving its position and 10–90 %
+   width) as code, not a one-off script: they compare the two modes,
+   and the knife-edge scans of step 6 use the same fit. The sync error
+   is the shift between continuous rows and step-and-measure, per
+   direction and speed.
+3. **Bench, no photodiode:** on the test cell's straight right edge
+   (`~/cal/stdtest-redge.json`), step-and-measure, then continuous rows
+   at 1 and 4 mm/s. That records the sync error (the stamp lag and the
+   bunching seen on the stream), settles the open alignment finding
+   (+9.4 µm from `alignment.py` against +23 µm from edge fits, on the
+   sharp-spot map), and gives a first answer on option C. The A/B speed
+   test is repeated after the flat is ground, over the full range if the
+   grind frees the back edge; if the shafts are not ground by then, the
+   repeat moves to step 9.
+4. **The photodiode in the simulator:** a `[photodiode]` table in
+   `machine.toml` (where it sits on the AB plate, its size, its
+   channel; `measured = false` until step 9) and a simulated 3.6 mm
+   square chip read on channel 2, its current computed exactly from the
+   Gaussian spot as `sim/sample.py` does.
+5. **`multilbic commission`** (simulation): for each laser, XY and AB
+   bring the photodiode to where the beam should be; lasers with
+   unmeasured positions (4–6) start with a coarse search. Rows across
+   the chip find its four edges, whose middle is the beam's position.
+   Then a reading on the chip's flat top gives the laser's power and
+   picks its current range (once on autorange, then the lowest range
+   that holds it), and slow rows across one edge along A and one along
+   B give the spot size. It ends with the changes it proposes to
+   `machine.toml` (`xy_centre_mm`, `spot_um`, `measured = true`) and
+   writes them only when the operator says yes (D23). Faults injected
+   as in Phase 4.
+6. **Focus assist** (simulation, D24): the focus is turned by hand at
+   the laser, and by eye a spot can only be judged down to a few tenths
+   of a millimetre. With the photodiode parked at one chip edge under
+   the chosen laser, the stage passes back and forth across the edge
+   (about ±0.5 mm, a pass every second or two) and fits each pass's
+   10–90 % width, so the operator turns the focus and sees at once
+   whether the spot got sharper or blurrier. It shows the latest width,
+   the best so far, a trace of width against time, and the scatter of
+   repeated passes, so a real change can be told from noise. Each pass
+   re-centres on the edge it last found, since refocusing can move the
+   beam; A and B edges can alternate, to show astigmatism. Stopping
+   ends with the laser found again and its spot measured, as step 5
+   does, since a refocused laser has a new position. The simulator gets
+   a focus that can be changed while the loop runs, to test it. The
+   command prints one line per pass.
+7. **The Lasers tab** in the window: find, measure and focus through
+   the worker, a table of the lasers with what was found, the focus
+   assist's live readout, and the same save-on-confirm.
+8. **Mounting** (the user's job): the can on an AB corner, recessed so
+   the chip sits at the sample surface's height, with a shielded twisted
+   pair to channel 2 and slack to follow the stage. Then, with no
+   motion, a dark reading on channel 2.
+9. **Bench, with the photodiode:** read each laser on the chip, focus
+   lasers 1–3 with the focus assist (the box is open for this, and the
+   stage moves only around the edge, away from the operator's hands at
+   the laser), find all six (5 and 6 are near-infrared and invisible: the photodiode is
+   the only way to see them, so the box stays closed), knife-edge the
+   spots, save. Then a map of the test cell with all six lasers, to see
+   that they line up. Docs, changelog, then the PR.
+
+Steps 2 and 4–7 need no machine. Grounding the flat on the A/B shafts is
+a mechanical job for the user, at any time before the speed test repeat.
+
+Reachability of the photodiode, worked from `machine.toml` (XY travel
+100 × 120 mm, AB ±17.5 mm around its centre, the lasers' XY centres
+today): any spot within about 35 mm of the AB centre along A and 60 mm
+along B can be brought under every laser, so any corner of the plate
+works on paper. Laser 1, near the end of X travel, sets the tightest limit along A. Lasers
+4–6 are placeholders, so the margin there is unknown until step 9.
+
 ### Phase 7: later
 
 The viewer app (heatmaps, comparing wavelengths), the TFT35 jog pendant,
@@ -225,4 +307,7 @@ desktop launcher), and the Zensical docs site.
 | D19 | Jog keys | Arrows, plus the command line's `w a s d q e`, and only while the jog panel has focus, so a stray key can't move the stage (2026-10-26). |
 | D20 | Start | A confirm dialog with the lasers, the plan and the estimate, as `run` asks on the command line (2026-10-26). |
 | D21 | Python on the Pi | **Deadsnakes' `python3.14` + `python3.14-tk`** (2026-10-26), with Ubuntu's Tk 8.6. uv's own 3.14 has Tk 9.0 built without Xft, so the window's text was jagged (step 7 of Phase 5); Ubuntu's Tk is built with Xft. `deploy/pi/setup.sh` prefers it and falls back to uv's with a warning. CI keeps a uv-managed aarch64 job: the code is the same. |
+| D22 | Where commissioning lives | A command, `multilbic commission`, and a Commission tab in the window, on the same Tk-free code (2026-10-27). The command runs under `nohup` like `run`. |
+| D23 | Where commissioning results go | Into `machine.toml`, as the proposed changes shown first and written only on the operator's yes; each session's readings also go to a file in `runs/` (2026-10-27). |
+| D24 | Focus assist | Focus stays a hand adjustment at the laser; the software measures the spot on the photodiode's edge pass after pass and shows whether it is getting sharper (2026-10-27, asked by the user). No motorised focus. |
 | D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open, **set aside** (2026-10-20): no enclosure for now. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. Note for (b): the miniSMU tops out near 1.4 kHz and the Pi's reader near 1.2 kHz, so chopping is limited to the low end. Phase 3 does the mains removal and a dark baseline per map; drift would be removed in the per-row cleaning in `scan/binning.py`. |

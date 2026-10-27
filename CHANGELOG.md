@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.0 - Phase 6 planned: commissioning
+
+- Phase 6's plan in [plan](docs/plan.md#phase-6-commissioning), agreed
+  2026-10-27: step-and-measure and per-row edge fits first, then a bench
+  session that needs no photodiode (the sync error on the test cell's
+  straight edge, the open alignment finding); then the photodiode in
+  the simulator, `multilbic commission` and a Lasers tab to find each
+  laser, measure its spot and help focus it (passes across the
+  photodiode's edge, showing live whether a turn of the focus made the
+  spot sharper); then mounting and the bench with all six lasers.
+- D22: commissioning is both a command and a window tab. D24: focus
+  stays a hand adjustment, with the photodiode as its gauge. D23: results
+  go into `machine.toml`, shown first and written on the operator's
+  yes.
+- The Hamamatsu S1223-01 photodiode has arrived; not yet mounted.
+
 ## 0.5.15 - The Plan tab fits any number of lasers; the right version
 
 - On the Pi the Plan tab's notes were cut off at the bottom (reported
