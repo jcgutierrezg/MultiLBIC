@@ -38,6 +38,9 @@ Imports point one way only, as in SMUniversal. `scan/` imports nothing
 with I/O, so all the maths behind a map is unit-testable. `gui/` never
 talks to a device directly. It sends requests to `run/` and gets results
 back through a queue (SMUniversal house rule 8, *the UI is a queue*).
+*As built* (Phase 5): the queue is `gui/worker.py`, one thread that owns
+the devices and drives `run/` (`Calibrator`, `Session`); the window
+calls it and drains its events every 50 ms ([gui](gui.md#how-it-is-built)).
 
 ### Package sketch
 
@@ -57,7 +60,7 @@ Flat layout, one namespace, matching SMUniversal:
 | `multilbic/run/` | The scan orchestrator in a worker thread: home → calibrate → per laser → rows; Stop and fault handling; incremental file writing. |
 | `multilbic/store/` | The run file format: writer and reader, shared later by the viewer. |
 | `multilbic/sim/` | Fake Marlin, fake laser board, fake streaming SMU, synthetic sample. |
-| `multilbic/gui/` | Tk window: connection, jog, sample setup, laser select, calibration steps, live heatmap, console, progress and time estimate. |
+| `multilbic/gui/` | Tk window: connection, jog, sample setup, laser select, calibration steps, live heatmap, console, progress and time estimate. *As built:* `gui/worker.py` (no Tk) is the thread that owns the devices; the window calls it and reads its events. Opening the machine, real (under the machine lock) or simulated, is `run/devices.py`, shared with the command line. |
 | `tools/` | Bench probes, run on the Pi over SSH, independent of the app. |
 
 ### What comes from SMUniversal
@@ -98,7 +101,8 @@ experiments). MultiLBIC needs none of them.
 
 **Python 3.14** is SMUniversal's floor and becomes MultiLBIC's.
 The Pi runs Ubuntu 24.04, which ships Python 3.12, so it gets a
-uv-managed 3.14.
+uv-managed 3.14. *As built:* the Pi uses deadsnakes' 3.14 instead, whose
+Tk draws smooth text (D21).
 Phase 0 confirms that it runs there and that Tk works under it.
 
 ## Position sync

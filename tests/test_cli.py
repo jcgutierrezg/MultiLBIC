@@ -6,6 +6,7 @@ import pytest
 
 from multilbic import cli
 from multilbic.clock import ScaledClock
+from multilbic.run.devices import sim_corner
 from multilbic.sim.rig import Faults, SimRig
 from multilbic.sim.sample import SyntheticSample
 
@@ -23,7 +24,7 @@ def saved_calibration(machine, tmp_path, corner=(15.0, 16.0), size=(0.6, 0.2)):
 
 def test_sim_corner_inverts_the_perfect_calibration(machine, tmp_path):
     _, calibration, rig = saved_calibration(machine, tmp_path)
-    corner = cli._sim_corner(calibration, machine, Faults())
+    corner = sim_corner(calibration, machine, Faults())
     assert corner == pytest.approx(rig.corner_carriage_mm)
 
 

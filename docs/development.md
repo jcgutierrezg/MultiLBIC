@@ -46,7 +46,8 @@ CI ([`.github/workflows/tests.yml`](../.github/workflows/tests.yml)) runs
 the tests on:
 
 - Windows and Ubuntu, with system Pythons;
-- **Ubuntu on ARM with a uv-managed Python**, the setup the Pi has.
+- **Ubuntu on ARM with a uv-managed Python**: aarch64 Linux, as the Pi
+  (which runs deadsnakes' 3.14 for its Tk's smooth fonts, D21).
 
 A failure that appears only there is a Pi problem found early.
 
@@ -56,6 +57,14 @@ Every device has a simulator, so the whole device layer runs on Windows:
 
 ```bash
 uv run python -m multilbic.hardware.check --sim --home --move --lasers
+```
+
+The window runs against it as well, with a synthetic 2 × 1 mm sample
+whose top-right corner is at A 15.2, B 16.1 with XY under laser 2
+([gui](gui.md)):
+
+```bash
+uv run multilbic gui --sim
 ```
 
 The command line runs against the simulated machine too
@@ -115,3 +124,34 @@ a typo can't silently fall back to a default.
 
 Where the Pi's own calibrated copy lives is decided at commissioning
 (Phase 6).
+
+## The window's tests
+
+`tests/test_gui.py` drives the real window against the simulator:
+clicks are `invoke()`, keys `event_generate`, waiting is pumping Tk
+until the worker is idle and the window has seen its events. Three
+things learned the hard way:
+
+- **One Tk per test module.** Starting Tcl afresh for every test failed
+  now and then on Windows ("couldn't read file init.tcl"); each test
+  gets a `Toplevel` of one shared root instead.
+- **Close the worker in `finally`.** Its thread is not a daemon, on
+  purpose (a crashed window must not cut a run off mid-command), so a
+  test that fails before closing it leaves pytest hanging.
+- **Keys go to the focused widget.** A test gives a widget the keyboard
+  with `focus_force()` before sending it keys, and skips if the window
+  manager refuses.
+
+The fixture installs SMUniversal's Tk thread guard and fails the test
+if any worker thread read or set a Tk variable. The window's logic that
+needs no Tk (the worker, the run form, the live map, the jog keys, the
+laser colours) is tested without a window, in `test_worker.py`,
+`test_runform.py`, `test_livemap.py`.
+
+Linux needs a display: CI runs the tests under `xvfb`. Over SSH the Pi
+has none, so there the window tests skip; to run them on the Pi's own
+screen from SSH:
+
+```bash
+DISPLAY=:0 XAUTHORITY=$(ls /run/user/1000/.mutter-Xwaylandauth.*) ~/.local/bin/uv run --no-sync pytest tests/test_gui.py
+```

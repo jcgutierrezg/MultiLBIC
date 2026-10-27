@@ -17,13 +17,13 @@ import json
 import platform
 import statistics
 import sys
-from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
 from multilbic.clock import SYSTEM_CLOCK, Clock, ScaledClock
 from multilbic.config import load
 from multilbic.config.machine import MachineConfig
+from multilbic.version import app_version
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OUT = REPO_ROOT / "bench-results"
@@ -88,7 +88,7 @@ class Report:
             "probe": probe,
             "simulated": bool(args.sim),
             "started_utc": self.started.isoformat(timespec="seconds"),
-            "multilbic_version": version("multilbic"),
+            "multilbic_version": app_version(),
             "provenance": provenance(),
             "host": {
                 "node": platform.node(),

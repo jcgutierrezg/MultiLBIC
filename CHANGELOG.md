@@ -3,6 +3,283 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.15 - The Plan tab fits any number of lasers; the right version
+
+- On the Pi the Plan tab's notes were cut off at the bottom (reported
+  by the user, reproduced with all six lasers: 83 px short). The tab is
+  now laid out from the bottom up, so the drawing gives up height and
+  the text never does; the close-ups share the tab's width (six fit);
+  the pitch is said once beside them; lasers without a measured spot
+  share one note. Checked on the Pi with three and six lasers. (The
+  first of these changes went out in a commit titled "wip", by
+  mistake.)
+- **The version shown and recorded was the installed one, not the
+  running one.** `importlib.metadata` gives the version recorded at the
+  last install, and `uv run --no-sync` skips installing: the window on
+  the development PC said 0.5.3 while running 0.5.14, and run files
+  (`run.json`, events, file headers, bench reports) would carry the
+  same stale number after a `git pull` on the Pi. `multilbic.version`
+  now reads `pyproject.toml` beside the package, falling back to the
+  installed record only without a checkout. Run files written by
+  0.5.x on the Pi were right, since `setup.sh` installs each time.
+
+## 0.5.14 - Fits the Pi's fonts
+
+- Checked on the Pi's screen (2026-10-27): the Plan tab and everything
+  else fit 1920 x 1080 with the Pi's fonts, except the corner's
+  coordinates and the run setup's summary line, which ran a few
+  characters past their panel. The corner now takes two short lines;
+  the summary wraps sooner.
+- Start (calibration) says in the footer that the laser is on, instead
+  of leaving "homing" there.
+
+## 0.5.13 - The Plan tab; a fuller time estimate
+
+Asked for after the bench session, on the same branch.
+
+- **The Plan tab**, the run column's first: the run as set up, drawn and
+  timed, following the fields as they are typed. The sweep as the
+  operator sees the stage (rows and their direction, run-up and run-out,
+  where it starts, the spot at true scale); a true-scale close-up per
+  laser of its spot on a few rows and the pixels; each laser's time and
+  the clock time it would be done by; plain-word notes on pitch, pixel,
+  speed and spot (`multilbic/gui/plan_view.py`).
+- **Spot sizes** in `machine.toml`: an optional `spot_um` per laser,
+  the 10-90 % width of an edge through the spot. Lasers 1-3 from the
+  bench of 2026-10-23 (65, 41, 244 um); 4-6 wait for the photodiode.
+- **A fuller estimate** (`estimate_run`, for the window and `multilbic
+  run`): homing, XY travel from the distances between placements, per
+  laser the fixed cost, baseline, warm-up, rows and the map's building
+  time from its samples; everything that depends on the sample is
+  computed from it. The per-row overhead is now 0.13 s (was 0.02), as
+  measured. On the step 9 run: 3 min 43 s estimated, 3 min 41 s taken
+  (it said "3 min, plus homing" before). Each run records its estimate
+  in `run.json`.
+- Run setup: each field's unit is in its label. On the Pi the units
+  were in a dim colour at the panel's edge and easy to miss.
+
+## 0.5.12 - A window test that waited for the wrong plan
+
+- `test_a_bad_field_blocks_start` failed on the ARM CI runner: the run
+  setup re-plans 150 ms after a change, and the test's wait for "no
+  plan" after typing a bad pitch was already met by the earlier "no
+  calibration yet" plan when the runner was slow. It now waits for the
+  calibration's plan first, then for the pitch's message. The window
+  itself was right.
+
+## 0.5.11 - A map from the window; Phase 5 done
+
+Phase 5 step 9, on the machine (2026-10-26 and 27; `docs/bench.md`,
+findings in `docs/hardware.md`):
+
+- The window connected to the real devices and held the machine lock;
+  calibrated (Start, Load, Go to corner, jog, Trace, Save); ran a full
+  map of the cell's right edge with laser 2 at 1 mm/s; and STOP, Esc
+  and closing the window each stopped a run mid-row, keeping every
+  finished row, with the lock released on closing.
+- Row timing matched the command line's to 0.2 ms: the window's
+  redraws delay nothing. The shift measured from the edge (+23 um)
+  agrees with 2026-10-23's; the edge itself sits 0.2 mm further in and
+  is much sharper, after laser 2 was refocused by eye in between.
+- Found: the map's alignment reported +9.4 um on this sharp-spot map,
+  against +23 um from the edge. Left open in the plan.
+- The runbook's homing check used a calibration whose corner is not a
+  feature; noted in `docs/bench.md`.
+- Phase 5 is done.
+
+## 0.5.10 - The window's docs; the bench session planned
+
+Phase 5 step 8.
+
+- `docs/gui.md`: how it runs on the Pi (D21), and a map of the window's
+  modules and what they stand on. `docs/development.md`: running the
+  window in simulation, and how the window tests work (one Tk per
+  module, the worker closed in `finally`, focus before keys, the thread
+  guard, running them on the Pi's display from SSH).
+  `docs/architecture.md`, `docs/run.md`, `README.md`: the window as
+  built.
+- `docs/bench.md`, "Phase 5: a map from the window": step 9's runbook.
+  The real machine from the window on the cell's straight right edge
+  (`stdtest-redge`), compared with the command line's maps of it; the
+  machine lock; jog arrows on the real cell; STOP, Esc and closing the
+  window mid-run.
+
+## 0.5.9 - The emblem's lasers in order
+
+- The emblem's dots ran 1-2-3-6-5-4 round the ring (the user spotted
+  it); they now run 1 to 6 clockwise, each laser opposite the one it
+  shares a servo angle with. A test checks both.
+
+## 0.5.8 - Colour: laser wavelengths and accents
+
+- Each laser is shown in roughly the colour of its wavelength, as the
+  old script showed them (`multilbic/gui/spectrum.py`): blue, green,
+  red, a deeper red, then dark maroons into the infrared, ringed in grey
+  on the dark theme. A dot on its button, which fills with that colour
+  while the laser is on (the text black or white, whichever reads); its
+  box in Run setup, now two rows of three like the revolver; its map
+  tab; the spot in the calibration drawing.
+- SMUniversal's header accents: the accent bar (down the left in dark,
+  under the strip in light), a subtitle, and an emblem of MultiLBIC's
+  own, the laser revolver with a dot per laser.
+- The calibration drawing is 220 px tall (was 300), so the sample column
+  fits 1080 px in the light theme too.
+
+## 0.5.7 - The window passes on the Pi
+
+- Phase 5 step 7 passed (2026-10-26): on deadsnakes' Python 3.14.9 with
+  Ubuntu's Tk 8.6 the Pi's text is smooth, the simulated window works
+  as before, all 239 tests pass over SSH and the 15 window tests on the
+  Pi's display.
+
+## 0.5.6 - Smooth text on the Pi
+
+Phase 5 step 7, on the Pi (2026-10-26): the simulated window fitted
+the Pi's screen, every step of the checklist worked (`docs/bench.md`,
+"Phase 5: the window on the Pi"), and the window tests passed on its
+desktop. But the text was jagged.
+
+- Why: uv's Python 3.14 for aarch64 has a Tk 9.0 built without Xft
+  (`::tk::pkgconfig get fontsystem` is `x11`), so Tk can only draw the
+  old X bitmap fonts. Ubuntu's own Tk 8.6 is built with Xft.
+- D21: the Pi uses the deadsnakes PPA's `python3.14` with
+  `python3.14-tk` (Ubuntu's Tk). `deploy/pi/setup.sh` prefers
+  `/usr/bin/python3.14` when it has tkinter, makes `.venv` again if it
+  came from another Python, falls back to uv's with a warning and the
+  commands to fix it, and reports whether the fonts will be smooth.
+- `deploy/pi/README.md` installs that Python; the docs that said the Pi
+  runs a uv-managed 3.14 say why it no longer does.
+
+## 0.5.5 - Live and finished maps in the window
+
+Phase 5 step 6 (`docs/gui.md`).
+
+- The run column: what the run is doing, a progress bar, time so far
+  and left (the estimate until three rows are done, then their pace),
+  and a tab per laser. The live map bins each row as it finishes,
+  baseline subtracted and mains removed but not corrected for the
+  serpentine shift (D18); the finished map, built from the file as the
+  PNG is, replaces it when the laser ends, with the shift it found.
+  Open run file... draws an earlier run's map; Open folder.
+- `multilbic/gui/livemap.py` (no Tk): `LiveMap` bins straight into a
+  grid of at most 600 pixels a side, so a redraw of a 30 x 30 mm map at
+  10 um costs 74 ms here instead of 243 ms, and holds no 9-million-pixel
+  arrays; `RunProgress` for the time left.
+- The live map removes mains on the SMU's timestamps, as the finished
+  map does: on the host's arrival times, which come in ~100 ms bursts,
+  the fit wrecked the map (caught by a test comparing the two maps of
+  one simulated run).
+- `multilbic/store/image.py`: `draw_map`, shared by the PNG and the
+  window. The "corner" label now sits on the map's side of the corner
+  whichever way the view turns it, instead of over the colour bar.
+- The laser a run lights is shown filled in the Lasers panel. Ticked
+  boxes stay visibly ticked while a run locks the form (SMUniversal's
+  theme drew them empty; overridden here).
+
+## 0.5.4 - Calibrating and starting runs from the window
+
+Phase 5 step 5 (`docs/gui.md`).
+
+- Calibration panel: the sample's name, then `calibrate` as three steps
+  (Start, Set corner here; width and height; Trace the outline), with
+  Save, Load and Go to corner. A drawing shows AB's safe range, then
+  zooms to the sample as a run places it, with the corner, the spot as
+  it moves (red while a laser is on) and a scale bar, turned as the
+  operator sees the stage.
+- Run setup: `multilbic run`'s options with its defaults, checked as you
+  type with the checks `run` makes before anything moves; the problem
+  shows in red and Start stays off. Warnings above 5 mm/s (D9) and for
+  autoranging (D15). Start run shows the plan and asks (D20), then the
+  window runs it; everything but STOP is off until it ends.
+- `multilbic/gui/runform.py` (no Tk): the typed fields to a request,
+  plans, estimate and summary, or the field that is wrong.
+- The worker's calibration events carry the calibration; save takes
+  the sample name; it logs the corner, the size and the end of a trace.
+- `CURRENT_RANGES` and the default run folders moved from the command
+  line to `multilbic.run.session`, for the window to share.
+
+## 0.5.3 - The window: machine column
+
+Phase 5 step 4. `multilbic gui [--sim]` (`docs/gui.md`).
+
+- The window: header with STOP (and Esc anywhere), Light/Dark, Console;
+  the machine column (connection lamps and firmware, Home, Centre AB,
+  Motors off, position, the jog pad, go to, the six lasers and Off, the
+  live photocurrent); a footer with the last thing that happened. The
+  sample and run columns are placeholders until steps 5 and 6.
+- Jog arrows move the spot on the sample the way they point as seen at
+  the machine, worked out from `[display]` and `[geometry]`: on this
+  machine ← is +A or +X, ↓ is +B or +Y. Keys only while the pad has the
+  keyboard (D19). In the window `w a s d` follow the arrows, unlike the
+  command line's key mode, where `d` is X+.
+- The worker refuses moves until the stage is homed, and again after
+  Motors off; it logs laser changes.
+- Closing during a run asks, then stops it and waits until everything
+  is safe.
+- SMUniversal's theme with a MultiLBIC accent (teal), its console
+  window, and its Tk thread guard in the window tests: no worker thread
+  touched a Tk variable.
+- Window tests against the simulator (CI runs them under xvfb, as it
+  already did for Tk). They share one Tk: starting Tcl afresh for every
+  test failed now and then on Windows.
+
+## 0.5.2 - The machine behind the window
+
+Phase 5 step 3, no Tk yet.
+
+- `multilbic/gui/worker.py`: `MachineWorker`, one thread that owns the
+  devices. The window calls it (connect, home, start calibration, jog,
+  move, centre, laser, here, size, trace, save, load, start a run,
+  Stop) and reads its events (state, log, position, photocurrent,
+  laser, calibration and outline, each row, each map, run end). One
+  action at a time: anything sent while the machine is busy is
+  refused, as key mode drops keys. Stop acts at once: a run stops as
+  Ctrl+C stops it, a calibration move halts with the laser left on,
+  and Stop while idle turns the laser off. While idle and homed the
+  photocurrent is read twice a second.
+- `multilbic/run/devices.py`: opening the machine, shared by the
+  command line and the GUI. The real machine is opened only under the
+  **machine lock** (the OS's file lock, SMUniversal's `SingleInstance`,
+  in MultiLBIC's own file), so `calibrate`, `run` and the GUI can't
+  drive the ports at once (D17); the OS drops it when the process ends.
+  `open_sim` builds the simulated one.
+- Tested against the simulator: calibration, refusal while busy, Stop
+  during a trace, a run, Stop mid-run, Stop in the instant before a run
+  starts, an SMU stall mid-run, closing during a run, a failed
+  connection, the unchecked-directions refusal, the lock.
+
+## 0.5.1 - Calibration and runs ready for a window
+
+Phase 5 step 2. The command line works as before.
+
+- `Calibrator` (`multilbic/run/calibrate.py`) does calibration's
+  actions and returns what it found: start, jog, move, centre, laser,
+  read, here, size, trace, save, plus `adopt` (a saved calibration's
+  corner and size) and `outline_ab` (the outline a trace runs, for a
+  preview). `CalibrationPrompt` is now the text layer on top of it.
+- `Calibrator.halt()`, from any thread, stops the move in progress: a
+  trace or a placing move of several steps stops there and raises
+  `RunStopped` instead of carrying on. The laser stays as it was.
+- `approach()` takes a `stop` event and checks it before every move;
+  runs pass theirs, so Stop during XY placement no longer lets the
+  next move of the placement go out.
+- `Session(on_row=..., on_map=...)`: each block of samples (baseline,
+  warm-up, every row) once it is on disk, and each laser's finished
+  map. A hook that raises is reported once and left out; it never ends
+  the run.
+- `RunStopped` lives in `multilbic.run.motion` now (still importable
+  from `multilbic.run.rows`).
+
+## 0.5.0 - Phase 5 planned
+
+- The GUI's plan is agreed and in `docs/plan.md`: a worker thread that
+  owns the devices behind queues, the window's three columns, nine
+  steps, and when the Pi is needed (once with the simulator on its
+  monitor, then the bench). D6 is decided (the GUI is not reached
+  remotely) and D17–D20 are new: the run lives in the window, the live
+  map is uncorrected until each laser ends, jog keys work only while
+  the jog panel has focus, and Start asks to confirm. No code yet.
+
 ## 0.4.13 - Saturation test without a servo turn
 
 - The saturation test is back on laser 2 with a cell twice as bright:

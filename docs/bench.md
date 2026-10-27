@@ -207,6 +207,116 @@ scp -r "multilbic:multilbic-runs/*" runs/
 Findings go into [hardware](hardware.md); `x_along`, `y_along` and
 `ab_backlash_mm` into `machine.toml`.
 
+## Phase 5: the window on the Pi
+
+Step 7 of Phase 5: the **simulated** window on the Pi's own monitor.
+Nothing moves and no laser lights; the machine's devices stay closed.
+It answers what Windows can't: does the window fit the Pi's screen,
+does Tk draw it right, does a Pi 4 keep up with a run and its live
+map. Claude deploys the branch over SSH; you start the window at the
+Pi, from a terminal on its desktop:
+
+```bash
+cd ~/MultiLBIC && uv run --no-sync multilbic gui --sim
+```
+
+The simulated sample (2 × 1 mm) hides its top-right corner at A 15.2,
+B 16.1 with XY under laser 2. Then:
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | Look before touching: three columns, nothing cut off at the right or bottom, text readable, the STOP button whole | the layout on the Pi's screen |
+| 2 | **Start** (Calibration 1). The stage homes, laser 2 is filled, the photocurrent reads | the worker and readings on the Pi |
+| 3 | Click the jog pad, press arrows; then type A 15.2, B 16.1 into Go to, **Go** | keys, moves, the preview's spot |
+| 4 | **Set corner here**, width 2, height 1, **Set size**, **Trace the outline** | the calibration steps; the preview zooms to the sample |
+| 5 | Run setup: warm-up 0, **Start run**, OK. Watch the live map fill and the time left | whether the Pi keeps up: the window stays responsive, rows appear as they finish |
+| 6 | Light/Dark, Console | the theme switch and the console on the Pi's Tk |
+| 7 | Start a second run, then close the window with its X | it asks, stops the run, and closes |
+
+2026-10-26: everything worked and fitted, and the window tests passed on
+the Pi's desktop, but the text was jagged: uv's Python had a Tk without
+Xft. Hence D21 (deadsnakes' Python 3.14, Ubuntu's Tk 8.6): after the
+switch the text was smooth, the window worked as before, and all 15
+window tests passed on the Pi's display. **Step 7 passed.**
+
+If the simulated run is sluggish, try `--speedup 1` (real time, 5 is
+the default): the simulator itself costs CPU, which the real machine
+does not.
+
+## Phase 5: a map from the window
+
+Step 9 of Phase 5, the last: the real machine, driven from the window
+only. **Steps 2 to 6 move the stage and light lasers**: you are at the
+machine and work the window; Claude asks before each step, watches the
+run folders and logs over SSH, and copies the runs back.
+
+The target is the test cell's straight right edge, `~/cal/stdtest-redge.json`
+(2 × 2 mm, used on 2026-10-23). Its command-line maps at 1 mm/s gave a
++20.5 um serpentine shift (+19.6 um from the alignment), so a map from
+the window has numbers to agree with.
+
+Before: the Pi on the branch (`deploy/pi/setup.sh phase-5-gui`, fonts
+smooth); replug the Xiao and the miniSMU if the Pi has rebooted; the
+cell contacted with the leads from the top (the backplate clip gave
+flat maps); the box over it; no `multilbic` process running.
+
+```bash
+cd ~/MultiLBIC && uv run --no-sync multilbic gui
+```
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | **Connect** (no motion). Three green lamps with firmware; if one is red, replug it and Connect again. Claude then tries `multilbic run` over SSH: it must stop with "the machine is in use" | the real devices through the worker; the machine lock (D17) |
+| 2 | **Start** (homes; laser 2 on over the AB centre), **Load...** `stdtest-redge.json`, **Go to corner**. Is the spot on the corner? If not, jog onto it (click the pad: the arrows must move the spot on the cell the way they point) and **Set corner here**. **Trace the outline**, then **Save...** as `~/cal/stdtest-gui.json` | homing repeatability as Phase 4 step 3 did; the jog arrows on the real cell (D19 and `[display]`); the drawing's spot following the real stage |
+| 3 | **A map**: laser 2, pixel 0.01, pitch 0.05, speed **1**, range 25u, baseline 3, warm-up 60 (the default). **Start run**, check the dialog, OK. About 3 min. Watch the warm-up, the time left, the live map filling, then the finished map replacing it | a real run from the window; whether its map, and the shift it reports, agree with the command line's on the same edge (Claude compares the files) |
+| 4 | **STOP mid-row**: step 3 again with warm-up 0; press STOP after a few rows | as Phase 4 step 6, from the button: the file says `stopped` with its finished rows, laser and SMU off, stage still; Home works afterwards |
+| 5 | **Esc mid-row**: the same, with Esc | the key does what the button does |
+| 6 | **Closing mid-run**: step 3 again with warm-up 0; close the window with its X, answer Yes | it asks, stops the run, makes everything safe, then closes; a new window connects at once (the lock is released) |
+
+Pass: steps 1-6 as described, and step 3's map matches the command
+line's (the edge in the same place within the spot size, the shift
+within a few um of +20). Then Phase 5 is done and the branch gets its
+PR. Findings go into [hardware](hardware.md); anything the window got
+wrong into the plan.
+
+Copy the run folders back:
+
+```bash
+scp -r "multilbic:multilbic-runs/*" runs/
+```
+
+**Done 2026-10-26 and 27: steps 1-6 passed** (runs `20261026T173940Z`,
+`20261026T174747Z`, `20261027T120706Z`, `20261027T121004Z`; findings in
+[hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)).
+
+1. Three green lamps; a second process was refused the lock. (Checked
+   by taking the lock directly from SSH rather than with `multilbic
+   run`: had the lock been free, `run --yes` would have moved the stage.)
+2. Homing, loading, the trace and saving worked; the arrows moved the
+   spot on the cell the way they point. **Runbook flaw:** this
+   calibration's corner is beside the cell, not a feature, so "is the
+   spot on the corner?" can't be seen. The operator found the cell's
+   real top-right corner instead, at A 17.6, B 17.4 with XY unchanged:
+   0.1 mm each way from `stdtest1` (2026-10-21). For a homing check, use
+   a calibration whose corner is a feature.
+3. Complete in 3 min 40 s. The window ran it as the command line does:
+   each row took 2.3158 s from sent to finished against 2.3160 s on
+   2026-10-23, same spread, so the window's redraws delayed nothing.
+   Shift from the edge, row against neighbouring row: +23 um (the
+   reference +17 to +20 um). **Not met:** the edge sits 0.2 mm further
+   into the patch than on 2026-10-23, is much sharper, and bows by about
+   0.1 mm. Laser 2 was refocused by eye after the reference run (spot
+   about 0.2 mm then, 41 um after), which sharpens the edge and can move
+   the spot sideways; the corner check found 0.1 mm of it. Not the
+   window's doing, and only the photodiode (Phase 6) can say how much
+   is the laser. Also: the map's own alignment gave +9.4 um against
+   +23 um from the edge (on the reference both said ~20).
+4. STOP during row 6: the file says `stopped` with 5 rows and a map,
+   laser off, stage stopped at once; Home worked after.
+5. Esc during row 7: the same, 6 rows.
+6. Closing during row 7: it asked, stopped the run (6 rows, `stopped`),
+   closed; the lock was free; a new window connected at once.
+
 ## Afterwards
 
 Copy the reports back:

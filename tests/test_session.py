@@ -273,3 +273,61 @@ def test_stop_during_warmup(machine, tmp_path):
         rig.close()
     assert done["o"].status == "stopped"
     assert rig.fake_laser.active == 0
+
+
+def test_hooks_see_every_row_as_written_and_the_map(machine, tmp_path):
+    from multilbic.scan.mapping import BASELINE_ROW, WARMUP_ROW
+
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock, size=(0.6, 0.2))
+    rows, maps = [], []
+    run = Session(ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+                  clock, request(rig, warmup_s=0.5), tmp_path,
+                  simulated=True, provenance={"commit": "test"},
+                  on_row=rows.append,
+                  on_map=lambda result, mapped: maps.append((result, mapped)))
+    try:
+        outcome = run.run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete"
+    plan = run.plans[0]
+    n = len(plan.raster.rows)
+    assert [r.row for r in rows] == [BASELINE_ROW, WARMUP_ROW, *range(n)]
+    assert {r.laser for r in rows} == {2} and {r.rows for r in rows} == {n}
+    # Exactly what went to disk, block by block.
+    data = read_run(outcome.lasers[0].path).scan_data()
+    for block in rows:
+        assert len(block.samples) == int(np.sum(data.row == block.row))
+        assert all(s.row == block.row for s in block.samples)
+    assert len(maps) == 1
+    result, mapped = maps[0]
+    assert result.laser == 2 and result.status == "complete"
+    assert mapped.grid.values.shape[0] == n
+
+
+def test_a_failing_display_never_ends_a_run(machine, tmp_path):
+    clock = ScaledClock(20.0)
+    rig, machine = make(machine, clock)
+    said, calls = [], []
+
+    def broken(block):
+        calls.append(block.row)
+        raise RuntimeError("canvas gone")
+
+    def broken_map(result, mapped):
+        raise RuntimeError("canvas gone")
+
+    run = Session(ScanDevices(rig.marlin, rig.laser, rig.smu), machine,
+                  clock, request(rig), tmp_path, simulated=True,
+                  provenance={"commit": "test"}, say=said.append,
+                  on_row=broken, on_map=broken_map)
+    try:
+        outcome = run.run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete"
+    assert len(calls) == 1  # left out after the first failure
+    assert sum("row display failed" in line for line in said) == 1
+    assert sum("map display failed" in line for line in said) == 1
+    assert outcome.lasers[0].png is not None

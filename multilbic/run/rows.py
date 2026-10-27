@@ -29,7 +29,6 @@ import datetime
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from importlib.metadata import version
 from typing import Any
 
 import numpy as np
@@ -39,11 +38,12 @@ from multilbic.config.machine import MachineConfig
 from multilbic.hardware.laser import LaserBoard
 from multilbic.hardware.marlin import Marlin
 from multilbic.hardware.smu import PhotocurrentSmu, SmuError, StreamSample
-from multilbic.run.motion import AB_TRAVEL_FEED_MM_S, approach
+from multilbic.run.motion import AB_TRAVEL_FEED_MM_S, RunStopped, approach
 from multilbic.scan.mapping import BASELINE_ROW, WARMUP_ROW
 from multilbic.scan.raster import TRAVEL_FEED_MM_S, RasterPlan
 from multilbic.scan.timing import ClockTracker, RowAnchor
 from multilbic.store.runfile import RunWriter, SampleRow
+from multilbic.version import app_version
 
 #: Samples this close outside a row's move are kept with it.
 ROW_MARGIN_S = 0.02
@@ -67,10 +67,6 @@ SATURATION_SHARE = 0.98
 DEFAULT_CURRENT_RANGE_A = 25e-6
 
 
-class RunStopped(Exception):
-    """The operator asked to stop."""
-
-
 class StreamFault(SmuError):
     """The SMU stream stopped delivering what it should."""
 
@@ -80,6 +76,19 @@ class ScanDevices:
     marlin: Marlin
     laser: LaserBoard
     smu: PhotocurrentSmu
+
+
+@dataclass(frozen=True)
+class RowDone:
+    """One block of samples that has just been written to the run file:
+    the baseline (`row` is `BASELINE_ROW`), the warm-up (`WARMUP_ROW`)
+    or a scan row (0 up). What a live map is drawn from."""
+
+    laser: int
+    row: int
+    #: How many scan rows this laser's map has.
+    rows: int
+    samples: tuple[SampleRow, ...]
 
 
 class _Collector:
@@ -153,10 +162,16 @@ def scan_laser(
     current_range_a: float | None = DEFAULT_CURRENT_RANGE_A,
     stop: threading.Event | None = None,
     say: Callable[[str], None] = lambda text: None,
+    on_row: Callable[[RowDone], None] | None = None,
 ) -> dict[str, Any]:
     """Run one laser's map. Returns the trailer written to the file.
     Raises `RunStopped` if `stop` was set, or the fault that ended it;
-    the file is finished either way."""
+    the file is finished either way.
+
+    `on_row` is called on this thread with each block of samples once
+    it is on disk. It should only hand them on (a queue): a slow one
+    delays the next row, and one that raises is reported and then left
+    out, so a display can never end a run."""
     marlin, board, smu = devices.marlin, devices.laser, devices.smu
     request = plan.request
     rows = plan.rows
@@ -164,17 +179,28 @@ def scan_laser(
     status = "incomplete"
     trailer: dict[str, Any] = {}
     collector = _Collector(smu, clock)
+    hook = [on_row]
 
     def check_stop() -> None:
         if stop.is_set():
             raise RunStopped("stopped by the operator")
 
+    def written(row: int, samples: list[SampleRow]) -> None:
+        callback = hook[0]
+        if callback is None:
+            return
+        try:
+            callback(RowDone(laser, row, len(rows), tuple(samples)))
+        except Exception as exc:
+            hook[0] = None
+            say(f"row display failed, left out from now on: "
+                f"{type(exc).__name__}: {exc}")
+
     try:
         first = rows[0]
         # A first, then B: both arrive moving up, so B's backlash is
         # taken up the way every later row step takes it (always +B).
-        approach(marlin, machine, a=first.a_from_mm, b=first.b_mm)
-        check_stop()
+        approach(marlin, machine, a=first.a_from_mm, b=first.b_mm, stop=stop)
 
         board.off()
         smu.prepare(bias_v=bias_v, current_range_a=current_range_a)
@@ -188,12 +214,12 @@ def scan_laser(
         collector.wait_past(t1)
         stage = marlin.position()
         baseline = collector.take(t0, t1)
-        writer.write_samples(
-            [
-                _sample_row(s, BASELINE_ROW, 0, stage["A"], stage["B"])
-                for s, _ in baseline
-            ]
-        )
+        block = [
+            _sample_row(s, BASELINE_ROW, 0, stage["A"], stage["B"])
+            for s, _ in baseline
+        ]
+        writer.write_samples(block)
+        written(BASELINE_ROW, block)
         _check_range(baseline, current_range_a, "the baseline")
 
         check_stop()
@@ -208,12 +234,12 @@ def scan_laser(
                 clock.sleep(min(0.5, warmup_s - (clock.now() - w0)))
             w1 = clock.now()
             collector.wait_past(w1)
-            writer.write_samples(
-                [
-                    _sample_row(s, WARMUP_ROW, 0, stage["A"], stage["B"])
-                    for s, _ in collector.take(w0, w1)
-                ]
-            )
+            block = [
+                _sample_row(s, WARMUP_ROW, 0, stage["A"], stage["B"])
+                for s, _ in collector.take(w0, w1)
+            ]
+            writer.write_samples(block)
+            written(WARMUP_ROW, block)
 
         for row in rows:
             check_stop()
@@ -250,16 +276,14 @@ def scan_laser(
                     f"{expected:.0f} at {plan.stream_hz:g} Hz"
                 )
             direction = motion.direction
-            writer.write_row(
-                anchor,
-                [
-                    _sample_row(
-                        s, row.index, direction,
-                        float(motion.a_at(h)), row.b_mm,
-                    )
-                    for s, h in taken
-                ],
-            )
+            block = [
+                _sample_row(
+                    s, row.index, direction, float(motion.a_at(h)), row.b_mm,
+                )
+                for s, h in taken
+            ]
+            writer.write_row(anchor, block)
+            written(row.index, block)
             say(
                 f"row {row.index + 1}/{len(rows)}: {len(taken)} samples"
             )
@@ -347,7 +371,7 @@ def run_header(
         "started": datetime.datetime.now(datetime.UTC).isoformat(
             timespec="seconds"
         ),
-        "app_version": version("multilbic"),
+        "app_version": app_version(),
         "provenance": provenance,
         "firmware": firmware,
         "laser": laser,

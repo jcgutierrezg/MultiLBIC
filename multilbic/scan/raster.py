@@ -38,8 +38,11 @@ MIN_STREAM_HZ = 400.0
 #: Run-up beyond the acceleration distance.
 RUN_UP_MARGIN_MM = 0.05
 MIN_RUN_UP_MM = 0.1
-#: Host round trips per row (G1 ok, M400 ok, twice), for the estimate.
-ROW_OVERHEAD_S = 0.02
+#: Per row, beyond the moves, for the estimate: the host's round trips,
+#: waiting for the stream's next burst (about every 100 ms) to pass the
+#: row's end, and writing the row. Bench, 2026-10-23 and 26: rows cycled
+#: in 2.62 s where the moves alone model 2.50 s (2 mm rows at 1 mm/s).
+ROW_OVERHEAD_S = 0.13
 #: How fast the stage moves between rows (B steps, one-direction
 #: returns). Nothing is measured then, so vibration doesn't matter; 5
 #: mm/s stays below the 6 mm/s that was noisy on B (D9).

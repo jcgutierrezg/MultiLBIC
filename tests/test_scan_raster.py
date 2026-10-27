@@ -72,6 +72,10 @@ def test_refuses_what_the_machine_cannot_do(machine):
 def test_estimate_scales_with_rows(machine):
     one = plan_raster(ScanRequest(frame(height=0.1), 0.01, 0.1, 2.0), machine)
     ten = plan_raster(ScanRequest(frame(height=1.0), 0.01, 0.1, 2.0), machine)
-    # One row: 10.2 mm at 2 mm/s plus the first-move delay.
-    assert one.estimate_s == pytest.approx(5.1 + 0.04 + 0.1, abs=0.05)
+    # One row: 10.2 mm at 2 mm/s, the first-move delay, and the fixed
+    # cost per row (measured on the bench).
+    from multilbic.scan.raster import ROW_OVERHEAD_S
+
+    assert one.estimate_s == pytest.approx(
+        5.1 + 0.04 + 0.1 + ROW_OVERHEAD_S, abs=0.02)
     assert ten.estimate_s > 10 * one.estimate_s

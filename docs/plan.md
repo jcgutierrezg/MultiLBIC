@@ -11,8 +11,8 @@ by design: what happened in each phase goes in
 
 | | |
 |---|---|
-| status | Phases 0, 2, 3 merged. **Phase 4 done** (0.4.11, branch `phase-4-run`): calibration and runs from the command line, bench session passed 2026-10-21 to 2026-10-23 with real maps from three lasers. |
-| next | Phase 4's PR. Then Phase 5 (GUI), or the channel-2 photodiode (Phase 6: laser positions and spot sizes, chosen part in [hardware](hardware.md)). |
+| status | Phases 0, 2, 3 and 4 merged (Phase 4 as PR #5, 0.4.13). **Phase 5 (GUI) done** (0.5.11, branch `phase-5-gui`): the window calibrates, runs and shows live and finished maps; bench session passed 2026-10-26 and 27 ([bench](bench.md#phase-5-a-map-from-the-window)). |
+| next | Phase 5's PR. Then Phase 6 (the channel-2 photodiode: laser positions and spots), which waits for the part ([hardware](hardware.md)). Open: the alignment's shift on sharp-spot maps ([hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)). |
 
 ## Phases
 
@@ -138,6 +138,49 @@ done 2026-10-23: three lasers on one edge, registered to within about
 **Done when** a full run is driven from the window, and the window
 works against the simulator on Windows.
 
+Agreed 2026-10-26 (D6, D17–D20 below): `multilbic gui [--sim]`, laid
+out for 1920×1080. One worker thread owns the devices; the window sends
+it commands and reads its events through queues (SMUniversal rule 8).
+From SMUniversal: theme, console window, tooltips, widgets, progress
+maths, single-instance and thread guards; not `base_app` or
+`connection_panel`. The window, left to right: machine (connection,
+jog, laser and live photocurrent), sample (calibration in three steps
+with an outline preview, run setup with the plan and estimate updating
+as you type), run (live map per laser, progress, Start/Stop, the
+corrected map at the end, "Open run file…"). Compare with the old
+window once built.
+
+Steps, each push a 0.5.x:
+
+1. Branch and this plan.
+2. Refactor, command line unchanged: a `Calibrator` that does the
+   calibration actions, with the text prompt on top of it; an `on_row`
+   hook in `scan_laser` and `Session` that hands each finished row out.
+3. The worker and controller, no Tk: commands in, events out, states
+   (disconnected, idle, calibrating, running, stopping), tested against
+   the simulator with its injected faults.
+4. The window: connection, jog, laser, position, console, Stop.
+5. Calibration panel with the outline preview; run setup with the plan
+   and estimate.
+6. Live map, progress, the end-of-run map. Window tests in CI (`xvfb` on
+   Ubuntu), a full simulated run driven through the window with the
+   thread guard on.
+7. **On the Pi, no motion, no lasers:** the simulated GUI on the Pi's
+   monitor, started there by the operator. Does it fit, does Tk 9 draw
+   it right, does a Pi 4 keep up with the live map.
+8. Docs (`docs/gui.md`) and the changelog.
+9. **Bench:** a short laser 2 map on the test cell, calibrated and run
+   from the window; Stop mid-row from the button; closing the window
+   mid-run. Then the PR.
+
+Until step 7 nothing needs the Pi.
+
+**State (0.5.11): Phase 5 is done.** Steps 1-6 in simulation on Windows;
+step 7 on the Pi's monitor, which led to D21 (smooth text); step 8 the
+docs; step 9 on the machine, 2026-10-26 and 27: a real map from the
+window, STOP, Esc and closing mid-run all passed. Also added on the way:
+laser colours and SMUniversal-style accents.
+
 ### Phase 6: commissioning
 
 - Install the channel-2 photodiode on an AB corner. Use it to find
@@ -167,7 +210,7 @@ desktop launcher), and the Zensical docs site.
 | D3 | Row order | Serpentine by default, one direction as an option. |
 | D4 | Starting version | 0.1.0, under MAJOR.SESSION.PUSH. |
 | D5 | Channel-2 photodiode | On an AB corner. What it gives is in [architecture](architecture.md#the-channel-2-reference-photodiode). |
-| D6 | How the GUI on the Pi is reached during development | Open; decided in Phase 5. |
+| D6 | How the GUI on the Pi is reached during development | **Not remotely** (2026-10-26): it is built and tested against the simulator on Windows, and on the Pi it runs on the Pi's own monitor, started there by the operator. Over SSH only logs and run files are read; no remote desktop or X forwarding over the hotspot. |
 | D7 | SMUniversal dependency | Pinned git dependency, installing only what the miniSMU needs. |
 | D9 | A/B speed ceiling in `machine.toml` | **6 mm/s**: matches the board's EEPROM; A and B both reached 3–6 mm/s with no missed steps (2026-10-20). A and B share it, being mechanically identical. B was noisier and vibrated more at 6 mm/s, so **scans should use 5 mm/s or less**. The scan speed is chosen per run in Phase 3. |
 | D10 | Laser settle time | **2000 ms**, in `machine.toml` (`[laser_board] settle_ms`), applied by the driver at every `open()` because the firmware forgets a runtime value on power-up. 1000 ms was stable on the worst swing and 500 ms was not; 2000 ms keeps a wide margin and costs only seconds per run. |
@@ -177,4 +220,9 @@ desktop launcher), and the Zensical docs site.
 | D14 | Lasers with placeholder positions | Refused by `run` unless `--allow-unmeasured`. |
 | D15 | SMU range during scans | Fixed, `--current-range`, default 25 uA: autoranging drops 10-15 ms of samples at every switch. A run stops if the range clips. One range per run; lasers 1 and 3 need 650 uA on the test cell. |
 | D16 | Laser warm-up | Each laser stays on with the stage still for `--warmup` (default 60 s) before its first row, recorded in the file: laser 2 drifted 2x after switch-on. |
+| D17 | Where a GUI run lives | In the window's process, on the worker thread (2026-10-26). A crash of the window stops the run as Stop does and keeps the file; a run that must outlive the window is `multilbic run` under `nohup`. The single-instance guard keeps a GUI and a command-line run from opening the same ports. |
+| D18 | The live map | Binned row by row as rows finish, **without** the forward/reverse correction; the corrected map, built from the file as the PNG is, replaces it when each laser ends. To be looked at again after the first real runs (2026-10-26). |
+| D19 | Jog keys | Arrows, plus the command line's `w a s d q e`, and only while the jog panel has focus, so a stray key can't move the stage (2026-10-26). |
+| D20 | Start | A confirm dialog with the lasers, the plan and the estimate, as `run` asks on the command line (2026-10-26). |
+| D21 | Python on the Pi | **Deadsnakes' `python3.14` + `python3.14-tk`** (2026-10-26), with Ubuntu's Tk 8.6. uv's own 3.14 has Tk 9.0 built without Xft, so the window's text was jagged (step 7 of Phase 5); Ubuntu's Tk is built with Xft. `deploy/pi/setup.sh` prefers it and falls back to uv's with a warning. CI keeps a uv-managed aarch64 job: the code is the same. |
 | D8 | How LBIC signal is separated from slow drift and mains (dark noise is mostly 0.2–0.7 Hz drift, the band map features occupy at 2 mm/s; see [hardware](hardware.md#streaming-measured-2026-10-19)) | Open, **set aside** (2026-10-20): no enclosure for now. (a) A stable dark enclosure, plus laser-off baselines per row. (b) Chop the laser from the Xiao at a few hundred Hz and demodulate in software (lock-in), with the reference from channel 2 or the Xiao's timing. (b) is the more robust; (a) is needed anyway. Note for (b): the miniSMU tops out near 1.4 kHz and the Pi's reader near 1.2 kHz, so chopping is limited to the low end. Phase 3 does the mains removal and a dark baseline per map; drift would be removed in the per-row cleaning in `scan/binning.py`. |
