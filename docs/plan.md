@@ -212,8 +212,10 @@ Steps, each push a 0.6.x:
    direction and speed.
 3. **Bench, no photodiode:** on the test cell's straight right edge
    (`~/cal/stdtest-redge.json`), step-and-measure, then continuous rows
-   at 1 and 4 mm/s. That records the sync error (the stamp lag and the
-   bunching seen on the stream), settles the open alignment finding
+   at 1, 4 and 5 mm/s. That records the sync error (the stamp lag and the
+   bunching seen on the stream), checks that 5 mm/s maps hold up (the
+   stream at 1000 Hz, the larger shift) so the default speed can move
+   from 4 to 5 mm/s (it is 4 since 0.5.16), settles the open alignment finding
    (+9.4 µm from `alignment.py` against +23 µm from edge fits, on the
    sharp-spot map), and gives a first answer on option C. The A/B speed
    test is repeated after the flat is ground, over the full range if the

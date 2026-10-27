@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.1 - 5 mm/s in step 3
+
+- Step 3's bench session maps the test cell's edge at 5 mm/s too, to
+  decide whether the default speed can move from 4 to 5 mm/s: the
+  stream then runs at 1000 Hz and the serpentine shift is largest.
+  (Asked for 2026-10-27, while the default moved from 2 to 4 mm/s on
+  the current-ranges branch.)
+
 ## 0.6.0 - Phase 6 planned: commissioning
 
 - Phase 6's plan in [plan](docs/plan.md#phase-6-commissioning), agreed
