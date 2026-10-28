@@ -427,8 +427,9 @@ def test_cancelling_start_starts_nothing(window, tmp_path, monkeypatch):
         "multilbic.gui.sample_panels.messagebox.askokcancel",
         lambda *a, **k: False)
     window.app.setup.out.set(str(tmp_path / "runs"))
-    window.app.setup.start_btn.invoke()
-    window.ready()
+    start = window.app.setup.start_btn
+    window.pump(lambda: "disabled" not in start.state())  # else vacuous
+    window.click(start)
     assert not (tmp_path / "runs").exists()
 
 
@@ -570,8 +571,11 @@ def test_start_offers_the_check_for_guessed_ranges(window, tmp_path,
     monkeypatch.setattr(
         app.calibration_panel, "check_ranges",
         lambda lasers=None: checked_for.append(lasers))
-    app.setup.start_btn.invoke()
-    window.ready()
+    # Start is enabled once the plan is made, which Run setup does a
+    # moment after the calibration changes: on a slow CI runner the
+    # press came first and did nothing (2026-10-28).
+    window.pump(lambda: "disabled" not in app.setup.start_btn.state())
+    window.click(app.setup.start_btn)
     assert checked_for == [[2]]
     assert app.state is State.IDLE  # no run started
 

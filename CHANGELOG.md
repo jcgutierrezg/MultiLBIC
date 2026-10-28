@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.27 - Two tests that raced on CI
+
+Tests only.
+
+- A run's fault test broke Marlin from a thread that re-read the whole
+  data file every 20 ms; on a slow Windows runner that starved the
+  simulated stream, and row 1 failed short of samples before Marlin's
+  silence showed. The fault now lands from the run's own row callback,
+  right after row 0.
+- Two window tests pressed Start run before Run setup had made its
+  plan, when Start is still disabled and the press does nothing (Ubuntu
+  runner). They now wait for Start to be enabled.
+
 ## 0.5.26 - The clips, on record
 
 No code changes.

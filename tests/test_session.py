@@ -150,17 +150,14 @@ def test_a_fault_ends_the_run_safely(machine, tmp_path, fault, kind):
     rig, machine = make(machine, clock, size=(1.0, 0.4))
     run = session(rig, machine, clock, request(rig), tmp_path)
 
-    def inject():
-        # After the first row is on disk.
-        path = run.folder / "laser2_519nm.csv"
-        deadline = time.monotonic() + 60
-        while time.monotonic() < deadline:
-            if path.exists() and "#row:" in path.read_text():
-                break
-            time.sleep(0.02)
-        if fault == "laser":
-            rig.fake_laser.silent = True
-        elif fault == "smu":
+    def inject(done):
+        # Once the first row is written, on the run's own thread, so the
+        # fault lands at the same point however slow the host. (A thread
+        # polling the file raced the stream on a slow CI runner and made
+        # row 1 fail short of samples instead, 2026-10-28.)
+        if done.row != 0:
+            return
+        if fault == "smu":
             rig.fake_smu.stalled = True
         else:
             rig.fake_marlin.silent = True
@@ -170,7 +167,7 @@ def test_a_fault_ends_the_run_safely(machine, tmp_path, fault, kind):
         # before it is lit.
         rig.fake_laser.silent = True
     else:
-        threading.Thread(target=inject, daemon=True).start()
+        run.on_row = inject
     try:
         outcome = run.run()
     finally:
