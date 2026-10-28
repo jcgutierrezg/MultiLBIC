@@ -46,7 +46,8 @@ class RunForm:
     lasers: tuple[int, ...] = (2,)
     pixel_mm: str = "0.01"
     pitch_mm: str = "0.05"
-    speed_mm_s: str = "2"
+    #: 4 mm/s: bench-proven, runs ~40 % shorter than 2 (D27).
+    speed_mm_s: str = "4"
     current_range: str = "25u"
     bias_v: str = "0"
     baseline_s: str = f"{DEFAULT_BASELINE_S:g}"
@@ -54,6 +55,13 @@ class RunForm:
     serpentine: bool = True
     allow_unmeasured: bool = False
     note: str = ""
+    #: A range name per laser, where it differs from `current_range`.
+    laser_ranges: dict[int, str] = field(default_factory=dict)
+    #: A laser that clips starts again one range up (D26).
+    step_up: bool = True
+    #: Where each laser's range came from: "checked" on this sample at
+    #: calibration (D25), "set" by hand, or "guess" (the default).
+    range_sources: dict[int, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -64,6 +72,13 @@ class RunPlan:
     lines: tuple[str, ...]
     warnings: tuple[str, ...] = field(default=())
     notes: tuple[str, ...] = field(default=())
+    #: As in `RunForm`, for the lasers of the run.
+    range_sources: dict[int, str] = field(default_factory=dict)
+
+    def guessed(self) -> list[int]:
+        """Lasers whose range was neither checked nor set by hand."""
+        return [p.laser for p in self.plans
+                if self.range_sources.get(p.laser, "guess") == "guess"]
 
     @property
     def estimate_s(self) -> float:
@@ -127,8 +142,9 @@ def plan_form(
     bias = _number(form.bias_v, "bias")
     baseline = _number(form.baseline_s, "baseline", minimum=0.0)
     warmup = _number(form.warmup_s, "warm-up", minimum=0.0)
-    if form.current_range not in CURRENT_RANGES:
-        raise FormError("range", f"no range {form.current_range!r}")
+    for name in (form.current_range, *form.laser_ranges.values()):
+        if name not in CURRENT_RANGES:
+            raise FormError("range", f"no range {name!r}")
     if not simulated and not machine.geometry.directions_measured:
         raise FormError(
             "machine",
@@ -141,6 +157,10 @@ def plan_form(
         allow_unmeasured=form.allow_unmeasured, note=form.note.strip(),
         current_range_a=CURRENT_RANGES[form.current_range],
         warmup_s=warmup,
+        laser_ranges_a={n: CURRENT_RANGES[name]
+                        for n, name in form.laser_ranges.items()
+                        if n in form.lasers},
+        step_up=form.step_up,
     )
     try:
         plans = plan_run(request, machine)
@@ -159,14 +179,25 @@ def plan_form(
         )
     lines.append(f"about {eta(estimate.total_s)} in all, homing included")
     notes = _notes(plans, request, machine)
+    sources = {n: form.range_sources.get(n, "guess") for n in form.lasers}
+    guessed = [str(n) for n in form.lasers if sources[n] == "guess"]
+    if guessed:
+        which = "lasers " + ", ".join(guessed) if len(guessed) > 1 \
+            else "laser " + guessed[0]
+        notes.append(
+            f"{which}: current range not checked on this sample, so it is "
+            "a guess; " + ("a clipped laser starts again one range up"
+                           if form.step_up else
+                           "with the step-up off, a clip ends the run")
+            + " (Check ranges in Calibration measures it)")
     warnings = []
     if speed > QUIET_SPEED_MM_S:
         warnings.append(
             f"above {QUIET_SPEED_MM_S:g} mm/s the B axis is noisy (D9)")
-    if form.current_range == "auto":
+    if any(request.range_for(n) is None for n in request.lasers):
         warnings.append("autoranging drops samples at every switch (D15)")
     return RunPlan(request, tuple(plans), estimate, tuple(lines),
-                   tuple(warnings), tuple(notes))
+                   tuple(warnings), tuple(notes), sources)
 
 
 def _notes(

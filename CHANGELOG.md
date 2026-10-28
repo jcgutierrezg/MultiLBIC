@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.2 - Current ranges merged in
+
+- main merged into Phase 6: current ranges per sample (PR #7,
+  0.5.16-0.5.27). Phase 6 now has per-laser ranges checked at
+  calibration, the step-up on a clip, 4 mm/s by default, and the laser
+  driver's 3 s relight wait (laser 1 relit sooner comes back at 40 %).
+- On the bench, nA on every laser means the test cell's crocodile clips
+  have lost contact (homing can do it): reseat them
+  ([hardware](docs/hardware.md#current-ranges-on-the-test-cell-2026-10-27)).
+
 ## 0.6.1 - 5 mm/s in step 3
 
 - Step 3's bench session maps the test cell's edge at 5 mm/s too, to
@@ -26,6 +36,194 @@ From Phase 4 on, the middle number is the phase.
   go into `machine.toml`, shown first and written on the operator's
   yes.
 - The Hamamatsu S1223-01 photodiode has arrived; not yet mounted.
+
+## 0.5.27 - Two tests that raced on CI
+
+Tests only.
+
+- A run's fault test broke Marlin from a thread that re-read the whole
+  data file every 20 ms; on a slow Windows runner that starved the
+  simulated stream, and row 1 failed short of samples before Marlin's
+  silence showed. The fault now lands from the run's own row callback,
+  right after row 0.
+- Two window tests pressed Start run before Run setup had made its
+  plan, when Start is still disabled and the press does nothing (Ubuntu
+  runner). They now wait for Start to be enabled.
+
+## 0.5.26 - The clips, on record
+
+No code changes.
+
+- Rechecked on 0.5.25: laser 1 80 uA (650u), laser 2 0.31 uA (1u),
+  laser 3 91.9 uA (650u); the relight wait fixed laser 1's under-read.
+- The two checks that read nA on every laser were the cell's
+  crocodile-clip contact, which homing can make or break (a stress
+  test: five homings, five different levels; no motion, 20 switch-ons
+  all alike). Not handled in software, since the final stage is
+  soldered; docs/hardware.md says what to look for.
+
+## 0.5.25 - A laser stays dark before it relights
+
+- Laser 1 relit within about 1.5 s of going off comes back at 40 % of
+  its power and stays there (bench, 2026-10-27; laser 3 doesn't). That,
+  not warm-up or autorange, is why a check read it at 24 uA where runs
+  read 90 uA. The laser driver now waits until a laser has been dark
+  for `[laser_board] relight_ms` (3000, new and optional in
+  machine.toml), counting the servo's settle, and selecting the laser
+  already on sends nothing (the firmware would switch it off and on).
+- Correction to 0.5.24: the miniSMU's autorange did not stick at the
+  bench; it climbs within two readings. The re-read near a range's top
+  stays as a safety net; its docs and log say so.
+
+## 0.5.24 - A check stuck at a range's top reads again
+
+- The miniSMU's autorange stayed on 25 uA for laser 1 on the test cell:
+  the check read 24 uA where the map read 97 uA. Not warm-up: laser 1
+  brightens only 10 % over the run's minute. A check whose brightest
+  reading sits at 0.8-1.1 of a range's top now reads that laser's grid
+  again with the next range up fixed (and the next while that clips),
+  then goes back to autorange. The result records `autorange_top_a`;
+  older files load without it.
+- The simulator can pin autorange on a range (`autorange_stuck`), to
+  test it.
+
+## 0.5.23 - Ranges on the bench
+
+Ranges step 6, on the test cell (2026-10-27): no code changes.
+
+- Check ranges chose 650u, 25u, 650u for lasers 1-3, as expected; a
+  three-laser run on them completed with no clip; laser 1 set to 25u
+  by hand clipped on row 0, stepped up to 650u and completed.
+- Results in docs/bench.md and docs/hardware.md. Open: laser 1 read 4x
+  brighter after the run's warm-up than in the check, more than the 3x
+  headroom.
+
+## 0.5.22 - The range check logs each line
+
+Ranges step 6, on the bench. The first check on the test cell found
+1-12 nA peaks where a map of it reads 40-130 nA.
+
+- Each laser comes on before the stage travels to its grid, not after,
+  and stays on through all six lines. A no-motion test on the bench
+  (2026-10-27) showed laser 2's light on the cell within 0.25 s of
+  selecting it, then about 25 % brighter over the next 4 s; this gives
+  it the travel time to warm.
+- Each grid line goes to the log: where it ran, how many readings, and
+  the lowest and highest. If a check reads too little again, the log
+  shows which lines and where.
+- Also found: single readings agree with the stream (-37 to -47 nA
+  against -46 nA, laser 2, same spot), so the readings themselves are
+  not the cause.
+
+## 0.5.21 - The ranges line follows every laser ticked
+
+- On the Pi, with lasers 1-3 ticked by a script rather than by clicks,
+  Run setup's Ranges line still showed only laser 2: it was rebuilt
+  only on a click. A laser missing from it would map with the default
+  range without saying so. It is now rebuilt whenever the ticked lasers
+  differ from what it shows. The column with the new rows fits the
+  Pi's window, with about 60 px to spare.
+
+## 0.5.20 - Ranges in the window
+
+Ranges step 5.
+
+- Calibration's step 4, **Check ranges**: for the lasers ticked in Run
+  setup, at its bias; asks first with the time it takes; the result
+  beside the button.
+- Run setup: **Ranges**, a range per ticked laser, two to a line, each
+  saying "checked", "set by hand" or "guess"; "Range if not checked"
+  fills the guesses; **step up if clipped** (on). A check replaces
+  guesses and older checks, never a range set by hand.
+- **Start run** with a guessed range offers the check first (Yes /
+  start anyway / Cancel).
+- The Plan tab's table gives each laser's range and where it came
+  from; a note says when any is a guess, and what a clip will do.
+- The calibration drawing is 150 px tall (was 220), so the column with
+  its new rows still fits the Pi's window.
+- Tests: every dialog in the window tests now fails the test unless
+  the test answers it. The new Start question had popped up for real on
+  the developer's screen and waited (2026-10-27). The test of closing
+  the window mid-run waits for the run to begin before closing; on a
+  busy machine it had closed it a moment before, which stops a run
+  before it makes its folder (correct, but not what the test checks).
+
+## 0.5.19 - Ranges checked at calibration
+
+Ranges step 4 (D25).
+
+- `Calibrator.check_ranges(lasers, bias)`: for each laser, XY places the
+  sample as a run will for it, the laser comes on, and the stage runs a
+  coarse grid over the sample (3 lines along A and 3 along B, at 1/6,
+  1/2 and 5/6, at 2 mm/s) while single readings are taken on autorange
+  at the run's bias. The range is the smallest holding 3x the brightest
+  reading (`multilbic/run/ranges.py`); a reading at the check's own
+  1 mA limit is flagged and gets at least 15 mA. It ends with the
+  reference laser back on the corner; `halt()` stops it, keeping
+  nothing half-checked.
+- Saved in the calibration file (`current_ranges`: per laser the range,
+  the brightest reading, the bias, when); older files load without.
+- `calibrate`'s `ranges 1,2,3 [bias]`; the window's worker gets
+  `check_ranges` (its button comes in step 5), and its calibration
+  events carry the ranges.
+- **`run` without `--current-range` uses the ranges checked for the
+  sample**, 25 uA for a laser not checked, and says which; with
+  `--current-range` it uses that as written.
+- `Calibrator` (and the prompt) take the clock, as the run code does.
+- Tested in simulation: 25 uA for the synthetic cell, 650 uA for one a
+  hundred times brighter, the corner reached again, halt, the round
+  trip through the file, the prompt, the worker, and `run` picking the
+  checked range up or being overridden.
+
+## 0.5.18 - A clipped laser starts again one range up
+
+Ranges step 3 (D26).
+
+- A range that clips no longer ends the run. The clip is its own fault
+  (`RangeClipped`); the laser stops as for any fault, its attempt is kept
+  as `laserN_<nm>nm_<range>.csv` with the status `clipped`, and its
+  whole map starts again one range up, with a fresh baseline and no
+  second warm-up. A `laser_step_up` event, the final file's header and
+  `run.json` (each laser's final range and clipped attempts) record it.
+  At 180 mA there is no range left, and the run fails as before.
+- On by default; `run --no-step-up` (and `RunRequest.step_up`) turns it
+  off. The window's box comes in step 5.
+- The live map and the progress start that laser again too, so rows
+  from the two ranges never mix; the run column says the range clipped.
+- Tested on the synthetic cell twice as bright: at 1 uA, laser 2 clips,
+  starts again at 25 uA and completes with every row.
+
+## 0.5.17 - A current range per laser; all five ranges
+
+Ranges step 2.
+
+- A run maps each laser with its own range: `RunRequest.laser_ranges_a`
+  (`range_for(laser)`), and `run --current-range` takes one range for
+  all, one per laser (`1=650u,2=25u,3=650u`) or both (`25u,1=650u`).
+  The command line prints each laser's range. Each laser's file header
+  and `run.json` record the range it used; a range given for a laser
+  not in the run is refused before anything moves.
+- **180 mA**, the miniSMU's top range, is offered (the list stopped at
+  15 mA, though `docs/hardware.md` and the driver have five).
+- **The SMU's current limit follows the range**, at its full scale; it
+  was always 1 mA, which made 15 mA and 180 mA unusable. Autoranging
+  keeps 1 mA. Recorded in each file header as `current_limit_a`. The
+  real SMU has not yet been given a limit as low as 1 uA or 25 uA:
+  checked at the bench step.
+- The window's run form carries ranges per laser already; its controls
+  come in step 5.
+
+## 0.5.16 - Current ranges per sample planned; 4 mm/s by default
+
+- The plan for current ranges per laser and per sample, agreed
+  2026-10-27 (`docs/plan.md`, "Current ranges per sample"): ranges
+  checked at calibration on a coarse grid and saved with it, a range per
+  laser in Run setup, Start offering the check, a clipped laser starting
+  again one range up, all five of the miniSMU's ranges with the current
+  limit following the range. D15 revised; D25-D27.
+- **The default scan speed is 4 mm/s** (was 2), in the window and
+  `multilbic run` (D27): the bench maps at 4 mm/s were good, and runs
+  are about 40 % shorter. 5 mm/s is checked in Phase 6 step 3.
 
 ## 0.5.15 - The Plan tab fits any number of lasers; the right version
 

@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 
 from multilbic.gui import look
 from multilbic.gui.runform import RunPlan, eta
+from multilbic.run.session import range_name
 
 if TYPE_CHECKING:
     from multilbic.gui.app import App
@@ -271,43 +272,47 @@ class PlanView:
         plan = self.plan
         if plan is None:
             return
-        heads = ("", "Rows", "Each row", "Warm-up", "Time", "Done by")
+        heads = ("", "Rows", "Each row", "Warm-up", "Range", "Time",
+                 "Done by")
         for col, text in enumerate(heads):
             ttk.Label(self.table, text=text, style="Hint.TLabel").grid(
                 row=0, column=col, sticky="w", padx=(0, 18))
         now = datetime.datetime.now()
         elapsed = plan.estimate.homing_s
-        self._row(1, "Homing", "", "", "",
+        self._row(1, "Homing", "", "", "", "",
                   eta(plan.estimate.homing_s), now, elapsed)
         for i, (p, e) in enumerate(zip(plan.plans, plan.estimate.lasers,
                                        strict=True)):
             elapsed += e.total_s
             each = p.raster.estimate_s / max(1, len(p.raster.rows))
+            source = plan.range_sources.get(p.laser, "guess")
             self._row(2 + i, f"Laser {p.laser} ({p.wavelength_nm} nm)",
                       str(len(p.raster.rows)), f"{each:.1f} s",
                       eta(e.warmup_s) if e.warmup_s else "-",
+                      f"{range_name(plan.request.range_for(p.laser))} "
+                      f"({source})",
                       eta(e.total_s), now, elapsed,
                       colour=self.app.laser_colour(p.laser))
         r = 2 + len(plan.plans)
         ttk.Label(self.table, text="Whole run", style="Bold.TLabel").grid(
             row=r, column=0, sticky="w", pady=(4, 0))
         ttk.Label(self.table, text=eta(plan.estimate_s),
-                  style="Bold.TLabel").grid(row=r, column=4, sticky="w",
+                  style="Bold.TLabel").grid(row=r, column=5, sticky="w",
                                             pady=(4, 0))
         done = now + datetime.timedelta(seconds=plan.estimate_s)
         ttk.Label(self.table, text=f"{done:%H:%M}", style="Bold.TLabel") \
-            .grid(row=r, column=5, sticky="w", pady=(4, 0))
+            .grid(row=r, column=6, sticky="w", pady=(4, 0))
 
     def _row(self, r: int, name: str, rows: str, each: str, warmup: str,
-             time: str, now: datetime.datetime, elapsed: float,
-             colour: str | None = None) -> None:
+             current_range: str, time: str, now: datetime.datetime,
+             elapsed: float, colour: str | None = None) -> None:
         label = ttk.Label(self.table, text=f" {name}" if colour else name)
         if colour:
             label.configure(image=look.swatch(self.table, colour, 10),
                             compound="left")
         label.grid(row=r, column=0, sticky="w", padx=(0, 18))
         done = now + datetime.timedelta(seconds=elapsed)
-        for col, text in enumerate((rows, each, warmup, time,
+        for col, text in enumerate((rows, each, warmup, current_range, time,
                                     f"{done:%H:%M}"), start=1):
             ttk.Label(self.table, text=text).grid(
                 row=r, column=col, sticky="w", padx=(0, 18))

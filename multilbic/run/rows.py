@@ -65,10 +65,50 @@ SATURATION_SHARE = 0.98
 #: The default range for scans: autoranging drops samples at every
 #: range switch (bench, 2026-10-21). 25 uA had 2.1 nA RMS on the bench.
 DEFAULT_CURRENT_RANGE_A = 25e-6
+#: The SMU's current limit (compliance) when autoranging: what it always
+#: was. With a fixed range the limit is the range's full scale
+#: (`current_limit_for`), so a run never lets through more current than
+#: it can measure, and the 15 mA and 180 mA ranges are usable.
+AUTORANGE_CURRENT_LIMIT_A = 1e-3
+
+
+def current_limit_for(current_range_a: float | None) -> float:
+    """The current limit to set with a measurement range."""
+    if current_range_a is None:
+        return AUTORANGE_CURRENT_LIMIT_A
+    return abs(current_range_a)
 
 
 class StreamFault(SmuError):
     """The SMU stream stopped delivering what it should."""
+
+
+class RangeClipped(StreamFault):
+    """A fixed range reached its end: the data are wrong, not just
+    noisy. A run can start the laser again one range up (D26)."""
+
+    def __init__(self, where: str, peak_a: float, range_a: float):
+        super().__init__(
+            f"{where}: {peak_a * 1e6:.3g} uA reaches the end of the "
+            f"{range_a * 1e6:g} uA range: use a larger range"
+        )
+        self.peak_a = peak_a
+        self.range_a = range_a
+
+
+#: The miniSMU's fixed ranges, smallest first: a clipped laser steps up
+#: through them (D26).
+FIXED_RANGES_A = (1e-6, 25e-6, 650e-6, 15e-3, 180e-3)
+
+
+def next_range(range_a: float | None) -> float | None:
+    """The next range up, or None from the top one or from autorange."""
+    if range_a is None:
+        return None
+    for candidate in FIXED_RANGES_A:
+        if candidate > range_a * (1 + 1e-9):
+            return candidate
+    return None
 
 
 @dataclass
@@ -203,7 +243,8 @@ def scan_laser(
         approach(marlin, machine, a=first.a_from_mm, b=first.b_mm, stop=stop)
 
         board.off()
-        smu.prepare(bias_v=bias_v, current_range_a=current_range_a)
+        smu.prepare(bias_v=bias_v, current_range_a=current_range_a,
+                    current_limit_a=current_limit_for(current_range_a))
         smu.output_on()
         smu.stream.start(channels=(1,), rate_hz=plan.stream_hz)
 
@@ -291,6 +332,9 @@ def scan_laser(
     except RunStopped:
         status = "stopped"
         raise
+    except RangeClipped as exc:
+        status = f"clipped: {exc}"
+        raise
     except BaseException as exc:
         status = f"failed: {type(exc).__name__}: {exc}"
         raise
@@ -313,11 +357,7 @@ def _check_range(
         return
     peak = max(abs(s.current_a) for s, _ in taken)
     if peak >= SATURATION_SHARE * current_range_a:
-        raise StreamFault(
-            f"{where}: {peak * 1e6:.3g} uA reaches the end of the "
-            f"{current_range_a * 1e6:g} uA range: use a larger "
-            "--current-range"
-        )
+        raise RangeClipped(where, peak, current_range_a)
 
 
 def _shut_down(
@@ -389,6 +429,7 @@ def run_header(
         "mains_hz": machine.mains_hz,
         "warmup_s": warmup_s,
         "current_range_a": current_range_a,
+        "current_limit_a": current_limit_for(current_range_a),
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
         "estimate_s": round(plan.estimate_s, 1),
     }

@@ -92,6 +92,10 @@ class FakeMiniSMU:
         self.osr = {1: 0, 2: 0}
         self.autorange = {1: True, 2: True}
         self.current_range: dict[int, int | None] = {1: None, 2: None}
+        #: A fault: on autorange, stay on this range (an index) and read
+        #: no further than its end. Not seen on the real one (bench,
+        #: 2026-10-27); it tests the check's re-read.
+        self.autorange_stuck: int | None = None
         self.rate_hz = {1: 1000.0, 2: 1000.0}
         self._next_due: dict[int, float] = {}
         self._buffer = bytearray()
@@ -129,7 +133,9 @@ class FakeMiniSMU:
         noise = self._random.gauss(0.0, self.noise_a) if self.noise_a else 0.0
         amps = self.signal(channel, t) + noise + self.interference(t)
         index = self.current_range[channel]
-        if not self.autorange[channel] and index is not None:
+        if self.autorange[channel]:
+            index = self.autorange_stuck
+        if index is not None:
             # A fixed range reads no further than its end.
             limit = CURRENT_RANGES_A[index]
             amps = max(-limit, min(limit, amps))
