@@ -50,8 +50,9 @@ waits for everything to be safe before it goes.
 Nothing moves until **Home**. **Motors off** releases the steppers, so
 the stage can be pushed by hand; home again afterwards.
 
-The pad's arrows move **the spot on the sample the way they point**, as
-you see it at the machine: on this machine ← is +A (or +X), ↓ is +B (or
+The pad's arrows move **the stage the way they point** (since 0.6.6;
+before, they moved the spot over the sample, the opposite way), as
+you see it at the machine: on this machine → is +A (or +X), ↑ is +B (or
 +Y). Each button says which axis it moves. This comes from `[display]`
 and `[geometry]` in `machine.toml` (`multilbic/gui/jogkeys.py`).
 

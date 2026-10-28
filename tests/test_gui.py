@@ -26,22 +26,24 @@ CORNER = (15.0, 16.0)
 # ---- which way the arrows jog: no window needed ----
 
 
-def test_arrows_move_the_spot_as_the_operator_sees_it(machine):
-    # Bench, 2026-10-23: +A moves the spot left, +B down; X goes with A.
-    assert jog_for("left", "ab", machine) == ("a", 1)
-    assert jog_for("right", "ab", machine) == ("a", -1)
-    assert jog_for("down", "ab", machine) == ("b", 1)
-    assert jog_for("up", "xy", machine) == ("y", -1)
-    assert jog_for("left", "xy", machine) == ("x", 1)
-    assert arrow_label("left", "ab", machine) == "+A"
+def test_arrows_move_the_stage_as_the_operator_sees_it(machine):
+    # Bench, 2026-10-23: +A moves the spot left, so the stage right; +B
+    # the spot down, the stage up. X goes with A. The builder, 2026-10-28:
+    # the right arrow should move the stage right.
+    assert jog_for("right", "ab", machine) == ("a", 1)
+    assert jog_for("left", "ab", machine) == ("a", -1)
+    assert jog_for("up", "ab", machine) == ("b", 1)
+    assert jog_for("down", "xy", machine) == ("y", -1)
+    assert jog_for("right", "xy", machine) == ("x", 1)
+    assert arrow_label("right", "ab", machine) == "+A"
 
 
 def test_arrows_follow_swapped_axes(machine):
     swapped = replace(machine, geometry=replace(
         machine.geometry, x_along="-B", y_along="+A"))
-    # Left is +A, which Y moves along; down is +B, which -X moves along.
-    assert jog_for("left", "xy", swapped) == ("y", 1)
-    assert jog_for("down", "xy", swapped) == ("x", -1)
+    # Right is +A, which Y moves along; up is +B, which -X moves along.
+    assert jog_for("right", "xy", swapped) == ("y", 1)
+    assert jog_for("up", "xy", swapped) == ("x", -1)
 
 
 # ---- the window ----
@@ -172,16 +174,16 @@ def test_connects_and_shows_the_devices(window):
     assert "disabled" not in app.stop_btn.state()
 
 
-def test_jogging_waits_for_home_then_moves_the_spot(window):
+def test_jogging_waits_for_home_then_moves_the_stage(window):
     app = window.app
     stage = app.stage
-    left = stage.arrows["left"]
-    assert "disabled" in left.state()
+    right = stage.arrows["right"]
+    assert "disabled" in right.state()
     assert stage.homed_label.cget("text") == "not homed"
     window.click(stage.home_btn)
     assert app.homed and stage.homed_label.cget("text") == ""
     x0 = float(stage.position["X"].cget("text"))
-    window.click(left)  # XY mode, 0.1 mm: +X
+    window.click(right)  # XY mode, 0.1 mm: +X, the stage to the right
     assert float(stage.position["X"].cget("text")) - x0 == pytest.approx(0.1)
 
 
@@ -199,16 +201,16 @@ def test_keys_jog_only_while_the_pad_has_them(window):
     assert stage.targets["X"].get() == "a"
     focus(window, stage.pad)
     assert stage.keys_label.cget("text") == "keys on"
-    stage.pad.event_generate("<KeyPress-Left>")
+    stage.pad.event_generate("<KeyPress-Right>")
     window.pump(lambda: float(stage.position["X"].cget("text")) != x0)
     window.ready()
     assert float(stage.position["X"].cget("text")) - x0 == pytest.approx(0.1)
-    # q to AB, e to the next step (1 mm), then down: +B by 1 mm.
+    # q to AB, e to the next step (1 mm), then up: +B by 1 mm.
     b0 = float(stage.position["B"].cget("text"))
     for key in ("q", "e"):
         stage.pad.event_generate(f"<KeyPress-{key}>")
     assert stage.pair.get() == "ab" and stage.step.get() == 1.0
-    stage.pad.event_generate("<KeyPress-Down>")
+    stage.pad.event_generate("<KeyPress-Up>")
     window.pump(lambda: float(stage.position["B"].cget("text")) != b0)
     window.ready()
     assert float(stage.position["B"].cget("text")) - b0 == pytest.approx(1.0)

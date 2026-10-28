@@ -76,13 +76,15 @@ AB centre and lights it, and gives you a prompt:
 
 It starts in XY at 0.1 mm. Keys pressed while the stage is moving are
 dropped, so holding a key jogs step by step rather than queueing moves.
-For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). Which
-way `w` moves the spot on the sample depends on the axis directions,
-which bench step 1 finds.
+For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). On
+this machine `d` (X up) moves the stage to the right as you stand at it,
+as the window's right arrow does; `w` (Y up) moves it away from you, up
+in the reference photo's view.
 
 **The corner** is the one the sample extends from towards +A and +B:
 on this machine, the sample's **top-right corner** as you look at the
-stage, since +A moves the sample up and +B moves it right
+stage: +A moves the stage right, so the spot runs left over the sample,
+and +B moves the stage up, so the spot runs down
 ([hardware](hardware.md#mechanics)).
 Every jog ends moving up, like every move a run makes. Jog XY to get
 close, fine-tune with XY or AB, `here`, `size`, `trace`; if the outline

@@ -3,6 +3,21 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.6 - The jog arrows move the stage
+
+- The window's jog arrows (and `w a s d`) now move **the stage** the way
+  they point, as the operator stands at the machine; they moved the spot
+  over the sample, which goes the opposite way and felt backwards (the
+  builder, 2026-10-28; D19 revised). The right arrow is now +A / +X, as
+  the command line's `d` always was.
+- The hardware notes say which way the stage itself moves (+A right, +B
+  up, as the operator stands) and that earlier notes on "the sample"
+  moving meant the spot.
+- The photodiode's reach: it is on the side that comes to the beam as A
+  rises. The CAD puts laser 1 about 12 mm lower in X than `machine.toml`
+  does, which decides how much X travel is left; to check at the
+  machine.
+
 ## 0.6.5 - The new stage's photodiode mount; the back contact
 
 - The new stage's design, from the builder: the photodiode 35 mm from

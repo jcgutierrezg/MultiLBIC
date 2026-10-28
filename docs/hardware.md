@@ -73,6 +73,12 @@ replaced it, and nothing should still refer to it.
   top-right corner too), and on the test cell the rows run along the
   fingers. `[display]` in `machine.toml` (`u_points = "left"`,
   `v_points = "down"`) draws map PNGs the same way round.
+- **The stage moves the other way from the spot** (the builder,
+  2026-10-28): **+A and +X move the stage to the right**, as the
+  operator stands, and so the spot left over the sample; +B and +Y move
+  the stage up in that view, the spot down. Notes that say how "the
+  sample" or "the mark" moved meant the spot. Since 0.6.6 the window's
+  jog arrows move the stage the way they point.
 - **Z has a driver and no motor.** Marlin would not build XYAB without
   Z. The software never moves Z.
 - **Samples** are solar cells, 100–300 µm thick, typically 10, 20 or
@@ -584,12 +590,17 @@ listing, which change.
     measured thicknesses). It is the one at the sample's height, so
     focus and spot sizes along A (along the rows) are measured in the
     maps' focal plane; the B edge is 0.4 mm above it.
-  - **Reaching it:** if the plate moves towards the photodiode's side
-    as A increases, every laser reaches it with AB centred (XY at about
-    X 40-45 for lasers 1-3 and X 15 for lasers 4-6). If it is the other
-    side, lasers 1-3 would need X beyond its 100 mm travel unless A
-    sits at 28-32 mm, near the back edge where the motor struggles.
-    Which side it is, is to confirm.
+  - **Reaching it:** the photodiode is on the side that comes to the
+    beam as A rises (the builder, 2026-10-28), so XY has to go about
+    35 mm further in X than it does to centre AB under a laser. In the
+    CAD, AB's centre is under laser 1 at about X 67, Y 84, and the
+    photodiode at about X 96 with AB centred: 4 mm short of X's 100 mm
+    end. `machine.toml` puts laser 1's AB centre at X 79.6, Y 71.3,
+    which would ask for about X 109. Those absolute values were never
+    checked (maps use only the differences between lasers, through the
+    calibration), so which is right is open. AB adds margin either way:
+    each mm of A above its centre saves a mm of X, and A can go up to
+    35 (its safe limit).
 - **Absolute EQE** would need a calibrated photodiode (for example a
   Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
   relative spectral response.
