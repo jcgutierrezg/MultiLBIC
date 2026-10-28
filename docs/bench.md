@@ -364,6 +364,28 @@ off (0.5.25 keeps a laser dark 3 s first). Rechecked on 0.5.25:
 The check before it, the first after homing, read nA on every laser:
 the crocodile-clip contact, which homing can disturb.
 
+## Phase 6: the sync check
+
+Phase 6 step 3 ([plan](plan.md#phase-6-commissioning)), on the test
+cell's straight right edge, no photodiode. **It moves the stage and
+lights laser 2**: someone is at the machine, and Claude asks before
+starting. Claude runs it over SSH under `nohup` (`setsid nohup ...
+< /dev/null`), as with `run`.
+
+Before: deploy the branch on the Pi, replug the Xiao and miniSMU if the
+Pi rebooted, check the clips (nA on every laser means the clips), the
+cardboard box over the cell.
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | **Where the edge is now.** `multilbic run ~/cal/stdtest-redge.json --lasers 2 --pixel 0.01 --pitch 0.1 --speed 4 --yes`, then `multilbic edges` on its file | the edge's `u` along the patch, for the window; laser 2's current range |
+| 2 | **The sync check.** `multilbic sync-check ~/cal/stdtest-redge.json --laser 2 --window <u-0.4>,<u+0.4>,0.5,1.5 --speeds 1,4,5 --yes` (about 20 min) | `L` and the A backlash separately; the alignment against the edges at 1, 4 and 5 mm/s; the drift over the session; laser 2's spot |
+| 3 | **Option C**, by reading step 2: is the spread of the per-row offsets (the stamp bunching) small against the pixel sizes maps use? | whether a hardware marker is needed |
+
+The result goes into [hardware](hardware.md); `L` and the backlash
+decide whether `ab_backlash_mm` changes and whether 5 mm/s becomes the
+default (D27).
+
 ## Afterwards
 
 Copy the reports back:

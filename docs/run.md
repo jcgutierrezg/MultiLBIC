@@ -170,3 +170,65 @@ better calibration: `multilbic map <run folder>/laser2_519nm.csv` draws
 it again (`multilbic.scan.mapping.build_map`). PNGs are turned to match
 how the cell looks at the machine (`[display]` in `machine.toml`): the
 calibration corner is marked, at the top right.
+
+## `sync-check`: the sync error on one edge (Phase 6)
+
+```bash
+uv run multilbic sync-check ~/cal/stdtest-redge.json --laser 2 \
+    --window 0,0.8,0.5,1.5 --speeds 1,4,5 --yes
+```
+
+Measures what the rows' timing gets wrong, against positions that
+involve no timing. In one session, homing once and placing XY once
+(homing is only known to repeat to about 0.1 mm, more than what is being
+measured):
+
+1. **step-and-measure** over the patch (`--window u0,u1,v0,v1`, mm in
+   the sample's frame): at each point, `--step` apart along A, the stage
+   stops, waits `--settle` s, and the SMU is averaged for `--dwell` s
+   (rounded up to whole mains periods). Every point is reached moving up
+   along A, as in a forward row;
+2. **continuous rows** over the same patch at each of `--speeds`, at
+   the same B as the step rows, written by the same code as `run`;
+3. **step-and-measure again** (unless `--no-repeat`): the difference is
+   the drift over the session.
+
+The patch should hold one straight edge crossing the rows, like the
+test cell's right edge. Step-and-measure takes about half a second a
+point: 81 points by 10 rows is about 7 minutes a pass. The range is the
+calibration's checked range for the laser, else 25u (`--current-range`).
+`--sim` puts a straight edge in the middle of the patch on the
+simulated machine, with an SMU that stamps 18.6 ms late (`--sim-lag-ms`).
+
+The edge is fitted in every row (an error function: its 50 % point and
+10-90 % width, `multilbic.scan.edges`). Against step-and-measure,
+forward rows sit `L v` away and reverse rows `-(beta + L v)`, so across
+two speeds or more it gives:
+
+- **`L`**, the timing error: positive if samples are stamped after they
+  were measured;
+- **the A backlash `beta`**, which the serpentine alignment can't tell
+  from timing (it sees `beta + 2 L v`);
+- per pass, the shift from the edges against the map's own alignment;
+- the spot's 10-90 % width from step-and-measure.
+
+```text
+~/multilbic-runs/20261029T100000Z_sync_stdtest-redge/
+    sync.json        what was asked, the passes, the result
+    p1_steps.csv     step-and-measure (a run file with `mode: steps`)
+    p2_1mm_s.csv     rows at 1 mm/s, and its .png; then 4 and 5 mm/s
+    p5_steps.csv     step-and-measure again
+```
+
+## `edges`: the edge in every row
+
+```bash
+uv run multilbic edges <run folder>/laser2_519nm.csv
+uv run multilbic edges <sync check folder>
+```
+
+For a run file, the edge's position and 10-90 % width in each row, the
+forward/reverse shift from the edges, and what the map's alignment
+said. For a sync check's folder, its result worked out again from the
+files. `--a-range lo,hi` (machine A, mm) keeps the fits to one edge
+when a row crosses several.

@@ -3,6 +3,39 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.4 - Step-and-measure and the sync check
+
+Phase 6 step 2, in simulation.
+
+- **`multilbic sync-check`**: in one session (one homing, one XY
+  placement), step-and-measure over a patch with one edge, continuous
+  rows over it at several speeds, and step-and-measure again. Every
+  edge is fitted; against step-and-measure, forward and reverse rows at
+  two speeds or more give the timing error `L` and the A backlash
+  separately, which the serpentine alignment can't. Also the drift over
+  the session, and the spot's width. `sync.json` holds the result; each
+  pass is an ordinary run file. ([run](docs/run.md))
+- **Step-and-measure** (`run/steps.py`): each point reached moving up
+  along A, a settle, then the stream averaged over whole mains periods.
+  Its run file has `mode: steps` and no row anchors.
+- **Edge fits** (`scan/edges.py`): an error function with a leaning
+  background, fitted by Levenberg-Marquardt in numpy; the edge in every
+  row, refitted near the map's median edge so a noisy row can't wander.
+  The same fit will serve the photodiode's knife-edge scans.
+- **`multilbic edges`**: the edge in every row of a run file, the
+  forward/reverse shift from the edges and the alignment's; or a sync
+  check's result again from its folder.
+- On the maps made so far, the edges agree with the alignment on broad
+  spots and not on sharp ones (+19.9 against +9.4 um on the refocused
+  laser 2), which settles the open finding as the alignment's
+  ([hardware](docs/hardware.md#edge-fits-on-these-maps-2026-10-28)).
+  Laser 3 fits 145 um wide against the 244 um in `machine.toml`.
+- Simulator: an SMU that stamps packets late (`Faults.smu_stamp_lag_s`),
+  a sample with one straight edge, and `open_sim(sample=)`. On it the
+  check recovers an injected 18.6 ms stamp lag and 20 um backlash to
+  1.5 ms and 3 um.
+- Bench runbook for step 3 in [bench](docs/bench.md#phase-6-the-sync-check).
+
 ## 0.6.3 - Phase 6's plan after current ranges
 
 - Step 5 picks channel 2's range with `run/ranges.py`'s choice, and

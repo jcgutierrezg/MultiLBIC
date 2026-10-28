@@ -22,7 +22,10 @@ its odd harmonics (`mains_a`), and slow drift made of a few sine waves
 between 0.2 and 0.7 Hz (`drift_a`, RMS). Packets can also arrive in
 bursts (`burst_s`): above 500 Hz the real one delivers about every
 100 ms, keeping the average rate. A burst delays arrival, never the
-timestamp.
+timestamp. A stamp lag (`stamp_lag_s`) stamps each packet that long
+after its current was measured, as the bench suggests the real one does
+(stamped when sent, docs/hardware.md); it is what Phase 6's sync check
+measures.
 """
 
 from __future__ import annotations
@@ -59,6 +62,7 @@ class FakeMiniSMU:
         mains_hz: float = 50.0,
         drift_a: float = 0.0,
         burst_s: float = 0.0,
+        stamp_lag_s: float = 0.0,
         seed: int = 0,
     ):
         self._clock = clock
@@ -74,6 +78,7 @@ class FakeMiniSMU:
         self.mains_hz = mains_hz
         self.drift_a = drift_a
         self.burst_s = burst_s
+        self.stamp_lag_s = stamp_lag_s
         self._random = random.Random(seed)
         shape = random.Random(seed + 1)
         self._mains_phase = shape.uniform(0, 2 * math.pi)
@@ -294,7 +299,7 @@ class FakeMiniSMU:
         while self._next_due and not self.stalled:
             channel = min(self._next_due, key=self._next_due.__getitem__)
             due = self._next_due[channel]
-            if self._released(due) > now:
+            if self._released(due + self.stamp_lag_s) > now:
                 return
             if self.garble_next:
                 self.garble_next = False
@@ -303,7 +308,8 @@ class FakeMiniSMU:
             self._next_due[channel] = due + interval
             volts = self.voltage[channel] if self.enabled[channel] else 0.0
             # Whole milliseconds and a fifth field, as the bench showed.
-            stamp = int(round(self.device_ms(due)))
+            # Measured at `due`, stamped when sent.
+            stamp = int(round(self.device_ms(due + self.stamp_lag_s)))
             amps = self._current(channel, due)
             self._buffer.extend(
                 f"{channel},{stamp},{volts:.4e},{amps:.4e},0\n".encode()
@@ -318,7 +324,8 @@ class FakeMiniSMU:
     def _next_due_time(self) -> float | None:
         if not self._next_due:
             return None
-        return self._released(min(self._next_due.values()))
+        return self._released(min(self._next_due.values())
+                              + self.stamp_lag_s)
 
 
 class FakeSerial:

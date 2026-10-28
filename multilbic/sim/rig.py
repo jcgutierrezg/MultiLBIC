@@ -48,6 +48,9 @@ class Faults:
     smu_offset_ms: float = 123_456.0
     smu_rate_error: float = 0.01
     smu_burst_s: float = 0.1
+    #: The SMU stamps a packet this long after measuring it. 0 in the
+    #: Phase 3 case; the bench's 18.6 ms is for the sync check's tests.
+    smu_stamp_lag_s: float = 0.0
     noise_a: float = 20e-9
     mains_a: float = 20e-9
     drift_a: float = 40e-9
@@ -101,6 +104,7 @@ class SimRig:
             mains_hz=self.machine.mains_hz,
             drift_a=f.drift_a,
             burst_s=f.smu_burst_s,
+            stamp_lag_s=f.smu_stamp_lag_s,
         )
         self.marlin = Marlin(
             connect(

@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from smuniversal_lab_suite.core.single_instance import SingleInstance
 
     from multilbic.sim.rig import Faults, SimRig
+    from multilbic.sim.sample import SyntheticSample
 
 #: Where a simulated machine hides its sample on the carriage, for an
 #: operator to find with the photocurrent (`calibrate --sim`, the GUI).
@@ -145,14 +146,17 @@ def open_sim(
     size_mm: tuple[float, float] = SIM_SAMPLE_MM,
     faults: Faults | None = None,
     clock: Clock | None = None,
+    sample: SyntheticSample | None = None,
 ) -> Connection:
     """The simulated machine, with a synthetic sample whose corner is
-    at `corner_carriage_mm` on the carriage."""
+    at `corner_carriage_mm` on the carriage: `sample`, or the default
+    one of `size_mm`."""
     from multilbic.sim.rig import Faults, SimRig
     from multilbic.sim.sample import SyntheticSample
 
     clock = clock or ScaledClock(speed, precise=True)
-    rig = SimRig(machine, clock, SyntheticSample.default(*size_mm),
+    rig = SimRig(machine, clock,
+                 sample or SyntheticSample.default(*size_mm),
                  corner_carriage_mm, faults or Faults())
     rig.open()
     return Connection(ScanDevices(rig.marlin, rig.laser, rig.smu), clock,

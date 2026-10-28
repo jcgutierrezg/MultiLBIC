@@ -118,6 +118,25 @@ class SyntheticSample:
         )
         return cls(w, h, tuple(patches), spot_sigma_mm)
 
+    @classmethod
+    def straight_edge(
+        cls,
+        width_mm: float = 2.0,
+        height_mm: float = 2.0,
+        edge_u_mm: float = 1.0,
+        cell_a: float = 1e-6,
+        spot_sigma_mm: float = 0.016,
+    ) -> SyntheticSample:
+        """A cell that ends in one straight edge along B at
+        `edge_u_mm`, current on the low-u side: the test cell's straight
+        right edge (`stdtest-redge`), where the sync check is made. The
+        spot defaults to laser 2's after refocusing (41 um 10-90 %)."""
+        far = 10 * max(width_mm, height_mm)
+        return cls(width_mm, height_mm, (
+            Patch(-far, edge_u_mm, -far, far, cell_a, peak_nm=650.0,
+                  width_nm=1e6),
+        ), spot_sigma_mm)
+
     def u_edges(self) -> list[float]:
         """Every A position where a patch begins or ends, sorted."""
         return sorted({e for p in self.patches for e in (p.u0, p.u1)})

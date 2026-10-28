@@ -389,6 +389,33 @@ laser 2 at 1 mm/s, from `multilbic gui`.
 - STOP, Esc and closing the window each stopped a row in progress at
   once; the files kept every finished row.
 
+### Edge fits on these maps, 2026-10-28
+
+`multilbic edges` (Phase 6 step 2) on the straight-edge maps above: an
+error function fitted to every row, its 50 % point the edge, the
+forward/reverse shift from each row against its two neighbours (so the
+edge's bow cancels).
+
+| Map | Laser | Speed | 10-90 % width | Shift from edges | Alignment |
+|---|---|---|---|---|---|
+| `20261023T155130Z` | 2 (before refocus) | 1 mm/s | 149 um | +21.4 um | +19.6 um |
+| `20261023T155424Z` | 2 (before refocus) | 4 mm/s | 157 um | +139.1 um | +138.7 um |
+| `20261023T163839Z` | 1 | 1 mm/s | 62 um | +17.3 um | +10.1 um |
+| `20261023T164506Z` | 3 | 1 mm/s | 145 um | +30.9 um | +39.4 um |
+| `20261026T173940Z` | 2 (refocused) | 1 mm/s | 36 um | +19.9 um | +9.4 um |
+
+- **The alignment is right on broad spots and off on sharp ones**:
+  within 2 um where the spot was ~150 um, 7-10 um off on lasers 1 and 2
+  after refocusing. The edges give +17 to +21 um at 1 mm/s for every
+  laser but 3, which fits one timing error for all. So the open finding
+  (+9.4 against +23 um) is the alignment, not the machine; the sync
+  check measures it properly.
+- **Laser 3's width depends on how it is measured**: 145 um from the
+  error-function fit, against the 244 um read from the binned map's 10 %
+  and 90 % points (`spot_um` in `machine.toml`). A spot with wings, not
+  a Gaussian, would do that. The photodiode's knife-edge scans will
+  say.
+
 ## Current ranges on the test cell, 2026-10-27
 
 Ranges step 6 ([bench](bench.md#current-ranges-the-bench)), the same

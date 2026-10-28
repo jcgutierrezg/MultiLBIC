@@ -142,7 +142,10 @@ from the host only once, and lead-screw backlash on reversal.
    corrects it, and writes it to the file header.
 5. **Reference check.** A step-and-measure mode on a small patch
    (about 1×1 mm) gives positions with no timing involved. Continuous
-   scans are validated against it during commissioning.
+   scans are validated against it during commissioning. *As built
+   (0.6.4):* `multilbic sync-check`, step-and-measure and rows at
+   several speeds in one session, which separates the timing error from
+   the A backlash ([run](run.md#sync-check-the-sync-error-on-one-edge-phase-6)).
 
 Raw SMU timestamps are always stored alongside the computed positions,
 so a better calibration can re-map an old run without re-measuring.

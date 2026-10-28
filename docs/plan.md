@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phases 0 to 5 merged (Phase 5 as PR #6, 0.5.15); **current ranges per sample** merged (PR #7, 0.5.27). **Phase 6 (commissioning) planned** (0.6.0, branch `phase-6-commissioning`, 2026-10-27), main merged in (0.6.2): the photodiode has arrived, not yet mounted. |
-| next | Phase 6 step 2: step-and-measure and per-row edge fits, in simulation; then step 3 on the bench (with 5 mm/s), no photodiode needed. Open: the alignment's shift on sharp-spot maps ([hardware](hardware.md#a-map-from-the-window-2026-10-26-and-27)), settled in step 3. |
+| next | Phase 6 step 3 on the bench, no photodiode needed: `multilbic sync-check` on the test cell's straight edge ([bench](bench.md#phase-6-the-sync-check)). Then step 4, the photodiode in the simulator. Open: the alignment's shift on sharp-spot maps, now shown by the edge fits to be the alignment's ([hardware](hardware.md#edge-fits-on-these-maps-2026-10-28)). |
 
 ## Phases
 
@@ -353,6 +353,13 @@ Steps, each push a 0.6.x:
    the only way to see them, so the box stays closed), knife-edge the
    spots, save. Then a map of the test cell with all six lasers, to see
    that they line up. Docs, changelog, then the PR.
+
+**State (0.6.4): step 2 done** in simulation: `multilbic sync-check`
+and `multilbic edges` ([run](run.md#sync-check-the-sync-error-on-one-edge-phase-6)),
+`run/steps.py`, `scan/edges.py`, `scan/sync.py`. On the simulator it
+recovers an injected 18.6 ms stamp lag and 20 µm of backlash. On the
+bench maps so far, the edge fits show the alignment off by 7-10 µm on
+sharp spots.
 
 Steps 2 and 4–7 need no machine. Grounding the flat on the A/B shafts is
 a mechanical job for the user, at any time before the speed test repeat.

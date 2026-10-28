@@ -8,6 +8,11 @@ The command line: calibrate a sample, then run its maps.
 
 `gui` opens the window (Phase 5), which does both.
 
+`sync-check` measures the sync error on one edge in one session
+(Phase 6): step-and-measure, rows at several speeds, step-and-measure
+again. `edges` fits the edge in every row of a run file, or works out a
+sync check's result again from its folder.
+
 `calibrate` is interactive and needs you at the machine. `run` needs no
 terminal once started: on the Pi, run it under `nohup ... --yes &` so a
 dropped SSH connection doesn't end it. Ctrl+C, or `kill -INT <pid>` /
@@ -26,6 +31,7 @@ import signal
 import sys
 import threading
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from multilbic.clock import ScaledClock
 from multilbic.config import load
@@ -56,6 +62,9 @@ from multilbic.run.session import (
     plan_run,
     range_name,
 )
+
+if TYPE_CHECKING:
+    from multilbic.run.sync import SyncCheck
 
 
 def say(text: str) -> None:
@@ -232,7 +241,7 @@ def run(args: argparse.Namespace) -> int:
     return 0 if outcome.status == "complete" else 1
 
 
-def run_until_done(session: Session):
+def run_until_done(session: Session | SyncCheck):
     """Run on a worker thread, so Ctrl+C and SIGTERM can stop it."""
     result = {}
 
@@ -289,7 +298,151 @@ def remap(args: argparse.Namespace) -> int:
     return 0
 
 
-# ---- entry ----
+# ---- sync check (Phase 6) ----
+
+
+def _floats(text: str, what: str, count: int | None = None) -> tuple[float, ...]:
+    try:
+        values = tuple(float(v) for v in text.split(",") if v.strip())
+    except ValueError:
+        raise SystemExit(
+            f"{what} {text!r}: numbers separated by commas") from None
+    if count is not None and len(values) != count:
+        raise SystemExit(f"{what} {text!r}: {count} numbers")
+    return values
+
+
+def sync_check(args: argparse.Namespace) -> int:
+    from multilbic.bench.report import provenance
+    from multilbic.run.sync import (
+        SyncCheck,
+        SyncRequest,
+        plan_sync,
+        report_lines,
+    )
+
+    machine = load(args.machine)
+    calibration = load_calibration(args.calibration)
+    if args.current_range is None:
+        checked = load_ranges(args.calibration)
+        range_a = (checked[args.laser].range_a if args.laser in checked
+                   else CURRENT_RANGES["25u"])
+    elif args.current_range in CURRENT_RANGES:
+        range_a = CURRENT_RANGES[args.current_range]
+    else:
+        raise SystemExit(f"--current-range {args.current_range!r}: one of "
+                         f"{', '.join(CURRENT_RANGES)}")
+    window = _floats(args.window, "--window", 4) if args.window else None
+    request = SyncRequest(
+        calibration, args.laser,
+        window_mm=window,  # type: ignore[arg-type]
+        step_mm=args.step, pitch_mm=args.pitch,
+        speeds_mm_s=_floats(args.speeds, "--speeds"),
+        settle_s=args.settle, dwell_s=args.dwell,
+        repeat_steps=not args.no_repeat, current_range_a=range_a,
+        bias_v=args.bias, baseline_s=args.baseline, warmup_s=args.warmup,
+        pass_warmup_s=args.pass_warmup,
+        allow_unmeasured=args.allow_unmeasured, note=args.note,
+    )
+    try:  # before opening anything: a bad request moves nothing
+        plan_sync(request, machine)
+    except (RunPlanError, ValueError) as exc:
+        raise SystemExit(f"cannot run: {exc}") from None
+    if not args.sim and not machine.geometry.directions_measured:
+        raise SystemExit("cannot run: [geometry] directions not measured")
+
+    if args.sim:
+        from multilbic.sim.rig import Faults
+        from multilbic.sim.sample import SyntheticSample
+
+        u0, u1 = (window[0], window[1]) if window else (
+            0.0, calibration.width_mm)
+        faults = Faults(smu_stamp_lag_s=args.sim_lag_ms / 1000)
+        sample = SyntheticSample.straight_edge(
+            calibration.width_mm, calibration.height_mm, (u0 + u1) / 2)
+        conn = open_sim(
+            machine, speed=args.speedup, faults=faults, sample=sample,
+            corner_carriage_mm=sim_corner(calibration, machine, faults),
+        )
+    else:
+        conn = connect_real(machine)
+    out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
+    try:
+        check = SyncCheck(conn.devices, machine, conn.clock, request, out,
+                          simulated=args.sim, provenance=provenance(),
+                          say=say)
+        plan = check.plan
+        say(f"sample {calibration.sample}, laser {args.laser}: patch "
+            f"{plan.frame.width_mm:g} x {plan.frame.height_mm:g} mm at A "
+            f"{plan.frame.origin_ab_mm[0]:.3f}, B "
+            f"{plan.frame.origin_ab_mm[1]:.3f}; range {range_name(range_a)}")
+        for p in plan.passes:
+            if p.steps is not None:
+                detail = f"{p.steps.points} points"
+            else:
+                assert p.raster is not None
+                detail = f"{len(p.raster.rows)} rows"
+            say(f"  {p.name}: {detail}, about {duration(p.estimate_s)}")
+        say(f"about {duration(check.estimate_s())} in all, homing included")
+        if not args.yes:
+            if not sys.stdin.isatty():
+                raise SystemExit("no terminal to confirm on: pass --yes")
+            if input("start? the stage will home and the laser come on "
+                     "[y/N] ").strip().lower() != "y":
+                say("not started")
+                return 1
+        outcome = run_until_done(check)
+    finally:
+        conn.close()
+    if outcome.result:
+        for line in report_lines(outcome.result):
+            say(line)
+    return 0 if outcome.status == "complete" else 1
+
+
+def edges(args: argparse.Namespace) -> int:
+    """Per-row edges in a run file, or a sync check's result again."""
+    from multilbic.run.sync import analyse, report_lines
+    from multilbic.scan.sync import is_steps, scan_edges, step_edges
+    from multilbic.store.runfile import read_run
+
+    a_range = None
+    if args.a_range:
+        lo, hi = _floats(args.a_range, "--a-range", 2)
+        a_range = (lo, hi)
+    path = Path(args.path)
+    if path.is_dir():
+        for line in report_lines(analyse(path, a_range)):
+            say(line)
+        return 0
+    run = read_run(path)
+    shift_line = ""
+    if is_steps(run):
+        found, failed = step_edges(run, a_range)
+    else:
+        scanned = scan_edges(run, a_range)
+        found, failed = scanned.edges, scanned.failed
+        shift, align = scanned.shift, scanned.alignment_shift_mm
+        shift_line = "forward/reverse shift from edges " + (
+            f"{shift.shift_mm * 1000:.1f} um (spread "
+            f"{shift.spread_mm * 1000:.1f}, {shift.count} rows)"
+            if shift else "not found") + ", alignment " + (
+            f"{align * 1000:.1f} um" if align is not None else "not found")
+    say("row  dir   B mm      edge A mm   +-um   10-90 um")
+    for e in found:
+        f = e.fit
+        say(f"{e.row:3d}  {e.direction:+d}  {e.b_mm:9.4f}  "
+            f"{f.position_mm:10.4f}  {f.position_err_mm * 1000:5.1f}  "
+            f"{f.width_mm * 1000:8.1f}")
+    for row, why in sorted(failed.items()):
+        say(f"{row:3d}  no edge: {why}")
+    if found:
+        widths = sorted(e.fit.width_mm for e in found)
+        say(f"median 10-90 % width {widths[len(widths) // 2] * 1000:.1f} um "
+            f"over {len(found)} rows")
+    if shift_line:
+        say(shift_line)
+    return 0
 
 
 # ---- gui ----
@@ -363,6 +516,57 @@ def main(argv: list[str] | None = None) -> int:
     draw.add_argument("runfile", help="a laser's .csv from a run folder")
     draw.add_argument("--out", default="", help="PNG (default: next to it)")
     draw.set_defaults(func=remap)
+
+    sync = commands.add_parser(
+        "sync-check",
+        help="step-and-measure against rows at several speeds, on one edge")
+    sync.add_argument("calibration", help="file from 'calibrate'")
+    sync.add_argument("--laser", type=int, required=True)
+    sync.add_argument("--window", default="",
+                      help="the patch in the sample's frame, u0,u1,v0,v1 mm "
+                      "(default: the whole sample); keep it small, steps "
+                      "take about half a second a point")
+    sync.add_argument("--step", type=float, default=0.01,
+                      help="mm between points, and the rows' pixel")
+    sync.add_argument("--pitch", type=float, default=0.1,
+                      help="mm between rows")
+    sync.add_argument("--speeds", default="1,4,5", help="mm/s, e.g. 1,4,5")
+    sync.add_argument("--settle", type=float, default=0.2,
+                      help="s to wait at each point before measuring")
+    sync.add_argument("--dwell", type=float, default=0.2,
+                      help="s to measure at each point (rounded up to "
+                      "whole mains periods)")
+    sync.add_argument("--no-repeat", action="store_true",
+                      help="skip step-and-measure at the end (drift)")
+    sync.add_argument("--current-range", default=None,
+                      help="fixed SMU range (default: the calibration's "
+                      "checked range for the laser, else 25u)")
+    sync.add_argument("--bias", type=float, default=0.0, help="V")
+    sync.add_argument("--baseline", type=float, default=3.0)
+    sync.add_argument("--warmup", type=float, default=60.0,
+                      help="s with the laser on before the first pass")
+    sync.add_argument("--pass-warmup", type=float, default=10.0,
+                      help="s before each later pass")
+    sync.add_argument("--note", default="")
+    sync.add_argument("--allow-unmeasured", action="store_true")
+    sync.add_argument("--out", default="", help="folder for runs")
+    sync.add_argument("--yes", action="store_true", help="don't ask to start")
+    sync.add_argument("--sim", action="store_true",
+                      help="the simulated machine, with a straight edge in "
+                      "the middle of the patch")
+    sync.add_argument("--sim-lag-ms", type=float, default=18.6,
+                      help="stamp lag the simulated SMU has (--sim)")
+    sync.add_argument("--speedup", type=float, default=SIM_SPEED,
+                      help="simulated seconds per real second (--sim)")
+    sync.set_defaults(func=sync_check)
+
+    fit = commands.add_parser(
+        "edges", help="fit the edge in each row of a run file, or a sync "
+        "check's folder")
+    fit.add_argument("path", help="a run file (.csv) or a sync check folder")
+    fit.add_argument("--a-range", default="",
+                     help="machine A lo,hi mm: fit only the edge in there")
+    fit.set_defaults(func=edges)
 
     args = parser.parse_args(argv)
     return args.func(args)
