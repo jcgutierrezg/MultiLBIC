@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.3 - Phase 6's plan after current ranges
+
+- Step 5 picks channel 2's range with `run/ranges.py`'s choice, and
+  reads each laser's power after its warm-up and the relight wait.
+- Step 6 (focus assist) fits each pass with its own plateau, so power
+  drift isn't read as focus, and alternates direction so the stamp lag
+  cancels.
+- Step 8 is the new stage the user is designing and printing: the
+  photodiode, a blade, and soldered cell contacts. How the blade sits is
+  still being agreed.
+- D22 names the tab "Lasers", as the steps already did.
+
 ## 0.6.2 - Current ranges merged in
 
 - main merged into Phase 6: current ranges per sample (PR #7,

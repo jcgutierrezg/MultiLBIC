@@ -307,8 +307,12 @@ Steps, each push a 0.6.x:
    unmeasured positions (4–6) start with a coarse search. Rows across
    the chip find its four edges, whose middle is the beam's position.
    Then a reading on the chip's flat top gives the laser's power and
-   picks its current range (once on autorange, then the lowest range
-   that holds it), and slow rows across one edge along A and one along
+   picks channel 2's range for it, with `run/ranges.py`'s choice (the
+   smallest range holding 3x the reading) and its re-read near a
+   range's top. Power readings come after the laser's warm-up (D16:
+   laser 2 doubles in two minutes, laser 1 drifted 93 to 80 uA in half a
+   minute), and the driver's relight wait (`relight_ms`) keeps laser 1
+   from coming back at 40 %. Slow rows across one edge along A and one along
    B give the spot size. It ends with the changes it proposes to
    `machine.toml` (`xy_centre_mm`, `spot_um`, `measured = true`) and
    writes them only when the operator says yes (D23). Faults injected
@@ -323,7 +327,10 @@ Steps, each push a 0.6.x:
    the best so far, a trace of width against time, and the scatter of
    repeated passes, so a real change can be told from noise. Each pass
    re-centres on the edge it last found, since refocusing can move the
-   beam; A and B edges can alternate, to show astigmatism. Stopping
+   beam. Each pass is fitted with its own plateau, so the laser's power
+   drift is not read as a change of focus, and passes alternate
+   direction, so the stamp lag cancels in the edge's position; A and B
+   edges can alternate, to show astigmatism. Stopping
    ends with the laser found again and its spot measured, as step 5
    does, since a refocused laser has a new position. The simulator gets
    a focus that can be changed while the loop runs, to test it. The
@@ -331,9 +338,13 @@ Steps, each push a 0.6.x:
 7. **The Lasers tab** in the window: find, measure and focus through
    the worker, a table of the lasers with what was found, the focus
    assist's live readout, and the same save-on-confirm.
-8. **Mounting** (the user's job): the can on an AB corner, recessed so
-   the chip sits at the sample surface's height, with a shielded twisted
-   pair to channel 2 and slack to follow the stage. Then, with no
+8. **The new stage** (the user's job, designed and printed while steps
+   2-7 are built): it carries the photodiode and a blade, and the final
+   cell contacts are soldered, which ends the crocodile clips' contact
+   trouble ([hardware](hardware.md#current-ranges-on-the-test-cell-2026-10-27)).
+   The can sits on a corner of the plate, with a shielded twisted pair
+   to channel 2 on a connector, strain-relieved, with slack to follow
+   the stage. How the blade sits over it is being agreed. Then, with no
    motion, a dark reading on channel 2.
 9. **Bench, with the photodiode:** read each laser on the chip, focus
    lasers 1–3 with the focus assist (the box is open for this, and the
@@ -385,7 +396,7 @@ desktop launcher), and the Zensical docs site.
 | D19 | Jog keys | Arrows, plus the command line's `w a s d q e`, and only while the jog panel has focus, so a stray key can't move the stage (2026-10-26). |
 | D20 | Start | A confirm dialog with the lasers, the plan and the estimate, as `run` asks on the command line (2026-10-26). |
 | D21 | Python on the Pi | **Deadsnakes' `python3.14` + `python3.14-tk`** (2026-10-26), with Ubuntu's Tk 8.6. uv's own 3.14 has Tk 9.0 built without Xft, so the window's text was jagged (step 7 of Phase 5); Ubuntu's Tk is built with Xft. `deploy/pi/setup.sh` prefers it and falls back to uv's with a warning. CI keeps a uv-managed aarch64 job: the code is the same. |
-| D22 | Where commissioning lives | A command, `multilbic commission`, and a Commission tab in the window, on the same Tk-free code (2026-10-27). The command runs under `nohup` like `run`. |
+| D22 | Where commissioning lives | A command, `multilbic commission`, and a Lasers tab in the window, on the same Tk-free code (2026-10-27). The command runs under `nohup` like `run`. |
 | D23 | Where commissioning results go | Into `machine.toml`, as the proposed changes shown first and written only on the operator's yes; each session's readings also go to a file in `runs/` (2026-10-27). |
 | D24 | Focus assist | Focus stays a hand adjustment at the laser; the software measures the spot on the photodiode's edge pass after pass and shows whether it is getting sharper (2026-10-27, asked by the user). No motorised focus. |
 | D25 | Where a sample's ranges come from | **Measured at calibration and saved with it** (2026-10-27): "Check ranges" runs a coarse grid (3 lines along A, 3 along B) under each laser on autorange and picks the smallest range holding 3x the brightest reading. Editable in Run setup; Start offers the check for unchecked lasers. The SMU's current limit follows the range's full scale; all five ranges, up to 180 mA. |
