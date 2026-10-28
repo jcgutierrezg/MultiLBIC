@@ -433,6 +433,19 @@ patch (`stdtest-redge`), 0 V.
   range's top (0.5.24) stays as a safety net.
 - **Laser 1 drifts**: parked, 93 to 80 uA over half a minute in one
   session, 84-87 uA in the next.
+- **The cell's contact changes when the stage moves** (2026-10-28).
+  Two checks, each the first after the window homed (2026-10-27 17:31,
+  2026-10-28 15:23), read 0.1-12 nA on every laser: no circuit. A
+  stress test homed five times, parked laser 1 on the bright part and
+  set the SMU up afresh ten times per round. Within a round the reading
+  never changed; between rounds it was 0.3 uA, dark then 80 uA, 80 uA,
+  dark, 68 uA. Without motion, laser 1 switched on 20 times (3 s dark
+  between) read 66-69 uA every time. The lasers are fixed to the
+  frame; the cell and its crocodile-clip leads ride on the stage, so
+  homing's jolts most likely make or break the contact. **Not fixed in
+  software**: the final stage has soldered contacts. Until then, a
+  check or map reading nA where uA is expected means the clips:
+  reseat them and run it again.
 - **The current limit at the range's full scale works**: the SMU took
   25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
   full scale.

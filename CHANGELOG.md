@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.5.26 - The clips, on record
+
+No code changes.
+
+- Rechecked on 0.5.25: laser 1 80 uA (650u), laser 2 0.31 uA (1u),
+  laser 3 91.9 uA (650u); the relight wait fixed laser 1's under-read.
+- The two checks that read nA on every laser were the cell's
+  crocodile-clip contact, which homing can make or break (a stress
+  test: five homings, five different levels; no motion, 20 switch-ons
+  all alike). Not handled in software, since the final stage is
+  soldered; docs/hardware.md says what to look for.
+
 ## 0.5.25 - A laser stays dark before it relights
 
 - Laser 1 relit within about 1.5 s of going off comes back at 40 % of

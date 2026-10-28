@@ -356,6 +356,14 @@ patch on the cell's right edge).
    49 s later. `run.json` lists the clipped attempt; the map matches
    step 2's.
 
+Afterwards (2026-10-27 and 28), finding why the check under-read laser
+1 ([hardware](hardware.md#current-ranges-on-the-test-cell-2026-10-27)):
+not warm-up, not autorange, but laser 1 relit within ~1.5 s of going
+off (0.5.25 keeps a laser dark 3 s first). Rechecked on 0.5.25:
+**laser 1 80 uA (650u), laser 2 0.31 uA (1u), laser 3 91.9 uA (650u)**.
+The check before it, the first after homing, read nA on every laser:
+the crocodile-clip contact, which homing can disturb.
+
 ## Afterwards
 
 Copy the reports back:

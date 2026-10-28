@@ -12,7 +12,7 @@ by design: what happened in each phase goes in
 | | |
 |---|---|
 | status | Phases 0 to 5 merged (Phase 5 as PR #6, 0.5.15). **Current ranges per sample** planned (0.5.16, branch `current-ranges`, 2026-10-27), before Phase 6 goes on: a run with lasers 100x apart in brightness needs a range per laser. Phase 6 is planned on its own branch (`phase-6-commissioning`, 0.6.1) and waits for this. |
-| next | The current-ranges PR: bench step 6 passed (0.5.23, [bench](bench.md#current-ranges-the-bench)). Then Phase 6 again. |
+| next | The current-ranges PR: bench step 6 passed, laser 1's relight fixed (0.5.26, [bench](bench.md#current-ranges-the-bench)). Then Phase 6 again. |
 
 ## Phases
 
