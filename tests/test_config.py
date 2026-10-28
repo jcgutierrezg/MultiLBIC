@@ -178,6 +178,16 @@ def test_laser_board_settle(raw):
     )
 
 
+def test_laser_board_relight(raw):
+    assert load().laser_board.relight_ms == 3000
+    _breaks(raw, lambda d: d["laser_board"].update(relight_ms=-1),
+            "relight_ms")
+    # Optional: an older machine.toml without it gets the default.
+    data = copy.deepcopy(raw)
+    del data["laser_board"]["relight_ms"]
+    assert parse(data).laser_board.relight_ms == 3000
+
+
 def test_geometry_defaults(machine):
     g = machine.geometry
     assert g.reference_laser == 2

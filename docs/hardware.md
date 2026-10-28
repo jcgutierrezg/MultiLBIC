@@ -389,6 +389,76 @@ laser 2 at 1 mm/s, from `multilbic gui`.
 - STOP, Esc and closing the window each stopped a row in progress at
   once; the files kept every finished row.
 
+## Current ranges on the test cell, 2026-10-27
+
+Ranges step 6 ([bench](bench.md#current-ranges-the-bench)), the same
+patch (`stdtest-redge`), 0 V.
+
+| | Laser 1 (444) | Laser 2 (519) | Laser 3 (652) |
+|---|---|---|---|
+| Check's brightest (no warm-up) | 24 uA | 2.3 uA | 92.7 uA |
+| Range chosen (3x) | 650 uA | 25 uA | 650 uA |
+| Map's brightest (after 60 s warm-up) | 96.9 uA | 3.06 uA | 118 uA |
+| Map / check | 4.0 | 1.3 | 1.3 |
+
+- **Laser 1 read 4x less in the check than in the run.** Not warm-up:
+  the run's warm-up samples show laser 1 only 10 % brighter after its
+  minute (-2.04 to -2.26 uA, spot parked off the sample), lasers 2 and
+  3 flat. Not autorange either (below). It is laser 1 being relit too
+  soon after going off (next point); a check run from a script read
+  84.3 uA against 84.5 uA parked.
+- **Laser 1 relit too soon comes back at 40 % and stays there.** Parked
+  on the bright part, the servo kept on laser 1's angle, only the time
+  dark changed (three tries each):
+
+  | Dark before relighting | 0.25 s | 0.5 s | 1 s | 1.5 s | 2 s | 3-5 s |
+  |---|---|---|---|---|---|---|
+  | Laser 1, uA | 38-41 | 38-39 | 38-39 | 39, 86, 40 | 85-86 | 85-87 |
+  | Laser 3, uA | 101.4 | 101.5 | 101.6 | 101.5 | 101.5 | 101.6 |
+
+  Held on after a short break it crept from 38 to 42 uA in 30 s, no
+  further. It is the laser (or its driver), not the servo: the firmware
+  doesn't move the servo for a laser already at its angle, and from
+  laser 2 or 3 (at least 2.5 s dark, servo moving) laser 1 always came
+  back at 86 uA. Runs were safe (a 3 s baseline dark before each
+  laser); checks and clicks were not. Since 0.5.25 the driver keeps a
+  laser dark for `[laser_board] relight_ms` (3000) before relighting
+  it, and selecting the laser already on sends nothing (the firmware
+  would switch it off and on).
+- **Autorange doesn't stick.** Parked on laser 1's bright part (93 uA),
+  single readings on autorange read 93.3 uA against 92.7 uA on fixed
+  650 uA. After each reset the first reading or two sit at 1.03 uA (the
+  1 uA range's end) while it climbs. A range that truly clips reads its
+  end exactly: 26.78 uA every time on 25 uA. The check's re-read near a
+  range's top (0.5.24) stays as a safety net.
+- **Laser 1 drifts**: parked, 93 to 80 uA over half a minute in one
+  session, 84-87 uA in the next.
+- **The cell's contact changes when the stage moves** (2026-10-28).
+  Two checks, each the first after the window homed (2026-10-27 17:31,
+  2026-10-28 15:23), read 0.1-12 nA on every laser: no circuit. A
+  stress test homed five times, parked laser 1 on the bright part and
+  set the SMU up afresh ten times per round. Within a round the reading
+  never changed; between rounds it was 0.3 uA, dark then 80 uA, 80 uA,
+  dark, 68 uA. Without motion, laser 1 switched on 20 times (3 s dark
+  between) read 66-69 uA every time. The lasers are fixed to the
+  frame; the cell and its crocodile-clip leads ride on the stage, so
+  homing's jolts most likely make or break the contact. **Not fixed in
+  software**: the final stage has soldered contacts. Until then, a
+  check or map reading nA where uA is expected means the clips:
+  reseat them and run it again.
+- **The current limit at the range's full scale works**: the SMU took
+  25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
+  full scale.
+- **Single readings agree with the stream** at the same spot (-37 to
+  -47 nA against -46 nA, laser 2), so the check's readings are good.
+  The light reaches the cell within 0.25 s of `LASER n`, then laser 2
+  brightens about 25 % over 4 s.
+- **A session where the SMU read almost nothing**: the first check
+  read 1-12 nA where the grid holds uA, and the window's readout 140 pA
+  dark. The next window session read normally; the cause (the output
+  not on, or the contact) is not known. A check that reads only nA on a cell that
+  should give uA is the sign.
+
 ## Source-measure unit
 
 The same **Undalogic miniSMU MS01** that SMUniversal uses (serial

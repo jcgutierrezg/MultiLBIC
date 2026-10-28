@@ -13,7 +13,7 @@ check all this on the machine are in [bench](bench.md#phase-4-first-maps).
 
 ```bash
 uv run multilbic calibrate --sample cell-7 --out ~/cal/cell-7.json
-uv run multilbic run ~/cal/cell-7.json --lasers 1,2,3 --pixel 0.01 --pitch 0.05 --speed 2
+uv run multilbic run ~/cal/cell-7.json --lasers 1,2,3 --pixel 0.01 --pitch 0.05
 ```
 
 Add `--sim` to either for the simulated machine (Windows is fine).
@@ -60,7 +60,8 @@ AB centre and lights it, and gives you a prompt:
 | `here` | record the corner |
 | `size 10 10` | width along A and height along B, mm |
 | `trace` | place the sample as a run would and run the spot round its outline, ending on the corner |
-| `save [file]` | write the calibration (JSON) |
+| `ranges 1,2,3 [bias]` | each laser's current range on this sample (D25): XY places the sample as a run will for that laser, the laser comes on, and the stage runs a coarse grid over the sample (3 lines along A and 3 along B, at 2 mm/s) reading the photocurrent on autorange; the range is the smallest holding 3x the brightest reading. Uses the run's bias if you give it. About 15 s a laser on a 2 mm sample. Ends with the reference laser back on the corner. `save` keeps the ranges with the calibration |
+| `save [file]` | write the calibration (JSON), with its checked ranges |
 | `help`, `quit` | |
 
 **Key mode** (`keys`), no Enter needed:
@@ -105,13 +106,14 @@ board may have restarted since calibration.
 | `--lasers 1,2,3` | (required) | in this order |
 | `--pixel 0.01` | (required) | mm along A |
 | `--pitch 0.05` | (required) | mm between rows |
-| `--speed 2` | 2 mm/s | stay at 5 or below (D9) |
+| `--speed 4` | 4 mm/s | stay at 5 or below (D9); 4 is bench-proven (D27) |
 | `--bias 0` | 0 V | |
-| `--current-range 25u` | 25 µA | fixed SMU range: `1u`, `25u`, `650u`, `15m` or `auto`. Autoranging drops 10–15 ms of samples at every range switch; a run stops if the fixed range clips |
+| `--current-range 25u` | checked, else 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. **Without it, each laser uses the range checked for this sample at calibration** (`ranges` above), and 25 µA if it wasn't checked; the plan printed before the start says which. Given, it applies as written. Lasers can be 100x apart in brightness on one sample (on the test cell lasers 1 and 3 need 650 µA, laser 2 25 µA), so they need their own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a clipping range starts that laser again one range up (below) |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers with placeholder positions |
+| `--no-step-up` | | a laser whose range clips fails the run, instead of starting again one range up (below) |
 | `--note "room lights on"` | | free text in every file header and `run.json` |
 | `--out DIR` | `~/multilbic-runs` (`runs/` with `--sim`) | |
 | `--yes` | | don't ask; needed without a terminal |
@@ -134,6 +136,15 @@ timeout or halt, a laser board that stops answering (the Xiao still
 drops off USB now and then), a stream that stalls, reports a read error,
 or delivers less than half a row's samples.
 
+**A range that clips** (a row, or the baseline, reaching the end of its
+fixed range) doesn't end the run (D26): that laser stops as for a fault,
+its attempt is kept as `laserN_<nm>nm_<range>.csv` with the status
+`clipped`, and its whole map starts again one range up (1 µA, 25 µA,
+650 µA, 15 mA, 180 mA), with a fresh baseline and no second warm-up. The
+event log has a `laser_step_up`, the final file's header lists the
+clipped attempts, and `run.json` gives each laser's final range.
+Clipping at 180 mA, or with `--no-step-up`, fails the run as before.
+
 **One process at a time.** `calibrate`, `run` and the GUI take the
 machine lock before opening the real machine
 (`multilbic/run/devices.py`), so a second one stops with "the machine
@@ -150,6 +161,8 @@ by a crash. Simulated machines take no lock.
     events.jsonl        run and laser start/end, with status (SMUniversal's EventLog)
     laser2_519nm.csv    the run file (format: scan.md)
     laser2_519nm.png    its map, built from that file alone
+    laser1_444nm_25u.csv  (only if laser 1 clipped at 25 uA) the attempt
+                          that clipped, before it started again one range up
 ```
 
 A map is built from its file alone, so it can be rebuilt later with

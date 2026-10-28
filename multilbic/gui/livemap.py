@@ -65,12 +65,22 @@ class LiveMap:
         self.rows_done = 0
         self.baseline_done = False
         self.warmup_done = False
+        #: How often the laser started again one range up.
+        self.restarts = 0
 
     def add(self, block: RowDone) -> None:
         if not block.samples:
             return
         current = np.array([s.current_a for s in block.samples])
         if block.row == BASELINE_ROW:
+            if self.rows_done or self.baseline_done:
+                # A baseline after rows: the laser clipped and starts
+                # again one range up (D26). Its earlier rows were on
+                # another range: begin the map again.
+                self.sums[:] = 0.0
+                self.counts[:] = 0
+                self.rows_done = 0
+                self.restarts += 1
             self.offset_a = float(current.mean())
             self.baseline_done = True
             return
@@ -145,6 +155,11 @@ class RunProgress:
             self.row_in_laser = 0
             self._last_row_s = None
         if block.row < 0:
+            if block.row == BASELINE_ROW and self.row_in_laser:
+                # The laser starts again one range up (D26): its rows so
+                # far will be scanned again.
+                self.rows_done -= self.row_in_laser
+                self.row_in_laser = 0
             # The baseline and warm-up: rows start timing after them.
             self._last_row_s = now_s
             return

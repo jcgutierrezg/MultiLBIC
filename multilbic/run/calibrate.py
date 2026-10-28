@@ -34,6 +34,7 @@ Commands (case doesn't matter):
     here                         record the corner
     size 10 10                   the sample's width (A) and height (B), mm
     trace                        light the reference laser along the outline
+    ranges 1,2,3 [bias]          each laser's current range on this sample
     save [file]                  write the calibration
     help | quit
 
@@ -60,11 +61,22 @@ import threading
 from collections.abc import Callable
 from pathlib import Path
 
+from multilbic.clock import SYSTEM_CLOCK, Clock
 from multilbic.config.machine import MachineConfig
 from multilbic.run.keys import CTRL_C, ESCAPE, KeySource, terminal_keys
-from multilbic.run.motion import approach, check
-from multilbic.run.rows import ScanDevices
+from multilbic.run.motion import RunStopped, approach, check
+from multilbic.run.ranges import (
+    CHECK_FEED_MM_S,
+    RangeCheck,
+    check_result,
+    grid_lines,
+    near_top,
+    ranges_from_dict,
+    ranges_to_dict,
+)
+from multilbic.run.rows import ScanDevices, next_range
 from multilbic.scan.geometry import Calibration, place
+from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid, axis_accel
 
 JOG_RE = re.compile(r"^([xyab])([+-])(\d*\.?\d*)$")
 MOVE_RE = re.compile(r"([xyab])=(-?\d+\.?\d*)")
@@ -77,6 +89,23 @@ KEY_PAIRS = ("xy", "ab")
 AXES = ("x", "y", "a", "b")
 #: How fast `trace` runs the spot round the outline.
 TRACE_FEED_MM_S = 2.0
+#: A line of the range check's grid in AB: (start, end).
+GridLine = tuple[tuple[float, float], tuple[float, float]]
+
+
+def _line_text(
+    number: int, start: tuple[float, float], end: tuple[float, float],
+    readings: list[float],
+) -> str:
+    """One grid line of a range check, for the log: where it ran and
+    what it read, so a check that reads too little shows where."""
+    where = (f"A{start[0]:.2f} B{start[1]:.2f} -> "
+             f"A{end[0]:.2f} B{end[1]:.2f}")
+    if not readings:
+        return f"  line {number} {where}: no readings"
+    lo, hi = min(readings) * 1e9, max(readings) * 1e9
+    return (f"  line {number} {where}: {len(readings)} readings, "
+            f"{lo:.3g} to {hi:.3g} nA")
 
 
 class Calibrator:
@@ -95,11 +124,15 @@ class Calibrator:
         *,
         sample: str,
         say: Callable[[str], None] = lambda text: None,
+        clock: Clock = SYSTEM_CLOCK,
     ):
         self.devices = devices
         self.machine = machine
         self.sample = sample
         self.say = say
+        self.clock = clock
+        #: The sample's checked ranges, by laser (D25).
+        self.ranges: dict[int, RangeCheck] = {}
         self.reference = machine.geometry.reference_laser
         self.corner_xy: tuple[float, float] | None = None
         self.corner_ab: tuple[float, float] | None = None
@@ -226,9 +259,12 @@ class Calibrator:
             raise ValueError("a sample needs a positive width and height")
         self.size = (width_mm, height_mm)
 
-    def adopt(self, calibration: Calibration) -> None:
-        """Take the corner and size of a saved calibration, without
-        moving."""
+    def adopt(self, calibration: Calibration,
+              ranges: dict[int, RangeCheck] | None = None) -> None:
+        """Take the corner and size of a saved calibration, and its
+        checked ranges if it has them, without moving."""
+        if ranges is not None:
+            self.ranges = dict(ranges)
         self.sample = calibration.sample
         self.corner_xy = calibration.corner_xy_mm
         self.corner_ab = calibration.corner_ab_mm
@@ -279,11 +315,129 @@ class Calibrator:
         # Back onto the corner the way it was recorded.
         return self._to_corner()
 
+    def check_ranges(
+        self, lasers: list[int] | tuple[int, ...], bias_v: float = 0.0,
+    ) -> dict[int, RangeCheck]:
+        """The sample's current range under each laser (D25): XY places
+        the sample as a run will for it, the laser comes on, and the
+        stage runs a coarse grid over the sample (`ranges.grid_lines`)
+        while single readings are taken on autorange. Ends with the
+        reference laser back on the corner; `halt()` stops it where it
+        is. Returns the new checks, which `ranges` keeps for `save`."""
+        calibration = self.calibration()
+        if not lasers:
+            raise ValueError("no lasers to check")
+        self._halt.clear()
+        d = self.devices
+        accel = axis_accel(self.machine.ab.max_accel_mm_s2)
+        checked: dict[int, RangeCheck] = {}
+        # Autorange and the run's bias: what the run will see, read
+        # without the stream, so autoranging costs nothing.
+        d.smu.prepare(bias_v=bias_v)
+        d.smu.output_on()
+        try:
+            for n in sorted(lasers):
+                placement = place(
+                    calibration, self.machine.laser(n).xy_centre_mm,
+                    self.machine.ab.centre_mm, n,
+                )
+                lines = grid_lines(placement.frame)
+                x, y = placement.xy_mm
+                (a, b), _ = lines[0]
+                # On before the travel and left on through the whole
+                # grid, so it has warmed while XY moves.
+                d.laser.select(n)
+                self.say(f"checking laser {n}'s range on the sample")
+                self._approach(x=x, y=y, a=a, b=b)
+                readings = self._grid(lines, accel)
+                result = check_result(n, readings, bias_v)
+                top = near_top(result.peak_a)
+                if top is not None:
+                    result = self._recheck(n, lines, accel, bias_v, top)
+                checked[n] = result
+                self.ranges[n] = result
+                self.say(
+                    f"laser {n}: brightest {result.peak_a * 1e6:.3g} uA in "
+                    f"{result.readings} readings: range "
+                    f"{result.range_a * 1e6:g} uA"
+                    + (" (at the check's limit: maybe brighter)"
+                       if result.at_limit else "")
+                    + (" (read again on a fixed range)"
+                       if result.autorange_top_a is not None else "")
+                )
+        except RunStopped:
+            self._restore_smu()
+            raise
+        self._restore_smu()
+        d.laser.select(self.reference)
+        self._to_corner()
+        return checked
+
+    def _grid(self, lines: list[GridLine], accel: float) -> list[float]:
+        """Run the spot along each grid line, reading as it goes."""
+        d = self.devices
+        readings: list[float] = []
+        for i, ((a0, b0), (a1, b1)) in enumerate(lines, 1):
+            check(self._halt)
+            self._approach(a=a0, b=b0)
+            length = ((a1 - a0) ** 2 + (b1 - b0) ** 2) ** 0.5
+            d.marlin.move_to(feed_mm_s=CHECK_FEED_MM_S, a=a1, b=b1)
+            until = (self.clock.now() + FIRST_MOVE_DELAY_S
+                     + Trapezoid(length, CHECK_FEED_MM_S, accel).duration_s)
+            line: list[float] = []
+            while self.clock.now() < until:
+                check(self._halt)
+                line.append(d.smu.measure(1)[1])
+            d.marlin.wait_idle()
+            check(self._halt)
+            readings.extend(line)
+            self.say(_line_text(i, (a0, b0), (a1, b1), line))
+        return readings
+
+    def _recheck(self, n: int, lines: list[GridLine], accel: float,
+                 bias_v: float, top: float) -> RangeCheck:
+        """Autorange read near the top of `top`, where it may have stayed:
+        read the grid again with the next range up fixed, and the next
+        after that while a fixed range clips. Back on autorange after."""
+        d = self.devices
+        fixed = next_range(top)
+        try:
+            while True:
+                assert fixed is not None  # top is below the largest range
+                self.say(
+                    f"laser {n}: autorange read near the top of "
+                    f"{top * 1e6:g} uA, which may hide more: reading the grid "
+                    f"again on {fixed * 1e6:g} uA"
+                )
+                d.smu.prepare(bias_v=bias_v, current_range_a=fixed,
+                              current_limit_a=fixed)
+                d.smu.output_on()
+                result = check_result(n, self._grid(lines, accel), bias_v,
+                                      limit_a=fixed, autorange_top_a=top)
+                up = next_range(fixed)
+                if not result.at_limit or up is None:
+                    return result
+                fixed = up
+        finally:
+            d.smu.prepare(bias_v=bias_v)
+            d.smu.output_on()
+
+    def _restore_smu(self) -> None:
+        """Back to calibration's own settings: 0 V, autorange."""
+        try:
+            self.devices.smu.prepare(bias_v=0.0)
+            self.devices.smu.output_on()
+        except Exception as exc:
+            self.say(f"SMU back to 0 V failed: {exc}")
+
     def save(self, path: str | Path) -> Path:
         path = Path(path)
         calibration = self.calibration()
         path.parent.mkdir(parents=True, exist_ok=True)
-        data = {"schema": "multilbic-calibration/1", **calibration.to_dict()}
+        data: dict[str, object] = {"schema": "multilbic-calibration/1",
+                                   **calibration.to_dict()}
+        if self.ranges:
+            data["current_ranges"] = ranges_to_dict(self.ranges)
         path.write_text(json.dumps(data, indent=2) + "\n")
         self.saved = path
         return path
@@ -303,8 +457,10 @@ class CalibrationPrompt:
         default_path: str | Path = "calibration.json",
         keys: Callable[[], contextlib.AbstractContextManager[KeySource]]
         = terminal_keys,
+        clock: Clock = SYSTEM_CLOCK,
     ):
-        self.cal = Calibrator(devices, machine, sample=sample, say=write)
+        self.cal = Calibrator(devices, machine, sample=sample, say=write,
+                              clock=clock)
         # Looked up when called, not bound here, so the terminal's
         # input() can be swapped in tests.
         self.read = read or (lambda prompt: input(prompt))
@@ -398,6 +554,8 @@ class CalibrationPrompt:
             self.write(f"size {width:g} x {height:g} mm")
         elif word == "trace":
             self.trace()
+        elif word == "ranges":
+            self.ranges(rest)
         elif word == "save":
             path = cal.save(Path(rest) if rest else self.default_path)
             self.write(f"saved {path}")
@@ -462,12 +620,44 @@ class CalibrationPrompt:
         if self.cal.size is None:
             self.write("now 'size <width> <height>' in mm")
 
+    def ranges(self, rest: str) -> None:
+        from multilbic.run.ranges import check_duration_s
+
+        parts = rest.split()
+        if not parts:
+            raise ValueError("ranges needs lasers, e.g. 'ranges 1,2,3' "
+                             "or 'ranges 1,2,3 0.5' for 0.5 V bias")
+        lasers = [int(n) for n in parts[0].split(",")]
+        bias = float(parts[1]) if len(parts) > 1 else 0.0
+        frame_s = check_duration_s(self._frame(), len(lasers))
+        self.write(f"checking lasers {lasers} at {bias:g} V: the stage "
+                   f"runs a grid under each, about {frame_s:.0f} s")
+        self.cal.check_ranges(lasers, bias)
+        listing = ", ".join(f"{n}={r.range_a * 1e6:g}uA"
+                            for n, r in sorted(self.cal.ranges.items()))
+        self.write(f"ranges: {listing}; 'save' keeps them with the "
+                   "calibration")
+
+    def _frame(self):  # noqa: ANN202
+        from multilbic.scan.geometry import place
+
+        return place(self.cal.calibration(),
+                     self.cal.machine.laser(self.cal.reference).xy_centre_mm,
+                     self.cal.machine.ab.centre_mm,
+                     self.cal.reference).frame
+
     def trace(self) -> None:
         self.cal.trace()
         self.write(
             "done: back on the corner. If the outline sat on the sample, "
             "'save'; if not, jog, 'here' and 'trace' again."
         )
+
+
+def load_ranges(path: str | Path) -> dict[int, RangeCheck]:
+    """A saved calibration's checked ranges; none in an older file."""
+    data = json.loads(Path(path).read_text())
+    return ranges_from_dict(data.get("current_ranges"))
 
 
 def load_calibration(path: str | Path) -> Calibration:

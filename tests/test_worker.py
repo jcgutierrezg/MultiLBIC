@@ -357,3 +357,18 @@ def test_moves_wait_for_home_and_motors_off_undoes_it(setup):
     assert worker.jog("x", 0.1)
     watch.idle()
     assert len(watch.errors()) == 2
+
+
+def test_checking_ranges_through_the_worker(setup):
+    worker, watch, rig, machine = setup
+    truth = rig.perfect_calibration("cell")
+    assert worker.start_calibration(check=truth)
+    watch.idle()
+    assert worker.check_ranges([2])
+    assert worker.state is State.MOVING
+    watch.idle()
+    assert not watch.errors()
+    change = watch.of(CalibrationChanged)[-1]
+    assert change.ranges[2].range_a == 25e-6
+    assert any("range 25 uA" in e.text for e in watch.of(Log))
+    assert watch.of(LaserChanged)[-1].laser == machine.geometry.reference_laser

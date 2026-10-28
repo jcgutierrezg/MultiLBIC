@@ -40,14 +40,19 @@ import enum
 import queue
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from multilbic.config.machine import MachineConfig
-from multilbic.run.calibrate import Calibrator, load_calibration
+from multilbic.run.calibrate import (
+    Calibrator,
+    load_calibration,
+    load_ranges,
+)
 from multilbic.run.devices import Connection
 from multilbic.run.motion import RunStopped
+from multilbic.run.ranges import RangeCheck
 from multilbic.run.rows import RowDone
 from multilbic.run.session import (
     LaserOutcome,
@@ -128,6 +133,8 @@ class CalibrationChanged:
     #: The whole calibration, once corner and size are set: what a run
     #: is started from.
     calibration: Calibration | None = None
+    #: The sample's checked current ranges, by laser (D25).
+    ranges: dict[int, RangeCheck] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -335,12 +342,28 @@ class MachineWorker:
         """A saved calibration's corner and size, without moving."""
         def work() -> None:
             cal = self._calibrator()
-            cal.adopt(load_calibration(path))
+            cal.adopt(load_calibration(path), load_ranges(path))
             cal.saved = Path(path)
             self._sample = cal.sample
             self._log(f"calibration loaded: {path}")
             self._calibration_changed()
         return self._moving("load", work)
+
+    def check_ranges(self, lasers: list[int] | tuple[int, ...],
+                     bias_v: float = 0.0) -> bool:
+        """Each laser's current range on the sample, on a coarse grid
+        (D25). Moves the stage and lights each laser in turn; ends with
+        the reference laser on the corner."""
+        def work() -> None:
+            self._require_homed()
+            cal = self._calibrator()
+            try:
+                cal.check_ranges(lasers, bias_v)
+            finally:
+                self._calibration_changed()
+            self._emit(LaserChanged(cal.reference))
+            self._emit(Position(cal.position()))
+        return self._moving("check ranges", work)
 
     # ---- runs ----
 
@@ -491,7 +514,7 @@ class MachineWorker:
                 outline, calibration = None, None
         self._emit(CalibrationChanged(
             cal.sample, cal.corner_xy, cal.corner_ab, cal.size, cal.saved,
-            outline, calibration,
+            outline, calibration, dict(cal.ranges),
         ))
 
     # ---- jobs, on the worker thread ----
@@ -500,7 +523,7 @@ class MachineWorker:
         conn = self._connector()
         self._conn = conn
         cal = Calibrator(conn.devices, self.machine, sample=self._sample,
-                         say=self._log)
+                         say=self._log, clock=conn.clock)
         with self._lock:
             self._cal = cal
         self._set_homed(False)

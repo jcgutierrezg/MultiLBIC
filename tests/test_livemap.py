@@ -119,3 +119,29 @@ def test_the_live_map_agrees_with_the_finished_one(machine, tmp_path):
     # on 10 um pixels moves the fingers' edges by a pixel or two.
     assert np.corrcoef(a[both], b[both])[0, 1] > 0.8
     assert np.nanmedian(np.abs(a - b)) < 0.1 * np.nanmax(np.abs(b))
+
+
+
+def test_a_restarted_laser_begins_its_map_and_progress_again(machine):
+    """D26: a baseline after rows means the laser starts again one range
+    up; rows from the clipped attempt must not mix with the new ones."""
+    plan = plan_for(machine)
+    live = LiveMap(plan, mains_hz=50.0)
+    origin = plan.placement.frame.origin_ab_mm[0]
+    a = origin + np.arange(0.0, 1.0, 0.005)
+    live.add(block(BASELINE_ROW, [0.0] * 50, [0.0] * 50))
+    live.add(block(0, a, np.full(a.size, 9e-7)))
+    live.add(block(1, a, np.full(a.size, 9e-7)))
+    assert live.rows_done == 2
+    live.add(block(BASELINE_ROW, [0.0] * 50, [1e-9] * 50))
+    assert live.restarts == 1 and live.rows_done == 0
+    assert np.isnan(live.values()).all()
+    live.add(block(0, a, np.full(a.size, 3e-6)))
+    assert np.nanmax(live.values()) == pytest.approx(3e-6 - 1e-9, rel=1e-3)
+
+    progress = RunProgress((plan,), 100.0, 0.0, 10.0)
+    progress.block(RowDone(2, BASELINE_ROW, 4, ()), 1.0)
+    progress.block(RowDone(2, 0, 4, ()), 2.0)
+    progress.block(RowDone(2, 1, 4, ()), 3.0)
+    progress.block(RowDone(2, BASELINE_ROW, 4, ()), 4.0)
+    assert progress.rows_done == 0

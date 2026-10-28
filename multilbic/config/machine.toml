@@ -129,6 +129,10 @@ v_points = "down"
 # (decision D10). The driver sets it at every open(), because the
 # firmware forgets a runtime value on power-up.
 settle_ms = 2000
+# A laser stays off at least this long before it comes on again: laser 1
+# relit after up to 1 s dark came back at 40 % and stayed there; 2 s or
+# more gave full power (bench, 2026-10-27). The driver waits out the rest.
+relight_ms = 3000
 
 # Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.

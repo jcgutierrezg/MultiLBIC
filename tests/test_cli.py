@@ -90,3 +90,18 @@ def test_calibrate_sim_with_typed_commands(monkeypatch, tmp_path, capsys):
     saved = json.loads((tmp_path / "c.json").read_text())
     assert saved["sample"] == "typed"
     assert saved["size_mm"] == [2.0, 1.0]
+
+
+def test_current_range_one_for_all_or_per_laser():
+    from multilbic.cli import parse_ranges
+
+    assert parse_ranges("25u") == (25e-6, {})
+    assert parse_ranges("1=650u,2=25u,3=650u") == (
+        25e-6, {1: 650e-6, 2: 25e-6, 3: 650e-6})
+    assert parse_ranges("650u, 2=25u") == (650e-6, {2: 25e-6})
+    assert parse_ranges("180m") == (180e-3, {})
+    assert parse_ranges("auto") == (None, {})
+    for bad, message in (("40u", "no range"), ("x=25u", "a number"),
+                         ("1=25u,1=650u", "twice")):
+        with pytest.raises(ValueError, match=message):
+            parse_ranges(bad)
