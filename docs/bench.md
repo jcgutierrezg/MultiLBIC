@@ -373,8 +373,12 @@ starting. Claude runs it over SSH under `nohup` (`setsid nohup ...
 < /dev/null`), as with `run`.
 
 Before: deploy the branch on the Pi, replug the Xiao and miniSMU if the
-Pi rebooted, check the clips (nA on every laser means the clips), the
-cardboard box over the cell.
+Pi rebooted, check the contact (nA on every laser means the contact:
+press the cell's Kapton-taped edges down onto the backplate and reseat
+the clips; [hardware](hardware.md#current-ranges-on-the-test-cell-2026-10-27)),
+the cardboard box over the cell. The sync check fits each row's own
+levels, so a contact that weakens between passes moves no edge; one that
+breaks during a pass loses its rows.
 
 | # | Step | What it answers |
 |---|---|---|

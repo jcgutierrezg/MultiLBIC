@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.5 - The new stage's photodiode mount; the back contact
+
+- The new stage's design, from the builder: the photodiode 35 mm from
+  the AB centre along A, two scalpel blades crossing over its chip with
+  the A+/B- quarter open, the B-parallel blade 0.4 mm lower and at the
+  sample's height ([hardware](docs/hardware.md)). Whether lasers 1-3
+  can reach it with AB centred depends on which side of the stage it
+  is, still to confirm.
+- The test cell's contact: its back contact loses pressure on the
+  backplate when the stage moves (held only by Kapton at its edges),
+  not just the clip leads. The bench runbook says to press it down.
+
 ## 0.6.4 - Step-and-measure and the sync check
 
 Phase 6 step 2, in simulation.

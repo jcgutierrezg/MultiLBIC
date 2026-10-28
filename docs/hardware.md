@@ -469,10 +469,15 @@ patch (`stdtest-redge`), 0 V.
   dark, 68 uA. Without motion, laser 1 switched on 20 times (3 s dark
   between) read 66-69 uA every time. The lasers are fixed to the
   frame; the cell and its crocodile-clip leads ride on the stage, so
-  homing's jolts most likely make or break the contact. **Not fixed in
-  software**: the final stage has soldered contacts. Until then, a
-  check or map reading nA where uA is expected means the clips:
-  reseat them and run it again.
+  homing's jolts most likely make or break the contact. **Not only the
+  leads** (the builder, 2026-10-28): the cell's back contact presses on
+  the copper backplate only through Kapton tape at its edges, nothing
+  pushes it down from the top, and it loses pressure as the stage
+  moves. Pressing the edges down by finger brought laser 1 back up to
+  40 uA. **Not fixed in software**: the new stage solders the contacts
+  and should hold the cell down from the top. Until then, a check or
+  map reading nA where uA is expected means the contact: press the
+  cell's edges down, reseat the clips, and run it again.
 - **The current limit at the range's full scale works**: the SMU took
   25 uA and 650 uA limits. A 25 uA range clipped at 26.8 uA, just over
   full scale.
@@ -566,6 +571,25 @@ listing, which change.
   different focus from the maps. It has to sit on a corner every laser
   can reach within XY + AB travel, with a shielded twisted pair to
   channel 2 and enough slack to follow the stage.
+- **The new stage's design** (the builder, 2026-10-28; printed, not yet
+  built). The knife edges are two scalpel blades over the can, not the
+  chip's own edges, which sit under the window below focus:
+  - the can 35 mm from the AB centre along A; the chip inside it about
+    1.5 mm towards B- of the can's centre;
+  - one blade's edge along B (scans along A cross it) and one along A
+    (scans along B), crossing over the chip, so one quarter of the chip
+    is open: the quarter towards **A+ / B-**. Not trimmed: two straight
+    edges cross in a clean corner;
+  - the blade along B sits **0.4 mm lower** than the one along A (their
+    measured thicknesses). It is the one at the sample's height, so
+    focus and spot sizes along A (along the rows) are measured in the
+    maps' focal plane; the B edge is 0.4 mm above it.
+  - **Reaching it:** if the plate moves towards the photodiode's side
+    as A increases, every laser reaches it with AB centred (XY at about
+    X 40-45 for lasers 1-3 and X 15 for lasers 4-6). If it is the other
+    side, lasers 1-3 would need X beyond its 100 mm travel unless A
+    sits at 28-32 mm, near the back edge where the motor struggles.
+    Which side it is, is to confirm.
 - **Absolute EQE** would need a calibrated photodiode (for example a
   Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
   relative spectral response.
