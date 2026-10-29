@@ -141,5 +141,52 @@ def test_cli_read_on_a_fixed_range(tmp_path, capsys):
     data = json.loads(out.read_text())
     assert data["current_range_a"] == pytest.approx(15e-3)
     assert data["lasers"]["1"]["limit_a"] == pytest.approx(15e-3)
-    with pytest.raises(SystemExit, match="current-range"):
+    with pytest.raises(SystemExit, match="no range '7u'"):
         cli.main(["read", "--sim", "--current-range", "7u"])
+
+
+def test_places_home_and_move_and_ranges_get_their_own_dark(machine):
+    conn = sim(machine)
+    places = {1: (90.0, 70.0, 30.0, 19.0), 3: (88.0, 75.0, 28.0, 8.0)}
+    try:
+        result = read_channel(conn.devices, machine, conn.clock,
+                              lasers=[1, 3], read_s=0.1, settle_s=0.05,
+                              ranges={3: 15e-3}, places=places,
+                              say=lambda _: None)
+        rig = conn.rig
+        assert rig is not None
+        assert result.places == places
+        assert 3 in result.darks and 1 not in result.darks
+        assert result.range_of(3) == pytest.approx(15e-3)
+        assert result.range_of(1) is None
+        assert result.lit[3].limit_a == pytest.approx(15e-3)
+        at = conn.devices.marlin.position()
+        assert [at[k] for k in "XYAB"] == pytest.approx(
+            [88.0, 75.0, 28.0, 8.0], abs=1e-6)
+        data = result.as_dict()
+        assert data["lasers"]["3"]["xyab_mm"] == list(places[3])
+        assert "dark" in data["lasers"]["3"]
+        assert rig.fake_laser.active == 0
+    finally:
+        conn.close()
+
+
+def test_no_places_no_motion(machine):
+    conn = sim(machine)
+    try:
+        read_channel(conn.devices, machine, conn.clock, lasers=[2],
+                     read_s=0.1, settle_s=0.05, say=lambda _: None)
+        assert not conn.devices.marlin.position_trusted
+    finally:
+        conn.close()
+
+
+def test_cli_places_and_ranges_are_checked():
+    with pytest.raises(SystemExit, match="laser=X,Y,A,B"):
+        cli.main(["read", "--sim", "--lasers", "1", "--at", "1=100,70"])
+    with pytest.raises(SystemExit, match="not in --lasers"):
+        cli.main(["read", "--sim", "--lasers", "1",
+                  "--at", "2=100,70,30,10"])
+    with pytest.raises(SystemExit, match="not in --lasers"):
+        cli.main(["read", "--sim", "--lasers", "1",
+                  "--current-range", "3=15m"])

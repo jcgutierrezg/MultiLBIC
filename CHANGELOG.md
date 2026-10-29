@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.12 - `read` goes to each laser; channel 1 has no offset
+
+- `read --at N=X,Y,A,B`, once per laser: the stage homes, then goes to
+  each laser's place before lighting it. Without `--at` nothing moves.
+- `read --current-range` per laser (`1=650u,2=25u,3=15m`); a laser on a
+  range of its own gets its own dark on that range.
+- With the photodiode on channel 1, its dark offsets are about 250 times
+  smaller than on channel 2 and it holds its voltage to 0.5 mV: the
+  offset is channel 2's ([hardware](docs/hardware.md)).
+
 ## 0.6.11 - Channel 2's offset
 
 - Hardware notes: channel 2 reads about 1.7 % of the range's full scale

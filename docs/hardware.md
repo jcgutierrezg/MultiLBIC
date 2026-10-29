@@ -685,6 +685,21 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
   range. Channel 1 shows neither (its laser-off baselines are -0.4 to
   -20 nA on 25 uA, where 1.7 % would be 425 nA). Channel 2 looks
   uncalibrated; worth a note for SMUniversal.
+- **Checked by moving the photodiode to channel 1** (cell off, the same
+  dark readings, 2026-10-29): channel 1 holds its voltage to 0.5 mV
+  (-0.0005 V at 0 V, -4.9998 V at -5 V), and its offsets are tiny:
+
+  | Range | Channel 1 dark, 0 V | -5 V | Channel 2, same photodiode |
+  |---|---|---|---|
+  | autorange | -0.47 nA | | +15.9 nA |
+  | 650 uA | +25.9 nA | +40.2 nA | +10.84 uA |
+  | 15 mA | +1.05 uA | +0.97 uA | +270.7 uA |
+
+  So the offset and the voltage error are **channel 2's**, not the
+  photodiode's: about 250 times channel 1's. Under laser 3, channel 1
+  on autorange read -1.028 mA at +0.42 V: the 1 mA current limit, where
+  the SMU can no longer hold 0 V. Laser 3 needs a fixed 15 mA range on
+  either channel.
 - **So a dark reading counts only on the range of the reading it is
   taken from.** Runs and `commission` read on fixed ranges with a
   laser-off baseline on the same range, which removes it. `read` on

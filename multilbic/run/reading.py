@@ -7,7 +7,8 @@ dark reading shows the wiring and the noise floor, and a reading under
 each laser shows the sign, the size and the range `commission` will
 need. The stage is not homed and does not move: the photodiode is put
 under the laser beforehand (jog it there in the window, then close the
-window, which holds the machine lock).
+window, which holds the machine lock), unless each laser is given a
+place: then the stage homes and goes to each laser's place in turn.
 
 Single readings, on autorange as the range check takes them
 (`run/ranges.py`), or on a fixed range. Autorange can return a wild
@@ -23,12 +24,13 @@ from __future__ import annotations
 import math
 import statistics
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
+from multilbic.run.motion import RunStopped, approach
 from multilbic.run.ranges import AT_LIMIT_SHARE, choose_range
 from multilbic.run.rows import ScanDevices, current_limit_for
 
@@ -50,7 +52,7 @@ OUTLIER_FLOOR_A = 1e-9
 MAD_TO_SD = 1.4826
 
 
-class ReadStopped(RuntimeError):
+class ReadStopped(RunStopped):
     pass
 
 
@@ -132,45 +134,70 @@ def summarise(laser: int, values: Sequence[float],
     )
 
 
+#: Where a laser is read: X, Y, A, B in mm.
+Place = tuple[float, float, float, float]
+
+
 @dataclass
 class ChannelReading:
     channel: int
     bias_v: float
+    #: Every laser off, before the first laser, on `current_range_a`.
     dark: Reading
     lit: dict[int, Reading] = field(default_factory=dict)
-    #: The fixed range read on; None for autorange.
+    #: The range everything not named in `ranges` is read on; None for
+    #: autorange.
     current_range_a: float | None = None
+    #: Each laser's own range, where it differs.
+    ranges: dict[int, float | None] = field(default_factory=dict)
+    #: Each laser's own dark, read on its range with every laser off,
+    #: just before it: channel 2's offset depends on the range.
+    darks: dict[int, Reading] = field(default_factory=dict)
+    #: Where each laser was read, if the stage was moved there.
+    places: dict[int, Place] = field(default_factory=dict)
+
+    def range_of(self, laser: int) -> float | None:
+        return self.ranges.get(laser, self.current_range_a)
+
+    def dark_of(self, laser: int) -> Reading:
+        return self.darks.get(laser, self.dark)
 
     def net_a(self, laser: int) -> float:
         """Under the laser, less dark, from the medians."""
-        return self.lit[laser].median_a - self.dark.median_a
+        return self.lit[laser].median_a - self.dark_of(laser).median_a
 
     def range_a(self, laser: int) -> float:
         """The fixed range a run or `commission` would pick for it: the
         smallest holding 3x the largest reading."""
         return choose_range(self.lit[laser].peak_a)
 
-    def setting(self) -> str:
-        if self.current_range_a is None:
+    @staticmethod
+    def setting(range_a: float | None) -> str:
+        if range_a is None:
             return "autorange"
-        return f"{amps(self.current_range_a)} range"
+        return f"{amps(range_a)} range"
 
     def dark_line(self) -> str:
         d = self.dark
         return (f"channel {self.channel} at {self.bias_v:g} V, "
-                f"{self.setting()}, dark: {amps(d.median_a)} (scatter "
-                f"{amps(d.scatter_a)}, {d.n} readings"
-                + (f", {d.outliers} outliers" if d.outliers else "")
-                + d.held() + ")")
+                f"{self.setting(self.current_range_a)}, dark: "
+                f"{_summary(d)}")
 
     def laser_lines(self, n: int) -> list[str]:
-        r, d = self.lit[n], self.dark
+        r, d = self.lit[n], self.dark_of(n)
         net = self.net_a(n)
         sign = "positive" if net > 0 else "negative"
-        out = [f"laser {n}: {amps(r.median_a)}, {amps(net)} above dark "
-               f"({sign}), scatter {amps(r.scatter_a)}, from "
-               f"{amps(r.min_a)} to {amps(r.max_a)}{r.held()}; range "
-               f"{amps(self.range_a(n))}"]
+        out = []
+        if n in self.places:
+            x, y, a, b = self.places[n]
+            out.append(f"laser {n} at X{x:g} Y{y:g} A{a:g} B{b:g}")
+        if n in self.darks:
+            out.append(f"laser {n}'s dark, "
+                       f"{self.setting(self.range_of(n))}: {_summary(d)}")
+        out.append(f"laser {n}: {amps(r.median_a)}, {amps(net)} above dark "
+                   f"({sign}), scatter {amps(r.scatter_a)}, from "
+                   f"{amps(r.min_a)} to {amps(r.max_a)}{r.held()}; range "
+                   f"{amps(self.range_a(n))}")
         if r.outliers:
             out.append(f"  {r.outliers} of {r.n} readings far off and left "
                        "out (autorange switching?)")
@@ -189,12 +216,25 @@ class ChannelReading:
         return out
 
     def as_dict(self) -> dict[str, Any]:
+        lasers: dict[str, Any] = {}
+        for n, r in sorted(self.lit.items()):
+            entry = {**r.as_dict(), "net_a": self.net_a(n),
+                     "range_a": self.range_a(n),
+                     "read_on_range_a": self.range_of(n)}
+            if n in self.darks:
+                entry["dark"] = self.darks[n].as_dict()
+            if n in self.places:
+                entry["xyab_mm"] = list(self.places[n])
+            lasers[str(n)] = entry
         return {"channel": self.channel, "bias_v": self.bias_v,
                 "current_range_a": self.current_range_a,
-                "dark": self.dark.as_dict(),
-                "lasers": {str(n): {**r.as_dict(), "net_a": self.net_a(n),
-                                    "range_a": self.range_a(n)}
-                           for n, r in sorted(self.lit.items())}}
+                "dark": self.dark.as_dict(), "lasers": lasers}
+
+
+def _summary(d: Reading) -> str:
+    return (f"{amps(d.median_a)} (scatter {amps(d.scatter_a)}, {d.n} "
+            "readings" + (f", {d.outliers} outliers" if d.outliers else "")
+            + d.held() + ")")
 
 
 def read_channel(
@@ -208,54 +248,97 @@ def read_channel(
     settle_s: float = LIGHT_SETTLE_S,
     bias_v: float = 0.0,
     current_range_a: float | None = None,
+    ranges: Mapping[int, float | None] | None = None,
+    places: Mapping[int, Place] | None = None,
     stop: threading.Event | None = None,
     say: Callable[[str], None] = print,
 ) -> ChannelReading:
     """Dark first, every laser off, then each of `lasers` in turn, on
-    autorange or on the fixed `current_range_a` (its current limit its
-    full scale, as runs set it). Ends with every laser and the channel
-    off, however it ends. `stop` set raises `ReadStopped` between
-    readings."""
+    autorange or a fixed range (its current limit its full scale, as
+    runs set it): `current_range_a`, or the laser's own in `ranges`. A
+    laser on a range of its own gets its own dark on that range, read
+    just before it.
+
+    With `places`, the stage homes first and goes to each laser's place
+    (X, Y, A, B) before it comes on; a laser without one is read
+    wherever the stage is. Without, nothing moves.
+
+    Ends with every laser and the channel off, however it ends, and any
+    motion stopped. `stop` set raises `ReadStopped` between steps."""
+    per_laser = dict(ranges or {})
+    where = dict(places or {})
     for n in lasers:
         machine.laser(n)  # KeyError before anything is switched on
-    smu, board = devices.smu, devices.laser
+    smu, board, marlin = devices.smu, devices.laser, devices.marlin
     if channel not in smu.channels:
         raise ValueError(f"the SMU was opened for channels {smu.channels}, "
                          f"not {channel}")
     halt = stop or threading.Event()
-    limit = current_limit_for(current_range_a)
 
-    def read(laser: int) -> Reading:
+    def check_stop() -> None:
+        if halt.is_set():
+            raise ReadStopped("stopped")
+
+    def set_range(range_a: float | None) -> None:
+        smu.prepare(bias_v=bias_v, current_limit_a=current_limit_for(range_a),
+                    current_range_a=range_a)
+        smu.output_on()
+
+    def read(laser: int, range_a: float | None) -> Reading:
         values: list[float] = []
         volts: list[float] = []
         until = clock.now() + read_s
         while clock.now() < until or len(values) < MIN_READINGS:
-            if halt.is_set():
-                raise ReadStopped("stopped")
+            check_stop()
             v, i = smu.measure(channel)
             volts.append(v)
             values.append(i)
-        return summarise(laser, values, limit, volts)
+        return summarise(laser, values, current_limit_for(range_a), volts)
 
     board.off()
-    smu.prepare(bias_v=bias_v, current_limit_a=limit,
-                current_range_a=current_range_a)
-    smu.output_on()
+    moving = False
     try:
+        if where:
+            say("homing")
+            moving = True
+            marlin.home()
+        set_range(current_range_a)
         say(f"every laser off: reading channel {channel} dark for "
             f"{read_s:g} s")
-        result = ChannelReading(channel, bias_v, read(0),
+        result = ChannelReading(channel, bias_v, read(0, current_range_a),
                                 current_range_a=current_range_a)
         say(result.dark_line())
+        on_range = current_range_a
         for n in lasers:
+            check_stop()
+            if n in where:
+                x, y, a, b = where[n]
+                say(f"to laser {n}'s place: X{x:g} Y{y:g} A{a:g} B{b:g}")
+                approach(marlin, machine, x=x, y=y, a=a, b=b, stop=halt)
+                result.places[n] = (x, y, a, b)
+            range_a = per_laser.get(n, current_range_a)
+            if n in per_laser:
+                result.ranges[n] = range_a
+            if range_a != on_range:
+                set_range(range_a)
+                on_range = range_a
+            if n in per_laser and range_a != current_range_a:
+                result.darks[n] = read(0, range_a)
             say(f"laser {n} on")
             board.select(n)
             clock.sleep(settle_s)
-            result.lit[n] = read(n)
+            result.lit[n] = read(n, range_a)
             board.off()
             for line in result.laser_lines(n):
                 say(line)
         return result
+    except BaseException:
+        if moving:
+            try:
+                marlin.quickstop()
+            except Exception as exc:
+                say(f"stopping the stage failed: {exc}")
+        raise
     finally:
         for off in (board.off, smu.output_off):
             try:

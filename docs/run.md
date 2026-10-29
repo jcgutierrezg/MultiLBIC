@@ -267,3 +267,18 @@ the limit on autorange, is read on a fixed range instead:
 ([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)), so
 "above dark" is exact only on a fixed range, where the dark is read on
 the same range as the laser.
+
+Ranges can differ per laser, as in `run`: `--current-range
+1=650u,2=25u,3=15m`. A laser on a range of its own gets its own dark on
+that range, read with every laser off just before it.
+
+`--at N=X,Y,A,B`, once per laser, reads each laser where the photodiode
+is under it, as found by hand in the window: **the stage homes first**,
+then goes to each laser's place (each axis arriving moving up) before
+the laser comes on. Without `--at` nothing moves. Ctrl+C stops the
+stage as well.
+
+```bash
+uv run multilbic read --lasers 1,2,3 --current-range 1=650u,2=25u,3=15m \
+    --at 1=100,70,33.2,19.3 --at 2=99.7,79.3,30,10 --at 3=100,80,28.7,7.6
+```

@@ -463,9 +463,16 @@ def read(args: argparse.Namespace) -> int:
             machine.laser(n)
         except KeyError:
             raise SystemExit(f"no laser {n} in machine.toml") from None
-    if args.current_range not in CURRENT_RANGES:
-        raise SystemExit(f"--current-range {args.current_range!r}: one of "
-                         f"{', '.join(CURRENT_RANGES)}")
+    try:
+        # Autorange unless the text names a range for every laser.
+        default_range, ranges = parse_ranges("auto," + args.current_range)
+        places = parse_places(args.at)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+    for n in (*ranges, *places):
+        if n not in lasers:
+            raise SystemExit(f"laser {n} has a range or place but is not in "
+                             "--lasers")
     channels = (args.channel,)
     if args.sim:
         conn = open_sim(machine, speed=args.speedup, smu_channels=channels)
@@ -473,10 +480,11 @@ def read(args: argparse.Namespace) -> int:
         if lasers and not args.yes:
             if not sys.stdin.isatty():
                 raise SystemExit("no terminal to confirm on: pass --yes")
+            motion = ("the stage will home and move to each laser's place"
+                      if places else "the stage will not move")
             if input(f"laser{'s' if len(lasers) > 1 else ''} "
                      f"{', '.join(map(str, lasers))} will come on, one at a "
-                     "time; the stage will not move [y/N] "
-                     ).strip().lower() != "y":
+                     f"time; {motion} [y/N] ").strip().lower() != "y":
                 say("not started")
                 return 1
         conn = connect_real(machine, channels)
@@ -484,10 +492,10 @@ def read(args: argparse.Namespace) -> int:
         result = read_channel(
             conn.devices, machine, conn.clock, channel=args.channel,
             lasers=lasers, read_s=args.seconds, settle_s=args.settle,
-            bias_v=args.bias,
-            current_range_a=CURRENT_RANGES[args.current_range], say=say)
+            bias_v=args.bias, current_range_a=default_range, ranges=ranges,
+            places=places, say=say)
     except KeyboardInterrupt:
-        say("stopped: every laser and the channel off")
+        say("stopped: every laser and the channel off, motion stopped")
         return 1
     finally:
         conn.close()
@@ -499,6 +507,27 @@ def read(args: argparse.Namespace) -> int:
              **result.as_dict()}, indent=2) + "\n")
         say(f"saved {out}")
     return 0
+
+
+def parse_places(
+    items: list[str] | None,
+) -> dict[int, tuple[float, float, float, float]]:
+    """`--at 1=100,70,33.2,19.3`, once per laser: {laser: (X, Y, A, B)}."""
+    places: dict[int, tuple[float, float, float, float]] = {}
+    for item in items or []:
+        laser_text, sep, rest = item.partition("=")
+        try:
+            laser = int(laser_text)
+            values = [float(v) for v in rest.split(",")]
+        except ValueError:
+            values = []
+        if not sep or len(values) != 4:
+            raise ValueError(f"--at {item!r}: laser=X,Y,A,B, e.g. "
+                             "1=100,70,33.2,19.3")
+        if laser in places:
+            raise ValueError(f"laser {laser} is given two places")
+        places[laser] = (values[0], values[1], values[2], values[3])
+    return places
 
 
 # ---- gui ----
@@ -572,10 +601,16 @@ def main(argv: list[str] | None = None) -> int:
     reading.add_argument("--settle", type=float, default=2.0,
                          help="s with a laser on before reading it")
     reading.add_argument("--bias", type=float, default=0.0, help="V")
-    reading.add_argument("--current-range", default="auto",
+    reading.add_argument("--current-range", default="",
                          help="fixed SMU range, its full scale also the "
-                         f"current limit ({', '.join(CURRENT_RANGES)}; "
-                         "default auto, limited to 1 mA)")
+                         "current limit: one for all (15m) or per laser "
+                         "(1=650u,2=25u,3=15m), each with its own dark "
+                         f"({', '.join(CURRENT_RANGES)}; default auto, "
+                         "limited to 1 mA)")
+    reading.add_argument("--at", action="append", metavar="N=X,Y,A,B",
+                         help="where to read laser N, once per laser: the "
+                         "stage homes first and goes there (default: no "
+                         "motion)")
     reading.add_argument("--out", default="", help="JSON file to save to")
     reading.add_argument("--yes", action="store_true",
                          help="don't ask before lighting lasers")
