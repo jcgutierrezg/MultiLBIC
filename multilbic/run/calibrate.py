@@ -280,7 +280,7 @@ class Calibrator:
             self.sample, self.reference,
             self.machine.laser(self.reference).xy_centre_mm,
             self.corner_xy, self.corner_ab, self.size[0], self.size[1],
-            g.x_along, g.y_along,
+            g.x_along, g.y_along, self.machine.ab.home_offset_mm,
         )
 
     def outline_ab(self) -> tuple[tuple[float, float], list[tuple[float, float]]]:
@@ -660,8 +660,24 @@ def load_ranges(path: str | Path) -> dict[int, RangeCheck]:
     return ranges_from_dict(data.get("current_ranges"))
 
 
-def load_calibration(path: str | Path) -> Calibration:
+class CalibrationMismatch(ValueError):
+    """A calibration recorded with A and B meaning other places."""
+
+
+def load_calibration(path: str | Path,
+                     machine: MachineConfig | None = None) -> Calibration:
+    """A saved calibration. With `machine`, refused if it was recorded
+    with another A/B home offset: its corner would be that far off."""
     data = json.loads(Path(path).read_text())
     if data.get("schema") != "multilbic-calibration/1":
         raise ValueError(f"{path}: not a MultiLBIC calibration file")
-    return Calibration.from_dict(data)
+    calibration = Calibration.from_dict(data)
+    if machine is not None:
+        then, now = calibration.ab_home_offset_mm, machine.ab.home_offset_mm
+        if abs(then - now) > 1e-9:
+            raise CalibrationMismatch(
+                f"{path} was recorded with A/B home offset {then:g} mm and "
+                f"machine.toml now has {now:g} mm: its A and B are "
+                f"{now - then:+g} mm off. Calibrate the sample again."
+            )
+    return calibration

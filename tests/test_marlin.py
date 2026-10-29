@@ -92,10 +92,10 @@ def test_home_then_move_and_wait(rig):
 
 def test_wait_idle_survives_a_move_longer_than_its_timeout(rig):
     # A 30 mm A move at 2 mm/s takes 15 s; the timeout is 3 s of silence.
-    # Keepalives every 2 s are what keep it alive.
+    # Keepalives every 2 s are what keep it alive. Homed, A reads 5.
     client, fake, clock = rig
     client.home()
-    client.move_to(a=30.0, feed_mm_s=2.0)
+    client.move_to(a=35.0, feed_mm_s=2.0)
     start = clock.now()
     client.wait_idle(timeout=3.0)
     assert clock.now() - start == pytest.approx(15.1, abs=0.5)
@@ -121,8 +121,26 @@ def test_diagonal_feed_is_checked_per_axis(rig):
 def test_out_of_safe_range_is_refused(rig):
     client, _, _ = rig
     client.home()
-    with pytest.raises(MotionLimitError, match="outside 0.0..35.0"):
-        client.move_to(b=36.0, feed_mm_s=1.0)
+    with pytest.raises(MotionLimitError, match="outside 0.5..39.5"):
+        client.move_to(b=39.8, feed_mm_s=1.0)
+
+
+def test_open_turns_soft_endstops_off_and_sets_the_home_offset(rig):
+    client, fake, _ = rig
+    assert fake.home_offset == {"A": 5.0, "B": 5.0}
+    client.home()
+    position = client.position()
+    assert (position["A"], position["B"]) == (5.0, 5.0)
+    assert position["X"] == 0.0
+
+
+def test_a_home_offset_that_does_not_take_refuses_to_move(rig):
+    client, fake, _ = rig
+    fake.home_offset = {}  # as if M206 worked the other way
+    with pytest.raises(MarlinError, match="refusing to move"):
+        client.home()
+    with pytest.raises(MarlinError, match="not trusted"):
+        client.move_to(a=10.0, feed_mm_s=1.0)
 
 
 def test_jog_before_homing(rig):
@@ -167,7 +185,8 @@ def test_silence_times_out(rig):
 def test_quickstop_interrupts_a_wait(rig):
     client, fake, clock = rig
     client.home()
-    client.move_to(a=30.0, feed_mm_s=2.0)  # 15 s
+    home = client.position()["A"]
+    client.move_to(a=home + 30.0, feed_mm_s=2.0)  # 15 s
     results = {}
 
     def waiter():
@@ -182,7 +201,7 @@ def test_quickstop_interrupts_a_wait(rig):
     thread.join(timeout=5)
     assert results["elapsed"] < 5.0
     stopped = fake.stage_position()["A"]
-    assert 2.0 < stopped < 6.0
+    assert 2.0 < stopped - home < 6.0
     # The extra ok from the queued M410 is absorbed, and the position
     # reported is where the stage actually stopped.
     assert client.position()["A"] == pytest.approx(stopped, abs=1e-3)

@@ -45,7 +45,11 @@ def test_values_match_hardware_notes():
     assert [laser.measured for laser in config.lasers] == [
         True, True, True, False, False, False,
     ]
-    assert config.ab.centre_mm == (17.5, 17.5)
+    assert config.ab.centre_mm == (20.0, 20.0)
+    # Zero at the hard stop, 0.5 mm kept clear of both (2026-10-29).
+    assert config.ab.home_offset_mm == 5.0
+    assert (config.ab.safe_min_mm, config.ab.safe_max_mm) == (0.5, 39.5)
+    assert config.xy.travel_mm == (104.5, 120.0)
     assert config.ab.max_feed_mm_s == 6.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 
@@ -121,8 +125,20 @@ def test_inverted_safe_range(raw):
 
 def test_centre_outside_safe_range(raw):
     _breaks(
-        raw, lambda d: d["ab"].update(centre_mm=[17.5, 36.0]), "centre_mm"
+        raw, lambda d: d["ab"].update(centre_mm=[20.0, 39.8]), "centre_mm"
     )
+
+
+def test_home_offset_inside_the_travel(raw):
+    _breaks(raw, lambda d: d["ab"].update(home_offset_mm=-1.0),
+            "home_offset_mm")
+    _breaks(raw, lambda d: d["ab"].update(home_offset_mm=40.0),
+            "home_offset_mm")
+
+
+def test_home_offset_is_optional(raw):
+    raw["ab"].pop("home_offset_mm")
+    assert parse(raw).ab.home_offset_mm == 0.0
 
 
 def test_duplicate_laser(raw):

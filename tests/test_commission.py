@@ -10,8 +10,8 @@ from multilbic import cli
 from multilbic.clock import ScaledClock
 from multilbic.config.machine import load
 from multilbic.run.commission import (
-    CommissionError,
     Commissioner,
+    CommissionError,
     CommissionRequest,
     Edge,
     LaserCommission,
@@ -105,8 +105,13 @@ def test_a_placeholder_laser_is_found_by_searching(machine):
 
 
 def test_a_corner_beyond_reach_says_so(machine):
+    from dataclasses import replace
+
+    # X stopping at 100, as Marlin's compiled limit did: laser 1 reaches
+    # A 59.9 on the carriage, short of a corner 0.8 mm past its 59.7.
+    short = replace(machine, xy=replace(machine.xy, travel_mm=(100.0, 120.0)))
     with pytest.raises(CommissionError, match="beyond its reach"):
-        commission(machine, (1,), corner_shift=(1.0, 0.0))
+        commission(short, (1,), corner_shift=(0.8, 0.0))
 
 
 def test_no_light_anywhere_near_fails_clearly(machine):

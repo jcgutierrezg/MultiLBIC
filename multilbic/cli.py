@@ -85,12 +85,23 @@ def connect_real(machine: MachineConfig,
         raise SystemExit(f"cannot open the machine: {exc}") from None
 
 
+def _calibration(path: str, machine: MachineConfig):  # noqa: ANN202
+    try:
+        return load_calibration(path, machine)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
+
+
 # ---- calibrate ----
 
 
 def calibrate(args: argparse.Namespace) -> int:
     machine = load(args.machine)
-    check = load_calibration(args.check) if args.check else None
+    try:
+        check = (load_calibration(args.check, machine) if args.check
+                 else None)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from None
     sample = check.sample if check else args.sample
     if not sample:
         raise SystemExit("--sample is needed (or --check a saved file)")
@@ -158,7 +169,7 @@ def parse_ranges(text: str) -> tuple[float | None, dict[int, float | None]]:
 
 def run(args: argparse.Namespace) -> int:
     machine = load(args.machine)
-    calibration = load_calibration(args.calibration)
+    calibration = _calibration(args.calibration, machine)
     try:
         lasers = tuple(int(n) for n in args.lasers.split(","))
     except ValueError:
@@ -326,7 +337,7 @@ def sync_check(args: argparse.Namespace) -> int:
     )
 
     machine = load(args.machine)
-    calibration = load_calibration(args.calibration)
+    calibration = _calibration(args.calibration, machine)
     if args.current_range is None:
         checked = load_ranges(args.calibration)
         range_a = (checked[args.laser].range_a if args.laser in checked

@@ -17,10 +17,18 @@ mains_hz = 50.0
 # Raster stage: 1 mm lead screws, 16 microsteps.
 steps_per_mm = 3200
 travel_mm = 40.0
-centre_mm = [17.5, 17.5]
-# Near the back edge the motor struggles or the grub screw slips.
-safe_min_mm = 0.0
-safe_max_mm = 35.0
+# Sensorless homing stops 5 mm short of the hard stop (Marlin's 5 mm
+# homing bump, docs/hardware.md), so Marlin's own zero is 5 mm in and its
+# far stop at 35. MultiLBIC sends M206 A5 B5 at every connect: once homed,
+# A and B read 5, and 0 is the hard stop (checked after every home). All
+# A/B coordinates moved by +5 mm with it (2026-10-29, 0.6.17).
+home_offset_mm = 5.0
+centre_mm = [20.0, 20.0]
+# 40 mm between the hard stops (the builder, 2026-10-29); 0.5 mm kept
+# clear of each. Marlin's software endstops are off (M211 S0 at every
+# connect): these are the only limits.
+safe_min_mm = 0.5
+safe_max_mm = 39.5
 # The ceiling the software will ever command; the scan speed itself is
 # chosen per run. 6 mm/s matches the board's EEPROM, and A ran smoothly
 # at 3-6 mm/s on the bench (2026-10-20). A and B are mechanically
@@ -31,7 +39,10 @@ max_accel_mm_s2 = 50.0
 [xy]
 # Carries the whole AB gantry: 2 mm lead screws, 16 microsteps.
 steps_per_mm = 400
-travel_mm = [100.0, 120.0]
+# X goes to 105 before its hard stop (the builder, 2026-10-29); 0.5 mm
+# kept clear. Marlin's compiled limit is 100; its software endstops are
+# off, so this is the only limit.
+travel_mm = [104.5, 120.0]
 max_feed_mm_s = 20.0
 max_accel_mm_s2 = 100.0
 
@@ -129,11 +140,12 @@ channel = 2
 # Where the blade edges cross, on the carriage: the AB position that
 # would put it under a laser with XY at that laser's xy_centre_mm. Far
 # outside AB's travel along A; XY makes up the rest. Estimated, not
-# measured: lasers 1-3 met the open quarter at (53.6, 18.0),
-# (54.1, 17.6) and (53.7, 17.6) by eye (2026-10-29); the corner is put
-# 0.9 mm further, half the open quarter, towards the blades. Laser 1
-# then reaches 0.7 mm past the edge along A (X at its end, A at 35).
-corner_ab_mm = [54.7, 18.6]
+# measured: lasers 1-3 met the open quarter at (58.6, 23.0),
+# (59.1, 22.6) and (58.7, 22.6) by eye (2026-10-29, in today's A/B
+# coordinates: +5 mm on those read then); the corner is put 0.9 mm
+# further, half the open quarter, towards the blades. Laser 1 reaches
+# 4.7 mm past it along A with X to 104.5 and A to 39.5.
+corner_ab_mm = [59.7, 23.6]
 # The open quarter is towards A- and B- of the corner (as built).
 open_a = "-"
 open_b = "-"

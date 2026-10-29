@@ -17,9 +17,10 @@ from multilbic.scan.photodiode import (
 )
 from multilbic.sim.photodiode import WIDTH_PER_SIGMA, SimPhotodiode
 
-# Where lasers 1-3 met the open quarter by eye (bench, 2026-10-29).
-BENCH = {1: (100, 70, 33.2, 19.3), 2: (99.7, 79.3, 30, 10),
-         3: (100, 80, 28.7, 7.6)}
+# Where lasers 1-3 met the open quarter by eye (bench, 2026-10-29), A
+# and B +5 mm onto today's coordinates (the home offset).
+BENCH = {1: (100, 70, 38.2, 24.3), 2: (99.7, 79.3, 35, 15),
+         3: (100, 80, 33.7, 12.6)}
 
 
 def raw():
@@ -75,11 +76,11 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
     corner = machine.photodiode.corner_ab_mm
     r = reach(machine, 1, corner)
     x, y, a, b = r.xyab
-    assert x == pytest.approx(100.0)
+    assert x == pytest.approx(machine.xy.travel_mm[0])
     assert b == pytest.approx(machine.ab.centre_mm[1])
     assert carriage_point(machine, 1, r.xyab) == pytest.approx(corner)
-    # Laser 1 has 0.7 mm left above the corner along A.
-    assert r.room_mm[1] == pytest.approx(0.7, abs=1e-6)
+    # Laser 1 has 4.7 mm left above the corner along A.
+    assert r.room_mm[1] == pytest.approx(4.7, abs=1e-6)
     for n in (2, 3, 4, 5, 6):
         r = reach(machine, n, corner)
         assert carriage_point(machine, n, r.xyab) == pytest.approx(corner)
@@ -87,8 +88,8 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
 
 def test_out_of_reach_says_by_how_much(machine):
     corner = machine.photodiode.corner_ab_mm
-    with pytest.raises(OutOfReach, match="short by 0.30"):
-        reach(machine, 1, corner, room_mm=1.0)
+    with pytest.raises(OutOfReach, match="short by 0.300"):
+        reach(machine, 1, corner, room_mm=5.0)
 
 
 def test_reach_follows_reversed_and_swapped_axes(machine):

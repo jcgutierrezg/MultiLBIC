@@ -121,6 +121,9 @@ class Calibration:
     height_mm: float
     x_along: str
     y_along: str
+    #: `[ab] home_offset_mm` when this was recorded: with another, A and
+    #: B mean other places. 0 in files from before it existed.
+    ab_home_offset_mm: float = 0.0
 
     def __post_init__(self) -> None:
         if self.width_mm <= 0 or self.height_mm <= 0:
@@ -145,6 +148,7 @@ class Calibration:
             "size_mm": [self.width_mm, self.height_mm],
             "x_along": self.x_along,
             "y_along": self.y_along,
+            "ab_home_offset_mm": self.ab_home_offset_mm,
         }
 
     @classmethod
@@ -164,6 +168,7 @@ class Calibration:
             height_mm=float(height),
             x_along=str(data["x_along"]),
             y_along=str(data["y_along"]),
+            ab_home_offset_mm=float(data.get("ab_home_offset_mm", 0.0)),
         )
 
 

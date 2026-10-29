@@ -347,7 +347,8 @@ class MachineWorker:
         """A saved calibration's corner and size, without moving."""
         def work() -> None:
             cal = self._calibrator()
-            cal.adopt(load_calibration(path), load_ranges(path))
+            cal.adopt(load_calibration(path, self.machine),
+                      load_ranges(path))
             cal.saved = Path(path)
             self._sample = cal.sample
             self._log(f"calibration loaded: {path}")

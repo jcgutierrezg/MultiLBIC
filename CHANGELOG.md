@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.17 - Wider limits, without recompiling Marlin
+
+- At every connect MultiLBIC turns Marlin's software endstops off
+  (`M211 S0`) and sets the A/B home offset (`M206`, `[ab]
+  home_offset_mm` = 5): `machine.toml` holds the only limits. After
+  every home the driver checks A and B read the offset, and refuses to
+  move if not.
+- A/B: 0 is the hard stop, limits 0.5-39.5, centre 20 (the full 40 mm,
+  0.5 mm clear of each stop). X: to 104.5 (its stop is at 105).
+- **Every A/B coordinate is 5 mm more than before** for the same place.
+  The photodiode's corner moved with them. Calibrations now record the
+  offset, and one made before is refused: calibrate again.
+- Laser 1 reaches 4.7 mm past the photodiode's corner (was 0.7).
+
 ## 0.6.16 - `multilbic commission`
 
 - Phase 6 step 5: for each laser, the photodiode's open quarter is put

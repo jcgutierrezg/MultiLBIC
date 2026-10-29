@@ -52,6 +52,8 @@ from multilbic.config.machine import MachineConfig
 from multilbic.hardware.link import LineLink, LinkClosed
 
 DEFAULT_TIMEOUT_S = 5.0
+#: A and B must read the home offset this closely once homed.
+HOME_OFFSET_TOLERANCE_MM = 0.01
 HOME_TIMEOUT_S = 10.0  # of silence; busy keepalives arrive every 2 s
 HISTORY_LINES = 64
 
@@ -205,6 +207,14 @@ class Marlin:
         self.info = info
         self.send("G90")
         self.send("M154 S0")  # automatic position reports off
+        # machine.toml's limits are the only ones: Marlin's compiled
+        # ones (X 100, A/B 40 from its own zero) are narrower than the
+        # machine, and a move past them would be clamped silently.
+        # Every move is checked against machine.toml before it is sent
+        # (`_check_bounds`). Marlin turns them on again at power-up.
+        self.send("M211 S0")
+        offset = self._machine.ab.home_offset_mm
+        self.send(f"M206 A{offset:g} B{offset:g}")
         self.position()
         return info
 
@@ -263,10 +273,24 @@ class Marlin:
             self._settle_after_stop = True
 
     def home(self) -> None:
+        """Home every axis (`G28`). A and B must then read the home
+        offset (`[ab] home_offset_mm`, set at `open()`): if they don't,
+        the offset works the other way from what machine.toml assumes,
+        and the limits would be off by twice it, so nothing moves."""
         self.send("G28", timeout=HOME_TIMEOUT_S)
+        position = self.position()
+        offset = self._machine.ab.home_offset_mm
+        wrong = {axis: position[axis] for axis in ("A", "B")
+                 if abs(position[axis] - offset) > HOME_OFFSET_TOLERANCE_MM}
+        if wrong:
+            self.homed = False
+            self.position_trusted = False
+            raise MarlinError(
+                f"homed, A/B read {wrong} where machine.toml's home "
+                f"offset says {offset:g}: refusing to move"
+            )
         self.homed = True
         self.position_trusted = True
-        self.position()
 
     def wait_idle(self, timeout: float = DEFAULT_TIMEOUT_S) -> Reply:
         """Block until every queued move has finished (`M400`). After a

@@ -202,7 +202,7 @@ class SimRig:
         return Calibration(
             sample, g.reference_laser, reference, corner_xy, centre,
             self.sample.width_mm, self.sample.height_mm,
-            g.x_along, g.y_along,
+            g.x_along, g.y_along, self.machine.ab.home_offset_mm,
         )
 
     def open(self) -> None:

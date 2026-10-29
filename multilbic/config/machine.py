@@ -54,6 +54,10 @@ class AbStage:
     safe_max_mm: float
     max_feed_mm_s: float
     max_accel_mm_s2: float
+    #: Sent to Marlin as `M206 A.. B..` at every connect: what A and B
+    #: read once homed, so that 0 is the hard stop (homing stops this
+    #: far from it). 0 leaves Marlin's own zero.
+    home_offset_mm: float = 0.0
 
     @property
     def microstep_mm(self) -> float:
@@ -271,8 +275,15 @@ def _parse_ab(t: _Table) -> AbStage:
         safe_max_mm=t.read_float("safe_max_mm"),
         max_feed_mm_s=t.read_positive_float("max_feed_mm_s"),
         max_accel_mm_s2=t.read_positive_float("max_accel_mm_s2"),
+        home_offset_mm=(t.read_float("home_offset_mm")
+                        if t.has("home_offset_mm") else 0.0),
     )
     t.done()
+    if not 0.0 <= ab.home_offset_mm < ab.travel_mm:
+        raise t.error(
+            f"home_offset_mm {ab.home_offset_mm} must be >= 0 and below "
+            f"the travel, {ab.travel_mm} mm"
+        )
     if not 0.0 <= ab.safe_min_mm < ab.safe_max_mm <= ab.travel_mm:
         raise t.error(
             f"safe range {ab.safe_min_mm}..{ab.safe_max_mm} mm must lie "

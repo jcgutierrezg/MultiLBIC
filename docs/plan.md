@@ -378,6 +378,14 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.17): wider limits.** Marlin's software endstops are off
+(`M211 S0` at every connect) and A/B get a 5 mm home offset (`M206`),
+so `machine.toml` holds the only limits: A/B 0.5-39.5 with 0 at the
+hard stop, X to 104.5. Every A/B coordinate moved by +5 mm; old
+calibrations are refused. Laser 1 now has 4.7 mm past the photodiode's
+corner. To check at the machine before commissioning
+([bench](bench.md#phase-6-the-new-limits-0617)).
+
 **State (0.6.16): step 5 done** in simulation: `multilbic commission`
 ([run](run.md#commission-each-laser-and-its-spot-with-the-photodiode-phase-6)),
 `run/commission.py`. On the simulator, with laser positions and the

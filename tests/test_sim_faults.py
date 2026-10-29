@@ -41,17 +41,19 @@ def test_backlash_lags_the_stage_on_a_reversal(machine, clock):
 def test_the_stage_path_is_kept_for_checking(machine, clock):
     client, fake = homed(machine, clock)
     try:
-        client.move_to(feed_mm_s=2.0, a=4.0)
+        # Homed, A reads 5 (the home offset).
+        client.move_to(feed_mm_s=2.0, a=9.0)
         start = clock.now()
         client.wait_idle()
         end = clock.now()
-        client.move_to(feed_mm_s=2.0, a=0.0)
+        client.move_to(feed_mm_s=2.0, a=1.0)
         client.wait_idle()
         # Long after, the first move can still be looked up.
-        assert fake.past_stage_position(end + 0.001)["A"] == pytest.approx(4.0)
+        assert fake.past_stage_position(end + 0.001)["A"] == pytest.approx(9.0)
         middle = fake.past_stage_position((start + end) / 2)["A"]
-        assert 0.5 < middle < 3.5
-        assert fake.past_stage_position(0.0)["A"] == 0.0
+        assert 5.5 < middle < 8.5
+        # Before it, where homing left it.
+        assert fake.past_stage_position(0.0)["A"] == 5.0
     finally:
         client.close()
 

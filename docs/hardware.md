@@ -176,7 +176,7 @@ Compiled-in values that matter to the software:
 | steps/mm | 400 | 3200 | 16 microsteps, TMC2209 |
 | max feedrate | 20 mm/s | **2 mm/s** | the board runs **6 mm/s** from EEPROM, and `machine.toml` now uses 6 too (D9) |
 | max acceleration | 100 mm/s² | 50 mm/s² | reaching 2 mm/s takes 0.04 s over 0.04 mm |
-| travel | 0–100 / 0–120 | 0–40 | software endstops on |
+| travel | 0–100 / 0–120 | 0–40 | software endstops on as compiled; MultiLBIC turns them off (`M211 S0`) and keeps to `machine.toml`'s limits (since 0.6.17) |
 | homing | sensorless | sensorless, stall sensitivity 8 | drives into the hard stop |
 
 Other relevant options:
@@ -193,15 +193,37 @@ Other relevant options:
   `Configuration_adv.h` recommends a bump of 0 with sensorless homing.
   Home offsets (`M206`) are all 0, so nothing else moves the zero.
   - *Unverified*: whether X/Y stop short the same way.
-  - *Unverified, and worth checking in the CAD*: if the A/B screws have
-    about 40 mm between their hard stops, a zero 5 mm in leaves only up
-    to 35 before the far stop. That would explain the "back edge"
-    (the motor struggling past 35) without the grub screw.
-  - **Not changed for now**: a zero at the stop would shift every
-    coordinate by about 5 mm (`machine.toml`, the calibrations in
-    `~/cal`) in the middle of commissioning. Once the photodiode finds
-    the lasers on its own, a firmware change costs one commissioning
-    run, which is the time to decide.
+  - **A/B have 40 mm between their hard stops, X goes to 105** (the
+    builder, 2026-10-29). So a zero 5 mm in left only up to 35 before
+    the far stop: the "back edge" (the motor struggling past 35) was the
+    far stop, not the grub screw.
+- **Changed without recompiling (0.6.17, 2026-10-29)**, because the
+  photodiode is reached at the very end of X and A (laser 1 had 0.7 mm
+  past the corner), and the builder prefers wider limits to a rebuilt
+  stage or a special case:
+  - **`M211 S0` at every connect**: Marlin's software endstops off.
+    Its compiled limits (X 100, A/B 0-40 from its own zero) are
+    narrower than the machine, and a move past them would be clamped
+    silently. `machine.toml`'s limits are the only ones, and every move
+    is checked against them before it is sent. Marlin turns them on
+    again at power-up, so the TFT35 keeps its own.
+  - **`M206 A5 B5` at every connect** (`[ab] home_offset_mm`, not saved
+    to EEPROM): once homed, A and B read 5, so 0 is the hard stop and
+    the full 40 mm is usable. After every home the driver checks that A
+    and B read the offset, and refuses to move if not: an offset taken
+    the other way round would put 39.5 past the far stop.
+  - **Limits** with 0.5 mm kept clear of each stop: A/B 0.5-39.5
+    (centre 20), X 0-104.5.
+  - **Every A/B coordinate moved by +5 mm**: positions noted before
+    0.6.17 read 5 less than today's for the same place. The
+    photodiode's corner moved with them (59.7, 23.6), `xy_centre_mm`
+    did not (XY is unchanged). Calibrations record the offset; one
+    made before is refused (`CalibrationMismatch`): calibrate again.
+  - Laser 1 now reaches 4.7 mm past the corner, lasers 2 and 3 8.7 and
+    9.3 mm.
+  - *To check at the machine*, once: home, jog A and B down to 1.0 and
+    up to 39.0, and X to 104, slowly, and see about 1 mm left to each
+    stop.
 - `EMERGENCY_PARSER`: `M410` (quickstop) and `M112` act mid-move. This is
   what Stop uses.
 - `ADVANCED_OK`: each `ok` reports free planner and serial buffer space.

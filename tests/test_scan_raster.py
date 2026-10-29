@@ -64,9 +64,9 @@ def test_refuses_what_the_machine_cannot_do(machine):
         plan_raster(ScanRequest(frame(), 0.01, 0.1, 7.0), machine)
     with pytest.raises(RasterError, match="microstep"):
         plan_raster(ScanRequest(frame(), 0.01, 0.0001, 2.0), machine)
-    # 30 mm wide from A=5 runs past the 35 mm safe limit.
+    # 36 mm wide from A=5 runs past the 39.5 mm safe limit.
     with pytest.raises(RasterError, match="safe range"):
-        plan_raster(ScanRequest(frame(width=30.0), 0.01, 0.1, 2.0), machine)
+        plan_raster(ScanRequest(frame(width=36.0), 0.01, 0.1, 2.0), machine)
 
 
 def test_estimate_scales_with_rows(machine):

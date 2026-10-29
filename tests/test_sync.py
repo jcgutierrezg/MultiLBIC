@@ -56,7 +56,7 @@ def test_step_plan_refuses_too_many_points_and_the_unsafe(machine):
     with pytest.raises(RasterError, match="more than"):
         plan_steps(StepRequest(big, 0.01, 0.01), machine)
     assert MAX_POINTS < 1001 * 1000
-    edge = SampleFrame((34.9, 17.0), 0.2, 0.2)
+    edge = SampleFrame((39.4, 17.0), 0.2, 0.2)
     with pytest.raises(RasterError, match="safe range"):
         plan_steps(StepRequest(edge, 0.01, 0.1), machine)
 

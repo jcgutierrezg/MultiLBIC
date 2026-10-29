@@ -87,6 +87,8 @@ class FakeMarlin:
             "A": AxisLimits(ab.max_feed_mm_s, ab.max_accel_mm_s2),
             "B": AxisLimits(ab.max_feed_mm_s, ab.max_accel_mm_s2),
         }
+        #: What `M206` set: where each axis reads once homed.
+        self.home_offset: dict[str, float] = {}
         self.travel = {
             "X": xy.travel_mm[0],
             "Y": xy.travel_mm[1],
@@ -489,12 +491,24 @@ class FakeMarlin:
         self._wait_while(lambda: self.now() < end)
         with self._lock:
             for axis in axes:
-                self.commanded[axis] = 0.0
-                self.planned[axis] = 0.0
-                self._load_planned[axis] = 0.0
+                home = self.home_offset.get(axis, 0.0)
+                self.commanded[axis] = home
+                self.planned[axis] = home
+                self._load_planned[axis] = home
             self._reset_trace_locked(self._load_planned)
             self.homed = True
             self.motors_on = True
+
+    def _cmd_M211(self, command: str) -> None:
+        # Software endstops: the fake always keeps to `travel`, which is
+        # machine.toml's, as the real machine keeps to its hard stops.
+        pass
+
+    def _cmd_M206(self, command: str) -> None:
+        words = self._words(command)
+        for axis in ("A", "B"):
+            if axis in words:
+                self.home_offset[axis] = words[axis]
 
     def _cmd_G90(self, command: str) -> None:
         self.relative = False

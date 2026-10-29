@@ -405,6 +405,22 @@ Nothing pinned at 1 mA (the autorange limit): if a laser reads there,
 stop and say; the S1223-01 would need reverse bias
 ([hardware](hardware.md#channel-2-reference-photodiode-chosen-2026-10-22)).
 
+## Phase 6: the new limits (0.6.17)
+
+MultiLBIC turns Marlin's software endstops off and sets an A/B home
+offset of 5 mm at every connect ([hardware](hardware.md)), so
+`machine.toml`'s limits are the only ones. **Once, before relying on
+them**, with someone at the machine:
+
+1. Home in the window. The position should read A 5, B 5 (the driver
+   refuses to move otherwise).
+2. Jog A down to 1.0, slowly: about 1 mm should be left to the hard
+   stop. The same for B. Then A and B up to 39.0, and X up to 104:
+   about 1 mm left each time. If any is touching or far off, stop and
+   say.
+3. Calibrate the sample again: calibrations from before 0.6.17 are
+   refused (their A/B are 5 mm off).
+
 ## Phase 6: commissioning lasers 1-3
 
 Phase 6 step 9's first half ([plan](plan.md#phase-6-commissioning)).
