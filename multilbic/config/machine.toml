@@ -122,6 +122,27 @@ ab_backlash_mm = 0.0
 u_points = "left"
 v_points = "down"
 
+[photodiode]
+# Hamamatsu S1223-01 (3.6 x 3.6 mm chip) under two scalpel blades whose
+# edges cross over it, one quarter of the chip left open (docs/hardware.md).
+channel = 2
+# Where the blade edges cross, on the carriage: the AB position that
+# would put it under a laser with XY at that laser's xy_centre_mm. Far
+# outside AB's travel along A; XY makes up the rest. Estimated, not
+# measured: lasers 1-3 met the open quarter at (53.6, 18.0),
+# (54.1, 17.6) and (53.7, 17.6) by eye (2026-10-29); the corner is put
+# 0.9 mm further, half the open quarter, towards the blades. Laser 1
+# then reaches 0.7 mm past the edge along A (X at its end, A at 35).
+corner_ab_mm = [54.7, 18.6]
+# The open quarter is towards A- and B- of the corner (as built).
+open_a = "-"
+open_b = "-"
+chip_mm = 3.6
+# The blade along B is at the sample's height; the blade along A sits
+# on it, 0.4 mm higher (the blades' measured thickness).
+blade_a_above_mm = 0.4
+measured = false
+
 [laser_board]
 # Wait after the servo turns, before the laser comes on. On the worst
 # 120-degree swing, 1000 ms was stable and 500 ms slid (bench,

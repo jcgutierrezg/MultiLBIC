@@ -13,6 +13,7 @@ from multilbic.run.reading import (
     read_channel,
     summarise,
 )
+from multilbic.scan.photodiode import open_quarter_middle, reach
 
 
 def sim(machine, channels=(2,)):
@@ -65,18 +66,25 @@ def test_a_laser_that_hardly_shows_is_flagged():
     assert any("hardly shows" in line for line in result.lines())
 
 
+def on_the_photodiode(machine, *lasers):
+    middle = open_quarter_middle(machine)
+    return {n: reach(machine, n, middle).xyab for n in lasers}
+
+
 def test_reads_dark_then_each_laser_and_switches_everything_off(machine):
     conn = sim(machine)
     try:
         result = read_channel(conn.devices, machine, conn.clock,
                               lasers=[1, 3], read_s=0.2, settle_s=0.1,
+                              ranges={1: 15e-3, 3: 15e-3},
+                              places=on_the_photodiode(machine, 1, 3),
                               say=lambda _: None)
         rig = conn.rig
-        assert rig is not None
+        assert rig is not None and rig.photodiode is not None
         assert abs(result.dark.mean_a) < 1e-6
         for n in (1, 3):
-            assert result.net_a(n) == pytest.approx(rig.photodiode_lit_a,
-                                                    rel=0.05)
+            assert result.net_a(n) == pytest.approx(
+                rig.photodiode.full_a[n], rel=0.01)
         assert rig.fake_laser.active == 0
         assert not rig.fake_smu.enabled[2]
         # Channel 1 (the cell) was never switched on.
@@ -114,17 +122,19 @@ def test_stop_switches_off(machine):
         conn.close()
 
 
-def test_cli_read_sim_saves(tmp_path, capsys):
+def test_cli_read_sim_saves(machine, tmp_path, capsys):
     out = tmp_path / "read.json"
+    x, y, a, b = on_the_photodiode(machine, 2)[2]
     code = cli.main(["read", "--sim", "--lasers", "2", "--seconds", "0.2",
-                     "--settle", "0.1", "--speedup", "50", "--out", str(out)])
+                     "--settle", "0.1", "--speedup", "50", "--out", str(out),
+                     "--current-range", "25u", "--at", f"2={x},{y},{a},{b}"])
     assert code == 0
     text = capsys.readouterr().out
     assert "dark" in text and "laser 2:" in text
     data = json.loads(out.read_text())
     assert data["schema"] == "multilbic-read/1"
     assert data["channel"] == 2
-    assert data["lasers"]["2"]["net_a"] > 30e-6
+    assert data["lasers"]["2"]["net_a"] == pytest.approx(-6.5e-6, rel=0.02)
 
 
 def test_cli_read_refuses_unknown_laser():

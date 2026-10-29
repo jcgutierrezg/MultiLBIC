@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.15 - The photodiode in the simulator
+
+- `[photodiode]` in `machine.toml`: its channel, where the blades'
+  corner is on the carriage (estimated from the bench, not yet
+  measured), which quarter is open, the chip's size and the upper
+  blade's height. Optional; checked when loaded.
+- `scan/photodiode.py`: the X, Y, A and B that put a point on the
+  photodiode under a laser, and the room A and B have left. Laser 1
+  has 0.7 mm past the corner along A ([hardware](docs/hardware.md)).
+- The simulator's channel 2 is the chip under its blades, computed from
+  the spot exactly, each edge at its own height and a movable focus;
+  it replaces the fixed 40 uA stand-in.
+
 ## 0.6.14 - Channel 2's offset went away
 
 - Hardware notes corrected: back on channel 2, the photodiode read like

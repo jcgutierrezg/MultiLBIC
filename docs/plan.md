@@ -378,6 +378,18 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.15): step 4 done.** `[photodiode]` in `machine.toml`
+(channel, the blades' corner on the carriage, the open quarter's sides,
+the chip, the upper blade's height; `measured = false`), with the
+corner estimated from today's positions. `scan/photodiode.py` splits a
+carriage point into X, Y, A and B for a laser, AB as central as X and
+Y's travel allows, and says how much room A and B have left.
+`sim/photodiode.py` is the chip under its blades: the share of the
+Gaussian spot on the open quarter, each edge with its own spot size
+(the upper blade 0.4 mm above focus, the chip below it), a focus that
+can be moved while it runs (for step 6), and each laser's current from
+the bench. `read --sim` at today's positions gives today's currents.
+
 Steps 2 and 4–7 need no machine. Grounding the flat on the A/B shafts is
 a mechanical job for the user, at any time before the speed test repeat.
 

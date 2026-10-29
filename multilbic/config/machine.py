@@ -133,6 +133,43 @@ class Geometry:
 #: Directions on the cell as the operator sees it.
 VIEW_DIRECTIONS = ("left", "right", "up", "down")
 
+#: Which side of a blade's edge the chip is open on.
+OPEN_SIDES = ("+", "-")
+
+
+@dataclass(frozen=True)
+class Photodiode:
+    """The reference photodiode under two blades (Phase 6).
+
+    Positions are on the carriage, in the frame calibration gives a
+    sample's corner: the AB position that would put a point under a
+    laser with XY at that laser's `xy_centre_mm`. The photodiode is
+    outside AB's travel, so XY makes up the rest (`scan.photodiode`)."""
+
+    #: The SMU channel it is wired to.
+    channel: int
+    #: Where the two blade edges cross: the edge along B (crossed by
+    #: rows along A) is at A = corner_ab_mm[0], the edge along A at
+    #: B = corner_ab_mm[1].
+    corner_ab_mm: tuple[float, float]
+    #: The side of each edge the chip is open on: "-" means the open
+    #: quarter lies at lower A (`open_a`) or lower B (`open_b`).
+    open_a: str
+    open_b: str
+    #: The chip's active area is a square this wide.
+    chip_mm: float
+    #: The blade whose edge runs along A sits this far above the one
+    #: along B, which is at the sample's height.
+    blade_a_above_mm: float
+    #: False until commissioning has found the corner with the beam.
+    measured: bool
+
+    @property
+    def open_signs(self) -> tuple[int, int]:
+        """+1 or -1 per axis: the open side of each edge."""
+        return (1 if self.open_a == "+" else -1,
+                1 if self.open_b == "+" else -1)
+
 
 @dataclass(frozen=True)
 class Display:
@@ -160,6 +197,8 @@ class MachineConfig:
     mains_hz: float
     geometry: Geometry
     display: Display
+    #: None if machine.toml has no [photodiode] table.
+    photodiode: Photodiode | None = None
 
     def laser(self, number: int) -> Laser:
         for laser in self.lasers:
@@ -209,6 +248,8 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
         mains_hz=top.read_positive_float("mains_hz"),
         geometry=_parse_geometry(top.table("geometry")),
         display=_parse_display(top.table("display")),
+        photodiode=(_parse_photodiode(top.table("photodiode"))
+                    if top.has("photodiode") else None),
     )
     top.done()
     _check_lasers(config.lasers, source)
@@ -328,6 +369,28 @@ def _parse_display(t: _Table) -> Display:
             "must be at right angles"
         )
     return display
+
+
+def _parse_photodiode(t: _Table) -> Photodiode:
+    photodiode = Photodiode(
+        channel=t.read_int("channel"),
+        corner_ab_mm=t.read_pair("corner_ab_mm"),
+        open_a=t.read_str("open_a"),
+        open_b=t.read_str("open_b"),
+        chip_mm=t.read_positive_float("chip_mm"),
+        blade_a_above_mm=t.read_float("blade_a_above_mm"),
+        measured=t.read_bool("measured"),
+    )
+    t.done()
+    if photodiode.channel not in (1, 2):
+        raise t.error(f"channel {photodiode.channel} is not 1 or 2")
+    for key in ("open_a", "open_b"):
+        value = getattr(photodiode, key)
+        if value not in OPEN_SIDES:
+            raise t.error(f"{key} {value!r} is not one of {OPEN_SIDES}")
+    if photodiode.blade_a_above_mm < 0:
+        raise t.error("blade_a_above_mm must not be negative")
+    return photodiode
 
 
 def _parse_laser_board(t: _Table) -> LaserBoardSettings:

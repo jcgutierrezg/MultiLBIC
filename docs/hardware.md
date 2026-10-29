@@ -641,8 +641,17 @@ listing, which change.
     is the designed 35 mm plus the quarter's offset from the can's
     middle. So **`machine.toml`'s laser positions hold, and the CAD's
     (X 67 for laser 1) is the one that is off**. Laser 1 has the least
-    room: X at its end and A 1.8 mm short of its 35 mm safe limit,
-    enough for edge passes of ±0.5 mm.
+    room: X at its end and A 1.8 mm short of its 35 mm safe limit.
+  - **The blades' corner, and laser 1's margin past it.** The open
+    quarter lies towards A- and B- of the corner, so the corner is
+    further along A than where the lasers met the quarter.
+    `[photodiode] corner_ab_mm` estimates it 0.9 mm further (half the
+    open quarter): (54.7, 18.6) on the carriage. Laser 1 then reaches
+    only **0.7 mm past the A edge** (X 100, A 35), against 4.7 and
+    5.3 mm for lasers 2 and 3. Enough for focus assist's ±0.5 mm
+    passes if the estimate holds; commissioning finds the corner
+    itself, and if laser 1 falls short, the mount moves 1-2 mm towards
+    A- or the A edge is scanned with lasers 2 and 3 only.
 - **The new stage, other changes** (the builder, 2026-10-29):
   - it sits **1 cm lower** than the old one, and lasers 1-3 were
     refocused by hand for it. So `spot_um` in `machine.toml` is out of

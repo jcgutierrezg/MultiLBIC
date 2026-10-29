@@ -29,6 +29,10 @@ from multilbic.run.devices import (
 )
 from multilbic.run.session import RunRequest
 from multilbic.scan.mapping import BASELINE_ROW
+from multilbic.scan.photodiode import (
+    open_quarter_middle,
+    reach,
+)
 from multilbic.sim.rig import Faults
 from multilbic.sim.scan import sim_machine
 
@@ -387,9 +391,14 @@ def test_readings_include_the_photodiode_when_opened_with_it(machine):
         watch.idle()
         assert worker.home()
         watch.idle()
-        assert worker.laser(2)
+        x, y, a, b = reach(machine, 3, open_quarter_middle(machine)).xyab
+        assert worker.move(x=x, y=y, a=a, b=b)
         watch.idle()
-        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a > 30e-6
+        assert worker.laser(3)
+        watch.idle()
+        # Laser 3 is beyond autorange's 1 mA limit, which the idle
+        # readings are held to: they read at the limit.
+        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a < -0.9e-3
                                for r in watch.of(Reading)))
         assert not watch.errors()
     finally:

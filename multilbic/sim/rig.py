@@ -34,6 +34,7 @@ from multilbic.sim.fake_laser import FakeLaserBoard
 from multilbic.sim.fake_marlin import FakeMarlin
 from multilbic.sim.fake_smu import FakeMiniSMU, FakeMiniSMUTransport
 from multilbic.sim.link import connect
+from multilbic.sim.photodiode import SimPhotodiode
 from multilbic.sim.sample import SyntheticSample
 
 
@@ -76,10 +77,10 @@ class SimRig:
     laser_xy_mm: dict[int, tuple[float, float]] = field(default_factory=dict)
     #: The channels the SMU driver is set up on.
     smu_channels: tuple[int, ...] = (1,)
-    #: Channel 2 for now: a photodiode that reads this much under any
-    #: lit laser, wherever the stage is, for `multilbic read --sim`.
-    #: Step 4 of Phase 6 replaces it with the chip on the plate.
-    photodiode_lit_a: float = 40e-6
+    #: The photodiode under its blades, on the channel machine.toml
+    #: gives it: as machine.toml has it unless given (the truth can
+    #: differ, as `laser_xy_mm` can). None without a [photodiode].
+    photodiode: SimPhotodiode | None = None
 
     def __post_init__(self) -> None:
         f = self.faults
@@ -88,6 +89,8 @@ class SimRig:
         self.y_along = self.y_along or g.y_along
         for laser in self.machine.lasers:
             self.laser_xy_mm.setdefault(laser.number, laser.xy_centre_mm)
+        if self.photodiode is None and self.machine.photodiode is not None:
+            self.photodiode = SimPhotodiode.from_config(self.machine)
         self.fake_marlin = FakeMarlin(
             self.machine,
             home_duration_s=1.0,
@@ -128,21 +131,27 @@ class SimRig:
             self.smu_channels,
         )
 
-    def spot_uv(
+    def spot_carriage(
         self, position: dict[str, float], laser: int
     ) -> tuple[float, float]:
-        """Where laser `laser`'s spot is on the sample, in its frame,
-        with the stage at `position`."""
+        """Which carriage point (calibration's frame) laser `laser`'s
+        spot is on, with the stage at `position`."""
         laser_x, laser_y = self.laser_xy_mm[laser]
         assert self.x_along is not None and self.y_along is not None
         da, db = xy_to_ab(
             self.x_along, self.y_along,
             position["X"] - laser_x, position["Y"] - laser_y,
         )
-        return (
-            position["A"] + da - self.corner_carriage_mm[0],
-            position["B"] + db - self.corner_carriage_mm[1],
-        )
+        return position["A"] + da, position["B"] + db
+
+    def spot_uv(
+        self, position: dict[str, float], laser: int
+    ) -> tuple[float, float]:
+        """Where laser `laser`'s spot is on the sample, in its frame,
+        with the stage at `position`."""
+        a, b = self.spot_carriage(position, laser)
+        return (a - self.corner_carriage_mm[0],
+                b - self.corner_carriage_mm[1])
 
     def true_uv(self, t: float, laser: int) -> tuple[float, float]:
         """Where the spot was on the sample at time `t`."""
@@ -150,8 +159,14 @@ class SimRig:
 
     def _signal(self, channel: int, t: float) -> float:
         lit = self.fake_laser.active
-        if channel == 2:
-            return self.photodiode_lit_a if lit else 0.0
+        pd_channel = (self.machine.photodiode.channel
+                      if self.machine.photodiode is not None else None)
+        if channel == pd_channel:
+            assert self.photodiode is not None
+            if not lit:
+                return self.photodiode.dark_a
+            a, b = self.spot_carriage(self.fake_marlin.stage_position(t), lit)
+            return self.photodiode.current(lit, a, b)
         if channel != 1:
             return 0.0
         if not lit:
