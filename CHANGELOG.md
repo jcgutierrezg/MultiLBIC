@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.7 - Why zero is 5 mm off the stop
+
+- The hardware notes explain the builder's finding that A/B zero sits
+  about 5 mm from the hard stop: Marlin's homing bump (5 mm, then a slow
+  second approach) with sensorless homing, where the slow approach most
+  likely stalls at once. Possibly also the "back edge" past A/B 35. Not
+  changed now, since it would move every coordinate mid-commissioning.
+
 ## 0.6.6 - The jog arrows move the stage
 
 - The window's jog arrows (and `w a s d`) now move **the stage** the way

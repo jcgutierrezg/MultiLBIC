@@ -181,6 +181,27 @@ Compiled-in values that matter to the software:
 
 Other relevant options:
 
+- **Zero is about 5 mm off the hard stop, on A and B at least** (the
+  builder, 2026-10-29: homing crashes into the stop, yet `A0 B0` leaves
+  a 5 mm gap). `HOMING_BUMP_MM` is `{ 5, 5, 5, 5, 5 }` with
+  `SENSORLESS_HOMING`: after the first stall Marlin backs off 5 mm and
+  approaches again at a quarter of the homing speed on A/B (1 mm/s),
+  half on X/Y. StallGuard is unreliable that slowly, and A/B run a
+  sensitive threshold from EEPROM (130, against 8 compiled), so the
+  second approach most likely "stalls" at once and 0 is set where the
+  back-off left the carriage. Marlin's own comment in
+  `Configuration_adv.h` recommends a bump of 0 with sensorless homing.
+  Home offsets (`M206`) are all 0, so nothing else moves the zero.
+  - *Unverified*: whether X/Y stop short the same way.
+  - *Unverified, and worth checking in the CAD*: if the A/B screws have
+    about 40 mm between their hard stops, a zero 5 mm in leaves only up
+    to 35 before the far stop. That would explain the "back edge"
+    (the motor struggling past 35) without the grub screw.
+  - **Not changed for now**: a zero at the stop would shift every
+    coordinate by about 5 mm (`machine.toml`, the calibrations in
+    `~/cal`) in the middle of commissioning. Once the photodiode finds
+    the lasers on its own, a firmware change costs one commissioning
+    run, which is the time to decide.
 - `EMERGENCY_PARSER`: `M410` (quickstop) and `M112` act mid-move. This is
   what Stop uses.
 - `ADVANCED_OK`: each `ok` reports free planner and serial buffer space.
