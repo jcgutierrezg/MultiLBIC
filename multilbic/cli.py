@@ -463,6 +463,9 @@ def read(args: argparse.Namespace) -> int:
             machine.laser(n)
         except KeyError:
             raise SystemExit(f"no laser {n} in machine.toml") from None
+    if args.current_range not in CURRENT_RANGES:
+        raise SystemExit(f"--current-range {args.current_range!r}: one of "
+                         f"{', '.join(CURRENT_RANGES)}")
     channels = (args.channel,)
     if args.sim:
         conn = open_sim(machine, speed=args.speedup, smu_channels=channels)
@@ -481,7 +484,8 @@ def read(args: argparse.Namespace) -> int:
         result = read_channel(
             conn.devices, machine, conn.clock, channel=args.channel,
             lasers=lasers, read_s=args.seconds, settle_s=args.settle,
-            bias_v=args.bias, say=say)
+            bias_v=args.bias,
+            current_range_a=CURRENT_RANGES[args.current_range], say=say)
     except KeyboardInterrupt:
         say("stopped: every laser and the channel off")
         return 1
@@ -568,6 +572,10 @@ def main(argv: list[str] | None = None) -> int:
     reading.add_argument("--settle", type=float, default=2.0,
                          help="s with a laser on before reading it")
     reading.add_argument("--bias", type=float, default=0.0, help="V")
+    reading.add_argument("--current-range", default="auto",
+                         help="fixed SMU range, its full scale also the "
+                         f"current limit ({', '.join(CURRENT_RANGES)}; "
+                         "default auto, limited to 1 mA)")
     reading.add_argument("--out", default="", help="JSON file to save to")
     reading.add_argument("--yes", action="store_true",
                          help="don't ask before lighting lasers")

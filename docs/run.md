@@ -257,3 +257,9 @@ each (2), after `--settle` s with the laser on (2): long enough to get
 past the first flicker, not a warm-up. It asks before lighting a laser
 unless `--yes`. Ctrl+C switches every laser and the channel off.
 `--channel 1` reads the cell the same way.
+
+It prints the median and a robust scatter. Readings far from the median
+(autorange can return one wild value as it switches) are counted and
+left out of the mean, and the file keeps every value. A laser near 1 mA,
+the limit on autorange, is read on a fixed range instead:
+`--current-range 15m`, whose full scale is also its current limit.

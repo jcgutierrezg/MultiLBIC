@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.9 - `read` survives autorange's wild readings
+
+- `multilbic read` summarises by the median and a robust scatter, leaves
+  readings far from the median out of the mean (and says how many), and
+  keeps every value in its file: on the bench, laser 3 near -0.5 mA gave
+  one reading of +6.2 mA among fifty, which made the mean, the scatter
+  and both warnings wrong.
+- `--current-range` reads on a fixed range, its full scale the current
+  limit as in runs, for lasers near the top of autorange's 1 mA limit.
+
 ## 0.6.8 - Reading the photodiode with no motion
 
 - `multilbic read` reads one SMU channel (2, the photodiode, by
