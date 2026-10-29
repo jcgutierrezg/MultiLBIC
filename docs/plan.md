@@ -378,6 +378,13 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.16): step 5 done** in simulation: `multilbic commission`
+([run](run.md#commission-each-laser-and-its-spot-with-the-photodiode-phase-6)),
+`run/commission.py`. On the simulator, with laser positions and the
+corner planted wrong and an 18.6 ms stamp lag, it recovers each laser
+to 3 um, finds a placeholder laser 2.5 mm off by searching, and gets
+each spot within 5 %. Not yet run on the machine.
+
 **State (0.6.15): step 4 done.** `[photodiode]` in `machine.toml`
 (channel, the blades' corner on the carriage, the open quarter's sides,
 the chip, the upper blade's height; `measured = false`), with the

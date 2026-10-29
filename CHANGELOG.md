@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.16 - `multilbic commission`
+
+- Phase 6 step 5: for each laser, the photodiode's open quarter is put
+  under it (searching if there is no light), its power read and its
+  range chosen, and the two blade edges found with slow passes up and
+  down. The corner each laser sees gives its position against the
+  reference laser's; the edge widths give the spot. It proposes the
+  changes to `machine.toml` and writes them with `--write`
+  ([run](docs/run.md)). Simulation only so far.
+- `scan.photodiode.reach` takes the room per axis; `span` gives what a
+  laser can reach.
+
 ## 0.6.15 - The photodiode in the simulator
 
 - `[photodiode]` in `machine.toml`: its channel, where the blades'

@@ -56,12 +56,13 @@ def _xy_for(machine: MachineConfig, ab_axis: int) -> tuple[int, int]:
 
 def reach(
     machine: MachineConfig, laser: int, point_ab: tuple[float, float],
-    *, room_mm: float = 0.0,
+    *, room_mm: float | tuple[float, float] = 0.0,
 ) -> Reach:
     """X, Y, A and B that put `point_ab` (carriage frame) under `laser`,
     each AB axis as near its centre as XY's travel allows, with at least
-    `room_mm` left to A and B's safe limits both ways. Raises
-    `OutOfReach` if there is none."""
+    `room_mm` left to A and B's safe limits both ways (one for both, or
+    (A, B)). Raises `OutOfReach` if there is none."""
+    rooms = room_mm if isinstance(room_mm, tuple) else (room_mm, room_mm)
     ab = machine.ab
     centre = machine.laser(laser).xy_centre_mm
     travel = machine.xy.travel_mm
@@ -75,14 +76,15 @@ def reach(
         else:
             lo = point_ab[k] - centre[j]
             hi = point_ab[k] + (travel[j] - centre[j])
-        lo = max(lo, ab.safe_min_mm + room_mm)
-        hi = min(hi, ab.safe_max_mm - room_mm)
-        if lo > hi:
+        lo = max(lo, ab.safe_min_mm + rooms[k])
+        hi = min(hi, ab.safe_max_mm - rooms[k])
+        if lo > hi + 1e-9:
             raise OutOfReach(
                 f"laser {laser} cannot reach {'AB'[k]} {point_ab[k]:.2f} "
-                f"on the carriage with {room_mm:g} mm of room: short by "
-                f"{lo - hi:.2f} mm"
+                f"on the carriage with {rooms[k]:g} mm of room: short by "
+                f"{lo - hi:.3f} mm"
             )
+        hi = max(hi, lo)
         chosen[k] = min(max(ab.centre_mm[k], lo), hi)
     a, b = chosen
     dx, dy = ab_to_xy(machine.geometry.x_along, machine.geometry.y_along,
@@ -94,6 +96,24 @@ def reach(
         (a - ab.safe_min_mm, ab.safe_max_mm - a,
          b - ab.safe_min_mm, ab.safe_max_mm - b),
     )
+
+
+def span(
+    machine: MachineConfig, laser: int,
+) -> tuple[tuple[float, float], tuple[float, float]]:
+    """The carriage points `laser` can reach along A and along B, each
+    (low, high): AB's safe range widened by all of XY's travel."""
+    ab = machine.ab
+    centre = machine.laser(laser).xy_centre_mm
+    travel = machine.xy.travel_mm
+    out = []
+    for k in (0, 1):
+        j, s = _xy_for(machine, k)
+        lo_xy, hi_xy = -centre[j], travel[j] - centre[j]
+        if s < 0:
+            lo_xy, hi_xy = -hi_xy, -lo_xy
+        out.append((ab.safe_min_mm + lo_xy, ab.safe_max_mm + hi_xy))
+    return out[0], out[1]
 
 
 def carriage_point(

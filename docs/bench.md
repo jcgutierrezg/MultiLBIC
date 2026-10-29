@@ -405,6 +405,22 @@ Nothing pinned at 1 mA (the autorange limit): if a laser reads there,
 stop and say; the S1223-01 would need reverse bias
 ([hardware](hardware.md#channel-2-reference-photodiode-chosen-2026-10-22)).
 
+## Phase 6: commissioning lasers 1-3
+
+Phase 6 step 9's first half ([plan](plan.md#phase-6-commissioning)).
+**It homes, moves the stage to the photodiode and lights lasers 1-3 in
+turn** (about 7 minutes with the 60 s warm-ups); the box stays closed.
+Claude asks before starting and runs it over SSH.
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | `multilbic read` (dark, no motion) | channel 2 is not in the offset state: about 0.000 V |
+| 2 | `multilbic commission --lasers 1,2,3` | where the corner is, each laser's position against laser 2's, each spot along A and B, each laser's power and range |
+| 3 | Read the proposal; if it stands, `--write`, then copy `machine.toml` back and commit | `machine.toml` measured |
+
+If laser 1 cannot reach past the A edge, it says so: the way out is
+more travel (Marlin's limits), not a special case.
+
 ## Afterwards
 
 Copy the reports back:

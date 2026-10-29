@@ -284,3 +284,51 @@ stage as well.
 uv run multilbic read --lasers 1,2,3 --current-range 1=650u,2=25u,3=15m \
     --at 1=100,70,33.2,19.3 --at 2=99.7,79.3,30,10 --at 3=100,80,28.7,7.6
 ```
+
+## `commission`: each laser and its spot, with the photodiode (Phase 6)
+
+```bash
+uv run multilbic commission --lasers 1,2,3
+uv run multilbic commission --lasers 1,2,3 --write
+```
+
+**It homes and moves the stage, and lights each laser in turn.** For
+each laser:
+
+1. XY and AB put the middle of the photodiode's open quarter where
+   `machine.toml` says the laser is. The channel is read dark, the laser
+   comes on, warms up (`--warmup`, 60 s), and is read on the 15 mA range.
+   No light there: it searches outwards on a 1 mm grid, 3 mm for a
+   measured laser, 8 mm for a placeholder (4-6).
+2. The range for the rest is the smallest holding 3x that reading.
+3. A coarse pass (`--coarse-feed`, 0.5 mm/s) from the open quarter
+   towards each blade finds each edge; then a slow pass up and one down
+   across it (`--fine-feed`, 0.05 mm/s). Each reading's position comes
+   from the time, anchored on the move's end; the mean of the two
+   directions is the edge, their difference (backlash plus lag) is
+   printed. An edge counts only if its step matches the light.
+4. The power is read again on the open quarter, warm by then, and the
+   dark on the same range with the laser off.
+
+Where the two edges cross is the corner as that laser sees it. The
+reference laser's view (2) becomes `[photodiode] corner_ab_mm`; every
+other laser's `xy_centre_mm` moves by however far its view is from it.
+`spot_um` is the 10-90 % width across the blade along B, which is at
+the sample's height; the other edge, 0.4 mm higher, is printed too.
+Include laser 2 until the corner is measured.
+
+It prints what it found and the changes it proposes, and saves
+`commission.json` (every pass's readings) and `machine-proposed.toml`
+in a run folder. **`--write` writes the changes into `machine.toml`**
+(asking first unless `--yes`); each changed line ends in
+`# commission <date>`. On the Pi that is the repository's own file,
+which a deploy resets: copy it back and commit it.
+
+A laser that cannot reach past an edge says so: laser 1 has about
+0.7 mm past the corner along A. A channel reporting more than 10 mV off
+its bias (the state of 2026-10-29) is reported; the positions stand.
+Ctrl+C or `kill` stops it: motion stops, laser and channel off.
+
+`--sim` runs it on the simulated photodiode; `--sim-offset N=DX,DY`
+puts laser N that far from its `xy_centre_mm` and `--sim-corner DA,DB`
+moves the corner, to see them recovered.

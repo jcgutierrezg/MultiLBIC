@@ -12,7 +12,9 @@ The command line: calibrate a sample, then run its maps.
 (Phase 6): step-and-measure, rows at several speeds, step-and-measure
 again. `edges` fits the edge in every row of a run file, or works out a
 sync check's result again from its folder. `read` reads one SMU channel
-(the photodiode on 2) dark and under chosen lasers, with no motion.
+(the photodiode on 2) dark and under chosen lasers. `commission` finds
+each laser and its spot with the photodiode and proposes machine.toml's
+changes, writing them with `--write`.
 
 `calibrate` is interactive and needs you at the machine. `run` needs no
 terminal once started: on the Pi, run it under `nohup ... --yes &` so a
@@ -509,6 +511,174 @@ def read(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---- commission ----
+
+
+class _CommissionJob:
+    """A commissioning as `run_until_done` runs it: its outcome is the
+    result, or the exception that ended it."""
+
+    def __init__(self, commissioner, request) -> None:  # noqa: ANN001
+        self.commissioner = commissioner
+        self.request = request
+        self.stop = commissioner.halt
+
+    def request_stop(self) -> None:
+        self.commissioner.request_stop()
+
+    def run(self):  # noqa: ANN201
+        try:
+            return self.commissioner.run(self.request), None
+        except BaseException as exc:  # noqa: BLE001 - reported by the caller
+            return None, exc
+
+
+def machine_file(given: str | None) -> Path:
+    """The machine.toml in use: the one given, or the packaged one (the
+    repository's own file in an editable install, as on the Pi)."""
+    if given:
+        return Path(given)
+    from importlib import resources
+
+    return Path(str(resources.files("multilbic.config").joinpath(
+        "machine.toml")))
+
+
+def commission(args: argparse.Namespace) -> int:
+    import datetime
+
+    from multilbic.bench.report import provenance
+    from multilbic.run.commission import (
+        Commissioner,
+        CommissionError,
+        CommissionRequest,
+        apply_proposal,
+        estimate_s,
+        folder_name,
+        write_report,
+    )
+    from multilbic.run.motion import RunStopped
+
+    machine = load(args.machine)
+    pd = machine.photodiode
+    if pd is None:
+        raise SystemExit("machine.toml has no [photodiode]")
+    lasers = tuple(int(n) for n in _floats(args.lasers, "--lasers"))
+    for n in lasers:
+        try:
+            machine.laser(n)
+        except KeyError:
+            raise SystemExit(f"no laser {n} in machine.toml") from None
+    if not args.sim and not machine.geometry.directions_measured:
+        raise SystemExit("cannot run: [geometry] directions not measured")
+    request = CommissionRequest(
+        lasers, warmup_s=args.warmup, read_s=args.read, bias_v=args.bias,
+        coarse_feed_mm_s=args.coarse_feed, fine_feed_mm_s=args.fine_feed,
+        note=args.note)
+    say(f"lasers {', '.join(map(str, lasers))}: about "
+        f"{duration(estimate_s(request, lasers))}, homing included")
+    if args.sim:
+        from multilbic.run.rows import ScanDevices
+        from multilbic.sim.rig import Faults, SimRig
+        from multilbic.sim.sample import SyntheticSample
+
+        rig_args: dict = {}
+        offsets = parse_places_like(args.sim_offset, 2, "--sim-offset")
+        if offsets:
+            rig_args["laser_xy_mm"] = {
+                n: (machine.laser(n).xy_centre_mm[0] + dx,
+                    machine.laser(n).xy_centre_mm[1] + dy)
+                for n, (dx, dy) in offsets.items()}
+        clock = ScaledClock(args.speedup, precise=True)
+        rig = SimRig(machine, clock, SyntheticSample.default(),
+                     (15.0, 16.0), Faults(), smu_channels=(pd.channel,),
+                     **rig_args)
+        if args.sim_corner:
+            da, db = _floats(args.sim_corner, "--sim-corner", 2)
+            assert rig.photodiode is not None
+            c = rig.photodiode.corner_mm
+            rig.photodiode.corner_mm = (c[0] + da, c[1] + db)
+        rig.open()
+        conn = Connection(ScanDevices(rig.marlin, rig.laser, rig.smu),
+                          clock, True, rig=rig)
+    else:
+        if not args.yes:
+            if not sys.stdin.isatty():
+                raise SystemExit("no terminal to confirm on: pass --yes")
+            if input("start? the stage will home, then go to the "
+                     "photodiode under each laser, which comes on [y/N] "
+                     ).strip().lower() != "y":
+                say("not started")
+                return 1
+        conn = connect_real(machine, (pd.channel,))
+    try:
+        commissioner = Commissioner(conn.devices, machine, conn.clock,
+                                    say=say)
+        result, failure = run_until_done(
+            _CommissionJob(commissioner, request))  # type: ignore[arg-type]
+    finally:
+        conn.close()
+    if failure is not None:
+        if isinstance(failure, RunStopped):
+            say("stopped")
+            return 1
+        if isinstance(failure, CommissionError):
+            raise SystemExit(f"commissioning failed: {failure}")
+        raise failure
+    out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
+    folder = out / folder_name(args.sim)
+    report = write_report(folder, machine, result, simulated=args.sim,
+                          provenance=provenance())
+    for line in result.lines(machine):
+        say(line)
+    say(f"report: {report}")
+    if result.proposal is None:
+        return 1
+    path = machine_file(args.machine)
+    when = datetime.date.today().isoformat()
+    try:
+        text = apply_proposal(path.read_text(encoding="utf-8"),
+                              result.proposal, when)
+    except CommissionError as exc:
+        raise SystemExit(str(exc)) from None
+    proposed = folder / "machine-proposed.toml"
+    proposed.write_text(text, encoding="utf-8", newline="")
+    say(f"proposed machine.toml: {proposed}")
+    if not args.write:
+        say("not written (--write writes it)")
+        return 0
+    if not args.yes:
+        if not sys.stdin.isatty():
+            raise SystemExit("no terminal to confirm on: pass --yes")
+        if input(f"write these changes to {path}? [y/N] "
+                 ).strip().lower() != "y":
+            say("not written")
+            return 0
+    path.write_text(text, encoding="utf-8", newline="")
+    say(f"written: {path}" + ("" if args.machine else
+                              " (commit it: a deploy resets the checkout)"))
+    return 0
+
+
+def parse_places_like(
+    items: list[str] | None, count: int, flag: str,
+) -> dict[int, tuple[float, ...]]:
+    """`N=v1,v2,...` once per laser, `count` values each."""
+    out: dict[int, tuple[float, ...]] = {}
+    for item in items or []:
+        laser_text, sep, rest = item.partition("=")
+        try:
+            laser = int(laser_text)
+            values = tuple(float(v) for v in rest.split(","))
+        except ValueError:
+            values = ()
+        if not sep or len(values) != count:
+            raise SystemExit(f"{flag} {item!r}: laser=" +
+                             ",".join(["v"] * count))
+        out[laser] = values
+    return out
+
+
 def parse_places(
     items: list[str] | None,
 ) -> dict[int, tuple[float, float, float, float]]:
@@ -618,6 +788,39 @@ def main(argv: list[str] | None = None) -> int:
     reading.add_argument("--speedup", type=float, default=SIM_SPEED,
                          help="simulated seconds per real second (--sim)")
     reading.set_defaults(func=read)
+
+    com = commands.add_parser(
+        "commission", help="find each laser and its spot with the "
+        "photodiode, and propose machine.toml's changes")
+    com.add_argument("--lasers", default="1,2,3",
+                     help="e.g. 1,2,3 (default); include the reference "
+                     "laser (2) until the photodiode's corner is measured")
+    com.add_argument("--warmup", type=float, default=60.0,
+                     help="s with each laser on before reading it")
+    com.add_argument("--read", type=float, default=2.0,
+                     help="s each power or dark reading averages")
+    com.add_argument("--bias", type=float, default=0.0, help="V")
+    com.add_argument("--coarse-feed", type=float, default=0.5,
+                     help="mm/s of the passes that find each edge")
+    com.add_argument("--fine-feed", type=float, default=0.05,
+                     help="mm/s of the passes that measure it")
+    com.add_argument("--note", default="")
+    com.add_argument("--out", default="", help="folder for runs")
+    com.add_argument("--write", action="store_true",
+                     help="write the proposed changes into machine.toml "
+                     "(asks first unless --yes)")
+    com.add_argument("--yes", action="store_true",
+                     help="don't ask to start, or to write")
+    com.add_argument("--sim", action="store_true")
+    com.add_argument("--sim-offset", action="append", metavar="N=DX,DY",
+                     help="(--sim) laser N really sits this far in mm from "
+                     "its xy_centre_mm")
+    com.add_argument("--sim-corner", default="", metavar="DA,DB",
+                     help="(--sim) the corner really sits this far from "
+                     "machine.toml's")
+    com.add_argument("--speedup", type=float, default=SIM_SPEED,
+                     help="simulated seconds per real second (--sim)")
+    com.set_defaults(func=commission)
 
     window = commands.add_parser("gui", help="the window")
     window.add_argument("--sim", action="store_true",
