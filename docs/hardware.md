@@ -666,12 +666,37 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
 | Dark, 0 V, autorange | 15.5-16.1 nA, scatter 27-44 pA: the SMU's offset or a little room light; no short, no noise |
 | Laser 1 | -408 uA on the first lighting, then -463 uA at -5 V and -466.5 uA at 0 V: no saturation at 0 V, the laser rose 14 % between lightings. About 1.5 mW |
 | Laser 2 | -7.36 uA, scatter 150 nA (warming). About 20 uW, 60 times weaker than laser 1, as the cell has always shown |
-| Laser 3 | On autorange, -0.5 to -0.77 mA with one reading of +6.2 mA: clipping at the top of the 650 uA range and switching. On a fixed 15 mA range, -969 uA lit but **+271 uA dark**: that range has a large offset of its own, so laser 3 is between about 0.97 and 1.24 mA, 2-3 mW. To settle |
+| Laser 3 | On autorange, -0.5 to -0.77 mA with one reading of +6.2 mA: clipping at the top of the 650 uA range and switching. On a fixed 15 mA range, -968 uA lit and +271 uA dark, the dark being that range's offset (below): **-1.24 mA**, about 2.8 mW |
 
+- **Channel 2 reads high by about 1.7 % of the range's full scale,
+  on every range, whatever the bias.** Dark readings, no light change,
+  only the range and bias changed (2026-10-29):
+
+  | Range | Dark at 0 V | Dark at -5 V | Share of full scale |
+  |---|---|---|---|
+  | autorange (1 uA) | +15.9 nA | | 1.6 % |
+  | 650 uA | +10.84 uA | +10.87 uA | 1.7 % |
+  | 15 mA | +270.7 uA | +271.4 uA | 1.8 % |
+
+  The same at 0 V and -5 V, so it is the measurement's offset, not
+  current through the photodiode; the "dark current" of 16 nA is the
+  1 uA range's share of it. Channel 2 also reports its voltage
+  +0.27-0.29 V off (+0.274 V at 0 V, -4.712 V at -5 V), on every
+  range. Channel 1 shows neither (its laser-off baselines are -0.4 to
+  -20 nA on 25 uA, where 1.7 % would be 425 nA). Channel 2 looks
+  uncalibrated; worth a note for SMUniversal.
+- **So a dark reading counts only on the range of the reading it is
+  taken from.** Runs and `commission` read on fixed ranges with a
+  laser-off baseline on the same range, which removes it. `read` on
+  autorange takes the dark on the 1 uA range and the laser on a larger
+  one, so its "above dark" is high by that range's offset: laser 1
+  (650 uA range) is about -477 uA, not -466 uA, and laser 2 (25 uA)
+  about -7.8 uA, not -7.4 uA. Read on a fixed range for exact values.
 - **Negative**, as the cell reads on channel 1: the photodiode is wired
   the same way round.
-- **0 V is fine** for laser 1 (same reading at -5 V); laser 3 is
-  untested at -5 V.
+- **0 V is fine** for laser 1 (same reading at -5 V). Whether channel
+  2 really sits at +0.27 V, or only reports it, is open: a photodiode
+  at +0.27 V would pass only nA, so it changes nothing here.
 - **The ranges differ by laser**: 25 uA for laser 2, 650 uA for laser
   1 (1.4x headroom) or 15 mA, 15 mA for laser 3. `commission` picks
   channel 2's range per laser.

@@ -369,10 +369,11 @@ takes the dark reading and one reading per laser with no motion
 ([bench](bench.md#phase-6-the-photodiodes-first-reading)). **Read
 2026-10-29 (0.6.10)**: lasers 1-3 all reach the open quarter (now
 A-/B-), their positions agree with `machine.toml` to 0.5 mm, and the
-photodiode reads -466 uA, -7.4 uA and about -1 to -1.24 mA under
-lasers 1, 2 and 3 ([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)).
-Laser 3's exact value waits on the 15 mA range's offset. The window
-shows both channels live. Step 3 needs
+photodiode reads about -477 uA, -7.8 uA and -1.24 mA under lasers 1,
+2 and 3 ([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)).
+Channel 2 reads about 1.7 % of each range's full scale high, so
+`commission` takes its dark on the same fixed range as the laser. The
+window shows both channels live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
 Steps 2 and 4–7 need no machine. Grounding the flat on the A/B shafts is

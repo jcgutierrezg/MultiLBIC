@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.11 - Channel 2's offset
+
+- Hardware notes: channel 2 reads about 1.7 % of the range's full scale
+  high on every range, the same at 0 V and -5 V (+15.9 nA on 1 uA,
+  +10.8 uA on 650 uA, +271 uA on 15 mA), and reports its voltage
+  +0.27-0.29 V off; channel 1 shows neither. Laser 3 is -1.24 mA on the
+  15 mA range; `read`'s autorange "above dark" is high by the lit
+  range's offset, so lasers 1 and 2 are about -477 uA and -7.8 uA.
+
 ## 0.6.10 - The photodiode in the window; first readings
 
 - The window shows the photodiode (channel 2) beside the cell, read

@@ -263,3 +263,7 @@ It prints the median and a robust scatter. Readings far from the median
 left out of the mean, and the file keeps every value. A laser near 1 mA,
 the limit on autorange, is read on a fixed range instead:
 `--current-range 15m`, whose full scale is also its current limit.
+**Channel 2 reads about 1.7 % of the range's full scale high**
+([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)), so
+"above dark" is exact only on a fixed range, where the dark is read on
+the same range as the laser.
