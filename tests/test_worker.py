@@ -372,3 +372,25 @@ def test_checking_ranges_through_the_worker(setup):
     assert change.ranges[2].range_a == 25e-6
     assert any("range 25 uA" in e.text for e in watch.of(Log))
     assert watch.of(LaserChanged)[-1].laser == machine.geometry.reference_laser
+
+
+def test_readings_include_the_photodiode_when_opened_with_it(machine):
+    def connector():
+        return open_sim(machine, clock=ScaledClock(20.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        assert worker.home()
+        watch.idle()
+        assert worker.laser(2)
+        watch.idle()
+        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a > 30e-6
+                               for r in watch.of(Reading)))
+        assert not watch.errors()
+    finally:
+        worker.close()

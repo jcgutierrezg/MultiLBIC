@@ -27,7 +27,7 @@ a second window or a `multilbic run` stops with "the machine is in use"
 | | |
 |---|---|
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
-| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the photocurrent now |
+| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the cell's and the photodiode's current now |
 | sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
 | run column | what the run is doing, a progress bar and the time left; the **Plan** tab (the run as set up, drawn and timed); a tab per laser with its map, live and then finished; Open run file..., Open folder |
 | footer | the last thing that happened; everything is in the Console |
@@ -220,6 +220,12 @@ filled.
 Once homed, the photocurrent is read twice a second while the machine
 is idle: in the dark, an edge is where it halves. A run ends with the
 SMU output off, so readings stop until the next Home.
+
+**Cell** is channel 1 and **Photodiode** channel 2 (since 0.6.10): the
+window opens the SMU with both, at 0 V on autorange. Autorange is
+limited to 1 mA, and a reading at that limit is marked `(limit)`: the
+truth may be larger (laser 3 on the photodiode is). During a run
+channel 2 is set up as channel 1 is, but not read.
 
 ## Colours
 

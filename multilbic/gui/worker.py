@@ -25,6 +25,8 @@ by hand, the stage's coordinates mean nothing.
 
 **While idle**, once homed with the SMU output on, the photocurrent is
 read every `poll_s` and sent as `Reading`: it is how an edge is found.
+If the SMU was opened with channel 2, the photodiode is read with it
+(Phase 6), on the same settings: 0 V and autorange, limited to 1 mA.
 A run ends with the output off, so readings stop until the next home.
 
 States::
@@ -111,7 +113,10 @@ class Position:
 
 @dataclass(frozen=True)
 class Reading:
+    #: Channel 1, the cell.
     current_a: float
+    #: Channel 2, the photodiode; None if the SMU wasn't opened with it.
+    photodiode_a: float | None = None
 
 
 @dataclass(frozen=True)
@@ -480,15 +485,17 @@ class MachineWorker:
         if self.state is not State.IDLE or not self._reading:
             return
         assert self._conn is not None
+        smu = self._conn.devices.smu
         try:
-            _, amps = self._conn.devices.smu.measure(1)
+            _, amps = smu.measure(1)
+            photodiode = smu.measure(2)[1] if 2 in smu.channels else None
         except Exception as exc:
             # Once, not every half second.
             self._reading = False
             self._log(f"reading stopped: {type(exc).__name__}: {exc}",
                       error=True)
             return
-        self._emit(Reading(amps))
+        self._emit(Reading(amps, photodiode))
 
     def _position(self) -> None:
         if self._conn is None:

@@ -343,10 +343,13 @@ def launch(machine: MachineConfig, *, simulated: bool, speedup: float) -> int:
 
     from multilbic.run.devices import open_real, open_sim
 
+    # Channel 2 too: the window shows the photodiode beside the cell.
+    channels = (1, 2)
+
     def connector():
         if simulated:
-            return open_sim(machine, speed=speedup)
-        return open_real(machine)
+            return open_sim(machine, speed=speedup, smu_channels=channels)
+        return open_real(machine, smu_channels=channels)
 
     worker = MachineWorker(machine, connector)
     try:

@@ -32,6 +32,8 @@ from multilbic.gui.worker import (
     State,
     StateChanged,
 )
+from multilbic.run.ranges import AT_LIMIT_SHARE
+from multilbic.run.rows import AUTORANGE_CURRENT_LIMIT_A as IDLE_LIMIT_A
 from multilbic.scan.mapping import BASELINE_ROW
 
 if TYPE_CHECKING:
@@ -341,9 +343,14 @@ class LaserPanel:
                 row=1, column=0, sticky="w", pady=(2, 0))
         reading = ttk.Frame(self.frame)
         reading.grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Label(reading, text="Photocurrent").pack(side="left")
+        ttk.Label(reading, text="Cell").pack(side="left")
         self.current = ttk.Label(reading, text="-", style="Readout.TLabel")
         self.current.pack(side="left", padx=(12, 0))
+        ttk.Label(reading, text="Photodiode").pack(side="left",
+                                                   padx=(24, 0))
+        self.photodiode = ttk.Label(reading, text="-",
+                                    style="Readout.TLabel")
+        self.photodiode.pack(side="left", padx=(12, 0))
         self.lit = 0
 
     def select(self, number: int) -> None:
@@ -363,10 +370,13 @@ class LaserPanel:
             if lit != self.lit:
                 self.handle(LaserChanged(lit))
         elif isinstance(event, Reading):
-            self.current.configure(text=look.amps(event.current_a))
+            self.current.configure(text=reading_text(event.current_a))
+            self.photodiode.configure(
+                text=reading_text(event.photodiode_a))
         elif isinstance(event, StateChanged) and event.state in (
                 State.RUNNING, State.DISCONNECTED):
             self.current.configure(text="-")
+            self.photodiode.configure(text="-")
             if event.state is State.DISCONNECTED:
                 self.handle(LaserChanged(0))
 
@@ -374,6 +384,15 @@ class LaserPanel:
         usable = self.app.state in (State.IDLE, State.MOVING)
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
+
+
+def reading_text(amps: float | None) -> str:
+    """A live reading, marked when it reaches the 1 mA limit the idle
+    readings are taken with: the truth may be larger (laser 3 on the
+    photodiode, bench 2026-10-29)."""
+    if amps is not None and abs(amps) >= AT_LIMIT_SHARE * IDLE_LIMIT_A:
+        return f"{look.amps(amps)} (limit)"
+    return look.amps(amps)
 
 
 def _enable(widget: ttk.Widget, on: bool) -> None:

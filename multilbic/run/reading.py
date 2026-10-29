@@ -82,6 +82,9 @@ class Reading:
     #: may be larger.
     at_limit: bool
     limit_a: float
+    #: The voltage the SMU measured with each reading: whether it held
+    #: the bias.
+    volts: tuple[float, ...] = ()
 
     @property
     def n(self) -> int:
@@ -93,16 +96,26 @@ class Reading:
         outliers."""
         return max(abs(self.min_a), abs(self.max_a))
 
+    @property
+    def median_v(self) -> float | None:
+        return statistics.median(self.volts) if self.volts else None
+
+    def held(self) -> str:
+        v = self.median_v
+        return "" if v is None else f", at {v:+.4f} V"
+
     def as_dict(self) -> dict[str, Any]:
         return {"median_a": self.median_a, "scatter_a": self.scatter_a,
                 "mean_a": self.mean_a, "min_a": self.min_a,
                 "max_a": self.max_a, "n": self.n, "outliers": self.outliers,
                 "at_limit": self.at_limit, "limit_a": self.limit_a,
-                "values_a": list(self.values)}
+                "median_v": self.median_v, "values_a": list(self.values),
+                "values_v": list(self.volts)}
 
 
 def summarise(laser: int, values: Sequence[float],
-              limit_a: float = current_limit_for(None)) -> Reading:
+              limit_a: float = current_limit_for(None),
+              volts: Sequence[float] = ()) -> Reading:
     if not values:
         raise ValueError("no readings")
     median = statistics.median(values)
@@ -115,6 +128,7 @@ def summarise(laser: int, values: Sequence[float],
         laser, tuple(values), median, scatter, statistics.fmean(kept),
         min(kept), max(kept), len(values) - len(kept),
         max(abs(v) for v in kept) >= AT_LIMIT_SHARE * limit_a, limit_a,
+        tuple(volts),
     )
 
 
@@ -146,7 +160,8 @@ class ChannelReading:
         return (f"channel {self.channel} at {self.bias_v:g} V, "
                 f"{self.setting()}, dark: {amps(d.median_a)} (scatter "
                 f"{amps(d.scatter_a)}, {d.n} readings"
-                + (f", {d.outliers} outliers" if d.outliers else "") + ")")
+                + (f", {d.outliers} outliers" if d.outliers else "")
+                + d.held() + ")")
 
     def laser_lines(self, n: int) -> list[str]:
         r, d = self.lit[n], self.dark
@@ -154,7 +169,7 @@ class ChannelReading:
         sign = "positive" if net > 0 else "negative"
         out = [f"laser {n}: {amps(r.median_a)}, {amps(net)} above dark "
                f"({sign}), scatter {amps(r.scatter_a)}, from "
-               f"{amps(r.min_a)} to {amps(r.max_a)}; range "
+               f"{amps(r.min_a)} to {amps(r.max_a)}{r.held()}; range "
                f"{amps(self.range_a(n))}"]
         if r.outliers:
             out.append(f"  {r.outliers} of {r.n} readings far off and left "
@@ -212,12 +227,15 @@ def read_channel(
 
     def read(laser: int) -> Reading:
         values: list[float] = []
+        volts: list[float] = []
         until = clock.now() + read_s
         while clock.now() < until or len(values) < MIN_READINGS:
             if halt.is_set():
                 raise ReadStopped("stopped")
-            values.append(smu.measure(channel)[1])
-        return summarise(laser, values, limit)
+            v, i = smu.measure(channel)
+            volts.append(v)
+            values.append(i)
+        return summarise(laser, values, limit, volts)
 
     board.off()
     smu.prepare(bias_v=bias_v, current_limit_a=limit,

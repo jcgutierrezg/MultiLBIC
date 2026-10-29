@@ -127,7 +127,7 @@ def window(machine, tk_root, monkeypatch):
     def connector():
         conn = open_sim(machine, clock=ScaledClock(20.0),
                         corner_carriage_mm=CORNER, size_mm=SIZE,
-                        faults=faults)
+                        faults=faults, smu_channels=(1, 2))
         holder["rig"] = conn.rig
         return conn
 
@@ -245,6 +245,15 @@ def test_readings_show_once_homed(window):
     app = window.app
     window.click(app.stage.home_btn)
     window.pump(lambda: app.lasers.current.cget("text").endswith("A"))
+    window.pump(lambda: app.lasers.photodiode.cget("text").endswith("A"))
+
+
+def test_a_reading_at_the_limit_is_marked():
+    from multilbic.gui.machine_panels import reading_text
+
+    assert reading_text(-0.99e-3).endswith("(limit)")
+    assert reading_text(-466e-6) == "-466 uA"
+    assert reading_text(None) == "-"
 
 
 def test_closing_during_a_run_asks_then_stops_it(window, tmp_path,

@@ -606,12 +606,14 @@ listing, which change.
     1.5 mm towards B- of the can's centre;
   - one blade's edge along B (scans along A cross it) and one along A
     (scans along B), crossing over the chip, so one quarter of the chip
-    is open: the quarter towards **A+ / B-**. Not trimmed: two straight
-    edges cross in a clean corner;
+    is open: the quarter towards **A- / B-** as built (A+ / B- in the
+    design of 2026-10-28). Not trimmed: two straight edges cross in a
+    clean corner;
   - the blade along B sits **0.4 mm lower** than the one along A (their
-    measured thicknesses). It is the one at the sample's height, so
-    focus and spot sizes along A (along the rows) are measured in the
-    maps' focal plane; the B edge is 0.4 mm above it.
+    measured thicknesses). It is the one at the sample's height
+    (confirmed as built, roughly, 2026-10-29), so focus and spot sizes
+    along A (along the rows) are measured in the maps' focal plane; the
+    B edge is 0.4 mm above it.
   - **Reaching it:** the photodiode is on the side that comes to the
     beam as A rises (the builder, 2026-10-28), so XY has to go about
     35 mm further in X than it does to centre AB under a laser. In the
@@ -623,10 +625,24 @@ listing, which change.
     calibration), so which is right is open. AB adds margin either way:
     each mm of A above its centre saves a mm of X, and A can go up to
     35 (its safe limit).
-  - **As built** (the builder, 2026-10-29): lasers 1-3 reach the
-    photodiode, only just. The positions they reach it at are still to
-    write down: they are the first numbers for the `[photodiode]`
-    table, and they show how much travel is left.
+  - **As built** (the builder, 2026-10-29): lasers 1-3 reach the open
+    quarter, only just, all with X at or near its 100 mm end:
+
+    | Laser | X | Y | A | B | Along A, B from its `xy_centre_mm` and AB centre |
+    |---|---|---|---|---|---|
+    | 1 | 100 | 70 | 33.2 | 19.3 | 36.1, +0.5 mm |
+    | 2 | 99.7 | 79.3 | 30 | 10 | 36.6, +0.1 mm |
+    | 3 | 100 | 80 | 28.7 | 7.6 | 36.2, +0.1 mm |
+
+    The last column is (X - x_centre) + (A - 17.5) and
+    (Y - y_centre) + (B - 17.5): where on the plate each laser met the
+    quarter, by `machine.toml`'s laser positions. The three agree to
+    0.5 mm (placed by eye, "roughly the same spot"), and 36 mm along A
+    is the designed 35 mm plus the quarter's offset from the can's
+    middle. So **`machine.toml`'s laser positions hold, and the CAD's
+    (X 67 for laser 1) is the one that is off**. Laser 1 has the least
+    room: X at its end and A 1.8 mm short of its 35 mm safe limit,
+    enough for edge passes of ±0.5 mm.
 - **The new stage, other changes** (the builder, 2026-10-29):
   - it sits **1 cm lower** than the old one, and lasers 1-3 were
     refocused by hand for it. So `spot_um` in `machine.toml` is out of
@@ -637,8 +653,32 @@ listing, which change.
     rather than held by Kapton at its edges, with a new calibration
     file. `stdtest-redge.json` belonged to the old cell: the sync check
     needs a new window across a straight edge.
-  - *To check*: that the lower blade (along B) is at the new cell's
-    surface height, since focus assist focuses on the blade.
+
+#### First readings on channel 2, 2026-10-29
+
+`multilbic read`, no motion, each laser on its open quarter at the
+positions above; files `~/cal/pd-*.json` on the Pi. Read 2 s after
+lighting, so not warmed up. Powers are rough, from typical S1223-01
+responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
+
+| Reading | Result |
+|---|---|
+| Dark, 0 V, autorange | 15.5-16.1 nA, scatter 27-44 pA: the SMU's offset or a little room light; no short, no noise |
+| Laser 1 | -408 uA on the first lighting, then -463 uA at -5 V and -466.5 uA at 0 V: no saturation at 0 V, the laser rose 14 % between lightings. About 1.5 mW |
+| Laser 2 | -7.36 uA, scatter 150 nA (warming). About 20 uW, 60 times weaker than laser 1, as the cell has always shown |
+| Laser 3 | On autorange, -0.5 to -0.77 mA with one reading of +6.2 mA: clipping at the top of the 650 uA range and switching. On a fixed 15 mA range, -969 uA lit but **+271 uA dark**: that range has a large offset of its own, so laser 3 is between about 0.97 and 1.24 mA, 2-3 mW. To settle |
+
+- **Negative**, as the cell reads on channel 1: the photodiode is wired
+  the same way round.
+- **0 V is fine** for laser 1 (same reading at -5 V); laser 3 is
+  untested at -5 V.
+- **The ranges differ by laser**: 25 uA for laser 2, 650 uA for laser
+  1 (1.4x headroom) or 15 mA, 15 mA for laser 3. `commission` picks
+  channel 2's range per laser.
+- **Laser 3 is beyond autorange's 1 mA limit**: the window's live
+  readout marks a reading at that limit.
+- **A power reading straight after lighting is good to about 15 %**:
+  `commission` reads power after the warm-up.
 - **Absolute EQE** would need a calibrated photodiode (for example a
   Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
   relative spectral response.

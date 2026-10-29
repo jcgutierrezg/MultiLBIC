@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.10 - The photodiode in the window; first readings
+
+- The window shows the photodiode (channel 2) beside the cell, read
+  together twice a second while idle; it opens the SMU with both
+  channels. A reading at autorange's 1 mA limit is marked `(limit)`.
+- `read` records the voltage the SMU held with each reading.
+- First readings on the photodiode, no motion ([hardware](docs/hardware.md)):
+  lasers 1-3 reach the open quarter (A-/B- as built) at positions that
+  agree with `machine.toml` to 0.5 mm, so the CAD is the one that is
+  off; -466 uA, -7.4 uA and about -1 to -1.24 mA under lasers 1, 2
+  and 3; 0 V is fine for laser 1; the 15 mA range reads +271 uA dark.
+
 ## 0.6.9 - `read` survives autorange's wild readings
 
 - `multilbic read` summarises by the median and a robust scatter, leaves
