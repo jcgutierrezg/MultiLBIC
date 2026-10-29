@@ -598,9 +598,10 @@ listing, which change.
   different focus from the maps. It has to sit on a corner every laser
   can reach within XY + AB travel, with a shielded twisted pair to
   channel 2 and enough slack to follow the stage.
-- **The new stage's design** (the builder, 2026-10-28; printed, not yet
-  built). The knife edges are two scalpel blades over the can, not the
-  chip's own edges, which sit under the window below focus:
+- **The new stage's design** (the builder, 2026-10-28; built and on
+  the machine 2026-10-29). The knife edges are two scalpel blades over
+  the can, not the chip's own edges, which sit under the window below
+  focus:
   - the can 35 mm from the AB centre along A; the chip inside it about
     1.5 mm towards B- of the can's centre;
   - one blade's edge along B (scans along A cross it) and one along A
@@ -622,6 +623,22 @@ listing, which change.
     calibration), so which is right is open. AB adds margin either way:
     each mm of A above its centre saves a mm of X, and A can go up to
     35 (its safe limit).
+  - **As built** (the builder, 2026-10-29): lasers 1-3 reach the
+    photodiode, only just. The positions they reach it at are still to
+    write down: they are the first numbers for the `[photodiode]`
+    table, and they show how much travel is left.
+- **The new stage, other changes** (the builder, 2026-10-29):
+  - it sits **1 cm lower** than the old one, and lasers 1-3 were
+    refocused by hand for it. So `spot_um` in `machine.toml` is out of
+    date, and `xy_centre_mm` may be too (a beam that isn't quite
+    vertical lands elsewhere 1 cm lower). Maps from different lasers
+    may not line up until commissioning measures both again;
+  - a **new test cell**, contacted by silver paint (dag) underneath
+    rather than held by Kapton at its edges, with a new calibration
+    file. `stdtest-redge.json` belonged to the old cell: the sync check
+    needs a new window across a straight edge.
+  - *To check*: that the lower blade (along B) is at the new cell's
+    surface height, since focus assist focuses on the blade.
 - **Absolute EQE** would need a calibrated photodiode (for example a
   Thorlabs FDS100-CAL), which RS does not sell. The S1223-01 gives
   relative spectral response.

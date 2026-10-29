@@ -390,6 +390,21 @@ The result goes into [hardware](hardware.md); `L` and the backlash
 decide whether `ab_backlash_mm` changes and whether 5 mm/s becomes the
 default (D27).
 
+## Phase 6: the photodiode's first reading
+
+Phase 6 step 8's end ([plan](plan.md#phase-6-commissioning)). **No
+motion**; lasers only if asked for, one at a time, and the builder is
+at the machine.
+
+| # | Step | What it answers |
+|---|---|---|
+| 1 | **Dark.** Window closed, `multilbic read` | the wiring: a dark current of nA with a scatter of tens of nA at most; a reading pinned at the range's end means a short |
+| 2 | **Each laser on the open quarter.** Jog the photodiode's open quarter (A+/B-) under laser 1 in the window, write down X, Y, A, B, close the window, `multilbic read --lasers 1 --out ~/cal/pd-l1.json`; the same for 2 and 3 | the sign (which way round it is wired), the current per laser and the range `commission` will use; the positions are the first numbers for the `[photodiode]` table |
+
+Nothing pinned at 1 mA (the autorange limit): if a laser reads there,
+stop and say; the S1223-01 would need reverse bias
+([hardware](hardware.md#channel-2-reference-photodiode-chosen-2026-10-22)).
+
 ## Afterwards
 
 Copy the reports back:

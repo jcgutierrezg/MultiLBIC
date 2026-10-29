@@ -74,6 +74,12 @@ class SimRig:
     x_along: str | None = None
     y_along: str | None = None
     laser_xy_mm: dict[int, tuple[float, float]] = field(default_factory=dict)
+    #: The channels the SMU driver is set up on.
+    smu_channels: tuple[int, ...] = (1,)
+    #: Channel 2 for now: a photodiode that reads this much under any
+    #: lit laser, wherever the stage is, for `multilbic read --sim`.
+    #: Step 4 of Phase 6 replaces it with the chip on the plate.
+    photodiode_lit_a: float = 40e-6
 
     def __post_init__(self) -> None:
         f = self.faults
@@ -118,7 +124,8 @@ class SimRig:
             connect(self.fake_laser, self.clock), self.machine, self.clock
         )
         self.smu = PhotocurrentSmu(
-            FakeMiniSMUTransport(self.fake_smu), self.clock
+            FakeMiniSMUTransport(self.fake_smu), self.clock,
+            self.smu_channels,
         )
 
     def spot_uv(
@@ -142,9 +149,11 @@ class SimRig:
         return self.spot_uv(self.fake_marlin.past_stage_position(t), laser)
 
     def _signal(self, channel: int, t: float) -> float:
+        lit = self.fake_laser.active
+        if channel == 2:
+            return self.photodiode_lit_a if lit else 0.0
         if channel != 1:
             return 0.0
-        lit = self.fake_laser.active
         if not lit:
             return self.sample.dark_a
         u, v = self.spot_uv(self.fake_marlin.stage_position(t), lit)

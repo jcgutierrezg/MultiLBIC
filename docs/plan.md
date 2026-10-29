@@ -361,6 +361,14 @@ recovers an injected 18.6 ms stamp lag and 20 µm of backlash. On the
 bench maps so far, the edge fits show the alignment off by 7-10 µm on
 sharp spots.
 
+**State (0.6.8): step 8 under way.** The new stage is built and on the
+machine (2026-10-29): lasers 1-3 just reach the photodiode, the stage is
+1 cm lower and lasers 1-3 were refocused, and a new test cell replaces
+the old one. `multilbic read` ([run](run.md#read-one-channel-dark-and-under-lasers-no-motion))
+takes the dark reading and one reading per laser with no motion
+([bench](bench.md#phase-6-the-photodiodes-first-reading)). Step 3 needs
+a new window on the new cell, or the blade over the photodiode.
+
 Steps 2 and 4–7 need no machine. Grounding the flat on the A/B shafts is
 a mechanical job for the user, at any time before the speed test repeat.
 

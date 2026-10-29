@@ -234,3 +234,26 @@ forward/reverse shift from the edges, and what the map's alignment
 said. For a sync check's folder, its result worked out again from the
 files. `--a-range lo,hi` (machine A, mm) keeps the fits to one edge
 when a row crosses several.
+
+## `read`: one channel, dark and under lasers, no motion
+
+```bash
+uv run multilbic read                      # channel 2, dark only
+uv run multilbic read --lasers 1,2,3 --out ~/cal/pd-first.json
+```
+
+For the photodiode on channel 2 (Phase 6 step 8): every laser off, a
+dark reading, then each laser in `--lasers` on in turn, read, and off
+again. For each it prints the mean, the scatter, the current above dark
+and its sign, and the fixed range a scan would pick (the smallest
+holding 3x the reading). A laser that barely rises above the dark
+scatter is flagged: the photodiode isn't under it, or its lead isn't on
+that channel.
+
+**The stage does not home or move.** Put the photodiode under the laser
+first (jog in the window), then close the window: it holds the machine
+lock. Single readings on autorange, 0 V unless `--bias`, `--seconds`
+each (2), after `--settle` s with the laser on (2): long enough to get
+past the first flicker, not a warm-up. It asks before lighting a laser
+unless `--yes`. Ctrl+C switches every laser and the channel off.
+`--channel 1` reads the cell the same way.

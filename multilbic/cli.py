@@ -11,7 +11,8 @@ The command line: calibrate a sample, then run its maps.
 `sync-check` measures the sync error on one edge in one session
 (Phase 6): step-and-measure, rows at several speeds, step-and-measure
 again. `edges` fits the edge in every row of a run file, or works out a
-sync check's result again from its folder.
+sync check's result again from its folder. `read` reads one SMU channel
+(the photodiode on 2) dark and under chosen lasers, with no motion.
 
 `calibrate` is interactive and needs you at the machine. `run` needs no
 terminal once started: on the Pi, run it under `nohup ... --yes &` so a
@@ -74,9 +75,10 @@ def say(text: str) -> None:
 # ---- devices ----
 
 
-def connect_real(machine: MachineConfig) -> Connection:
+def connect_real(machine: MachineConfig,
+                 smu_channels: tuple[int, ...] = (1,)) -> Connection:
     try:
-        return open_real(machine)
+        return open_real(machine, smu_channels=smu_channels)
     except DeviceSetupError as exc:
         raise SystemExit(f"cannot open the machine: {exc}") from None
 
@@ -445,6 +447,56 @@ def edges(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---- read ----
+
+
+def read(args: argparse.Namespace) -> int:
+    import json
+
+    from multilbic.run.reading import read_channel
+
+    machine = load(args.machine)
+    lasers = ([int(n) for n in _floats(args.lasers, "--lasers")]
+              if args.lasers else [])
+    for n in lasers:
+        try:
+            machine.laser(n)
+        except KeyError:
+            raise SystemExit(f"no laser {n} in machine.toml") from None
+    channels = (args.channel,)
+    if args.sim:
+        conn = open_sim(machine, speed=args.speedup, smu_channels=channels)
+    else:
+        if lasers and not args.yes:
+            if not sys.stdin.isatty():
+                raise SystemExit("no terminal to confirm on: pass --yes")
+            if input(f"laser{'s' if len(lasers) > 1 else ''} "
+                     f"{', '.join(map(str, lasers))} will come on, one at a "
+                     "time; the stage will not move [y/N] "
+                     ).strip().lower() != "y":
+                say("not started")
+                return 1
+        conn = connect_real(machine, channels)
+    try:
+        result = read_channel(
+            conn.devices, machine, conn.clock, channel=args.channel,
+            lasers=lasers, read_s=args.seconds, settle_s=args.settle,
+            bias_v=args.bias, say=say)
+    except KeyboardInterrupt:
+        say("stopped: every laser and the channel off")
+        return 1
+    finally:
+        conn.close()
+    if args.out:
+        out = Path(args.out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(
+            {"schema": "multilbic-read/1", "simulated": args.sim,
+             **result.as_dict()}, indent=2) + "\n")
+        say(f"saved {out}")
+    return 0
+
+
 # ---- gui ----
 
 
@@ -503,6 +555,26 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--speedup", type=float, default=SIM_SPEED,
                     help="simulated seconds per real second (--sim)")
     go.set_defaults(func=run)
+
+    reading = commands.add_parser(
+        "read", help="read one SMU channel dark and under lasers, no motion")
+    reading.add_argument("--channel", type=int, choices=(1, 2), default=2,
+                         help="SMU channel (default 2, the photodiode)")
+    reading.add_argument("--lasers", default="",
+                         help="lasers to read under, one at a time, e.g. "
+                         "1,2,3 (default: dark only)")
+    reading.add_argument("--seconds", type=float, default=2.0,
+                         help="s each reading averages")
+    reading.add_argument("--settle", type=float, default=2.0,
+                         help="s with a laser on before reading it")
+    reading.add_argument("--bias", type=float, default=0.0, help="V")
+    reading.add_argument("--out", default="", help="JSON file to save to")
+    reading.add_argument("--yes", action="store_true",
+                         help="don't ask before lighting lasers")
+    reading.add_argument("--sim", action="store_true")
+    reading.add_argument("--speedup", type=float, default=SIM_SPEED,
+                         help="simulated seconds per real second (--sim)")
+    reading.set_defaults(func=read)
 
     window = commands.add_parser("gui", help="the window")
     window.add_argument("--sim", action="store_true",

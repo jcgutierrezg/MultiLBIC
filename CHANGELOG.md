@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.8 - Reading the photodiode with no motion
+
+- `multilbic read` reads one SMU channel (2, the photodiode, by
+  default) with every laser off, then under each laser asked for, one
+  at a time, and prints the mean, scatter, current above dark, its sign
+  and the range a scan would pick. The stage doesn't home or move; it
+  asks before lighting a laser ([run](docs/run.md)). The machine can now
+  be opened with the SMU on channel 2.
+- The simulator's channel 2 reads a fixed 40 uA under any lit laser, a
+  stand-in until step 4 puts a chip on the plate.
+- The new stage is on the machine: lasers 1-3 just reach the
+  photodiode, it sits 1 cm lower (lasers 1-3 refocused, so `spot_um`
+  is out of date), and a new test cell is contacted with silver paint
+  underneath ([hardware](docs/hardware.md)). The bench runbook has the
+  photodiode's first reading.
+
 ## 0.6.7 - Why zero is 5 mm off the stop
 
 - The hardware notes explain the builder's finding that A/B zero sits
