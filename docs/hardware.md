@@ -700,6 +700,24 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
   on autorange read -1.028 mA at +0.42 V: the 1 mA current limit, where
   the SMU can no longer hold 0 V. Laser 3 needs a fixed 15 mA range on
   either channel.
+- **The three lasers on channel 1**, the stage homed and sent to each
+  laser's place by `read --at` (positions above), each laser on a fixed
+  range with its own dark on that range, read 2 s after lighting:
+
+  | Laser | Channel 1 | Range | Channel 2 earlier, its offset removed |
+  |---|---|---|---|
+  | 1 | -681 uA (clipped), then **-733 uA** | 650 uA, then 15 mA | about -477 uA (650 uA) |
+  | 2 | **-6.46 uA** | 25 uA | about -7.8 uA (25 uA) |
+  | 3 | **-1.211 mA** | 15 mA | -1.239 mA (15 mA) |
+
+  Laser 3, both channels on 15 mA, agrees to 2 %: with its dark read on
+  the same range, channel 2 measures right. Laser 1 is 54 % higher than
+  on channel 2 and laser 2 17 % lower, readings an hour apart and 2 s
+  after lighting. Laser 1 had already moved 14 % between lightings a
+  few minutes apart, so laser output is the likeliest cause; channel
+  2's 650 uA range reading low is not ruled out (it was never compared
+  on that range). A power reading after warm-up, the same laser on both
+  channels minutes apart, would separate the two.
 - **So a dark reading counts only on the range of the reading it is
   taken from.** Runs and `commission` read on fixed ranges with a
   laser-off baseline on the same range, which removes it. `read` on

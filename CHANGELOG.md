@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.13 - The three lasers on channel 1
+
+- Hardware notes: with `read --at` on the machine, the photodiode on
+  channel 1 reads -733 uA, -6.46 uA and -1.211 mA under lasers 1, 2 and
+  3. Laser 3 agrees with channel 2 to 2 % on the same range; lasers 1
+  and 2 differ by more, most likely the lasers' own output.
+
 ## 0.6.12 - `read` goes to each laser; channel 1 has no offset
 
 - `read --at N=X,Y,A,B`, once per laser: the stage homes, then goes to
