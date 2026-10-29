@@ -263,10 +263,12 @@ It prints the median and a robust scatter. Readings far from the median
 left out of the mean, and the file keeps every value. A laser near 1 mA,
 the limit on autorange, is read on a fixed range instead:
 `--current-range 15m`, whose full scale is also its current limit.
-**Channel 2 reads about 1.7 % of the range's full scale high**
-([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)), so
-"above dark" is exact only on a fixed range, where the dark is read on
-the same range as the laser.
+"Above dark" is exact only on a fixed range, where the dark is read on
+the same range as the laser: for an hour on 2026-10-29 channel 2 read
+1.7 % of the range's full scale high, and 0.27 V off
+([hardware](hardware.md#first-readings-on-channel-2-2026-10-29)). The
+voltage each reading prints shows that state: at 0 V it should be
+within a few mV.
 
 Ranges can differ per laser, as in `run`: `--current-range
 1=650u,2=25u,3=15m`. A laser on a range of its own gets its own dark on

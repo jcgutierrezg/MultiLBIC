@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.14 - Channel 2's offset went away
+
+- Hardware notes corrected: back on channel 2, the photodiode read like
+  channel 1 (laser 1 -739 uA against -733 uA, dark -0.5 nA at -0.3 mV).
+  The offset of the afternoon was a state, not channel 2's calibration;
+  its cause is unknown (not the cell). Laser 1 is about -735 uA, so the
+  afternoon's -466 uA was low.
+
 ## 0.6.13 - The three lasers on channel 1
 
 - Hardware notes: with `read --at` on the machine, the photodiode on
