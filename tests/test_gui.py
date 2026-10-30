@@ -503,14 +503,16 @@ def test_the_plan_tab_follows_the_setup(window, tmp_path, monkeypatch):
     texts = [w.cget("text") for w in view.table.winfo_children()]
     assert any("Laser 2 (519 nm)" in t for t in texts)
     assert any("Homing" in t for t in texts) and "Whole run" in texts
-    # Laser 2's spot is 41 um: a 50 um pitch leaves a strip, said so.
-    assert "rim" in view.notes.cget("text")
-    # Editing a field brings the Plan tab to the front and re-plans.
-    setup.fields["pitch_mm"].set("0.03")
+    # Laser 2's spot is 272 um (commissioned, out of focus): a 50 um
+    # pitch overlaps far more than it needs to, said so.
+    assert "would be faster" in view.notes.cget("text")
+    # Editing a field brings the Plan tab to the front and re-plans; a
+    # pitch past the spot leaves a strip.
+    setup.fields["pitch_mm"].set("0.4")
     window.pump(lambda: view.plan is not None
-                and view.plan.request.pitch_mm == 0.03)
+                and view.plan.request.pitch_mm == 0.4)
     assert app.run_panel.notebook.select() == str(view.frame)
-    assert "every point is lit" in view.notes.cget("text")
+    assert "rim" in view.notes.cget("text")
     # A second laser: two close-ups, two table rows.
     setup.laser_vars[3].set(True)
     setup.changed()

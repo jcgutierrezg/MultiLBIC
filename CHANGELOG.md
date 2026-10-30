@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.19 - Lasers 1-3 commissioned
+
+- `multilbic commission --lasers 1,2,3` on the machine (2026-10-30),
+  written to `machine.toml`: the photodiode's corner (60.239, 23.062),
+  now measured; laser 1's and 3's `xy_centre_mm` against laser 2's
+  (laser 1 by -0.53, +1.28 mm); spots 238, 272 and 254 um along A.
+- Lasers 1 and 2 are out of focus (65 and 41 um on the old stage).
+- Tests that assumed an estimated corner or a 41 um spot say so.
+
 ## 0.6.18 - X stops at 103
 
 - X's limit is 103, down from 104.5: at 104 the carriage just touches a

@@ -378,6 +378,12 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.19): lasers 1-3 commissioned** on the machine and
+written: the photodiode's corner measured, lasers 1 and 3 placed
+against laser 2 (laser 1 moved 1.3 mm), spots about 250 um, so lasers
+1 and 2 need focusing (step 6). Channel 2 was in its offset state; the
+same-range dark handled it ([hardware](hardware.md)).
+
 **State (0.6.17): wider limits.** Marlin's software endstops are off
 (`M211 S0` at every connect) and A/B get a 5 mm home offset (`M206`),
 so `machine.toml` holds the only limits: A/B 0.5-39.5 with 0 at the

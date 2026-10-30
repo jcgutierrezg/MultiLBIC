@@ -119,8 +119,16 @@ def test_no_light_anywhere_near_fails_clearly(machine):
         commission(machine, (2,), offsets={2: (10.0, 10.0)})
 
 
+def estimated(machine):
+    """`machine` with its photodiode corner still an estimate."""
+    from dataclasses import replace
+
+    return replace(machine, photodiode=replace(machine.photodiode,
+                                               measured=False))
+
+
 def test_without_the_reference_laser_there_is_no_proposal(machine):
-    _, result = commission(machine, (3,))
+    _, result = commission(estimated(machine), (3,))
     assert result.proposal is None
     assert "reference" in result.error
 
@@ -162,17 +170,14 @@ def test_each_laser_moves_by_its_view_of_the_corner(machine):
 
 
 def test_a_measured_corner_needs_no_reference(machine):
-    from dataclasses import replace
-
-    measured = replace(machine, photodiode=replace(machine.photodiode,
-                                                   measured=True))
-    corner = measured.photodiode.corner_ab_mm
-    p = propose(measured, {3: result_with(3, (corner[0] + 0.1, corner[1]))})
+    assert machine.photodiode.measured
+    corner = machine.photodiode.corner_ab_mm
+    p = propose(machine, {3: result_with(3, (corner[0] + 0.1, corner[1]))})
     assert p.reference == 0
     x, y = machine.laser(3).xy_centre_mm
     assert p.xy_centre_mm[3] == pytest.approx((x + 0.1, y))
     with pytest.raises(CommissionError, match="reference"):
-        propose(machine, {3: result_with(3, corner)})
+        propose(estimated(machine), {3: result_with(3, corner)})
 
 
 def test_writing_keeps_everything_else(machine):

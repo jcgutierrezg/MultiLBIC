@@ -768,6 +768,34 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
   the laser, which also removes such an offset, and look at the voltage
   `read` reports: a channel at 0 V that reports more than a few mV off
   is in that state again. `commission` should check the same.
+- **Commissioned (2026-10-30, `20261030T140929Z_commission`)**, lasers
+  1-3 at 0 V, X to 103, written to `machine.toml` (0.6.19):
+
+  | Laser | Power | 10-90 % along A / B | Corner seen (A, B) | `xy_centre_mm` moved |
+  |---|---|---|---|---|
+  | 1 | -699 uA, 15 mA | 238 / 271 um | 59.711, 24.342 | -0.53, +1.28 mm |
+  | 2 | -36.9 uA, 650 uA | 272 / 318 um | 60.239, 23.062 | reference |
+  | 3 | -1.224 mA, 15 mA | 254 / 303 um | 59.844, 23.096 | -0.40, +0.04 mm |
+
+  - The corner is laser 2's view, 0.5 mm from the estimate by eye, and
+    now `measured`. Up minus down on each edge: 5-33 um, the backlash.
+  - **Lasers 1 and 2 are out of focus**: 65 and 41 um on the old stage
+    (the cell's edge, 2026-10-23), about 250 um now, after the stage
+    went 1 cm lower and they were refocused by eye. Every B edge (the
+    upper blade, 0.4 mm higher) is wider, as defocus would make it.
+    Focus assist (step 6) is for this.
+  - **Laser 1 moved 1.3 mm along Y against laser 2**: the lower stage
+    and the refocusing, presumably. Calibrations use laser 2, so laser 1
+    maps would have been that far off. *Unverified on the cell*: a
+    small map with lasers 1 and 2 would show it.
+  - **Laser 2 is about 6x yesterday's** (-6.5 uA), after the builder
+    fixed a loose laser power cable, but fell from -45.9 to -36.9 uA
+    within its own run: the connection may still be loose.
+  - **Channel 2 was in the offset state again** (+0.28 V at 0 V) from
+    the start, after the photodiode's leads were re-secured (they had
+    come off during a homing, which made the first try find no light).
+    The same-range dark removed it from the powers; positions are not
+    affected.
 - **A dark reading counts only on the range of the reading it is
   taken from.** Runs and `commission` read on fixed ranges with a
   laser-off baseline on the same range. `read` on autorange takes the

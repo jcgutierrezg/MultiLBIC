@@ -438,6 +438,11 @@ Claude asks before starting and runs it over SSH.
 If laser 1 cannot reach past the A edge, it says so: the way out is
 more travel (Marlin's limits), not a special case.
 
+**Done 2026-10-30** and written (0.6.19); the results are in
+[hardware](hardware.md). The first try found no light: the
+photodiode's leads had come off during homing. Check they are secure
+before a run.
+
 ## Afterwards
 
 Copy the reports back:
