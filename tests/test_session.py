@@ -183,6 +183,12 @@ def test_a_fault_ends_the_run_safely(machine, tmp_path, fault, kind):
 
 
 def test_refused_before_anything_moves(machine):
+    from dataclasses import replace as _replace
+
+    # Laser 4 a placeholder again (all six were commissioned 2026-10-30).
+    machine = _replace(machine, lasers=tuple(
+        _replace(laser, measured=False) if laser.number == 4 else laser
+        for laser in machine.lasers))
     clock = ScaledClock(20.0)
     rig, machine = make(machine, clock)
     try:

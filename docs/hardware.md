@@ -791,6 +791,26 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     from the window corner along both, (58.44, 21.26), which puts the
     open quarter's middle where the light was found. Laser 1 then
     reaches 5.0 mm past it along A.
+- **Lasers 4-6 commissioned (2026-10-30, `20261030T181328Z_commission`,
+  0.6.27)**, box closed, against the measured corner, written to
+  `machine.toml` (0.6.28):
+
+  | Laser | Power | 10-90 % lower / upper blade | `xy_centre_mm` moved from by eye |
+  |---|---|---|---|
+  | 4 (676 nm) | -1.50 mA | **98.4** / 83.0 um | -543, +924 um |
+  | 5 (785 nm) | -1.31 mA | **71.3** / 84.0 um | -361, +218 um |
+  | 6 (848 nm) | -2.00 mA | **74.9** / 94.6 um | +73, +295 um |
+
+  - Laser 4's light was again found on the blade (-101 uA against
+    -1.5 mA): the ±2 mm coarse sweep saw the full light anyway, and a
+    pass that reached the 650 uA range's limit went again on 15 mA.
+  - Up minus down 7-29 um. Lasers 5 and 6 are wider on the upper blade,
+    unlike 1-3.
+  - **Bright on the chip, 1.3-2.0 mA**, with spots under 100 um: the
+    response may bend before any range clips (linearity, above). The
+    edges don't depend on it, the powers may; a read at -5 V would tell.
+    The window's idle readout, held to 1 mA, shows them as `(limit)`.
+  - All six lasers now have a measured position and spot.
 - **Laser 4's first tries (2026-10-30).** At its placeholder it lit
   the photodiode at -4.5 uA, the spot mostly elsewhere; refocused by
   the builder, -560 uA. Then the edge along B (passes along A) came out

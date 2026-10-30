@@ -218,7 +218,12 @@ def test_a_measured_corner_needs_no_reference(machine):
 def test_writing_keeps_everything_else(machine):
     p = Proposal(2, (54.81234, 18.4), {1: (79.71, 71.2), 4: (51.9, 41.5)},
                  {1: 63.24, 4: 70.0})
-    text = machine_text()
+    # Laser 4 without a spot_um, as before it was commissioned.
+    lines = machine_text().splitlines(keepends=True)
+    start = lines.index("number = 4\n")
+    spot = next(i for i in range(start, len(lines))
+                if lines[i].startswith("spot_um"))
+    text = "".join(lines[:spot] + lines[spot + 1:])
     out = apply_proposal(text, p, "2026-10-29")
     old_lines, new_lines = text.splitlines(), out.splitlines()
     # One line more: laser 4 had no spot_um.

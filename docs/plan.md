@@ -378,6 +378,12 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.28): all six lasers commissioned** and written: lasers
+4-6 placed first by eye (an IR card for 5 and 6), then swept coarse,
+medium and fine (0.6.27); spots 98, 71 and 75 um. Next: a map of the
+test cell with all six, to see that they line up (Phase 6's "done
+when"); focus as wanted ([hardware](hardware.md)).
+
 **State (0.6.23): lasers 1-3 commissioned across the blades** and
 written: the corner measured, spots 59, 39 and 31 um at the sample's
 height, narrower on the upper blade. Next: a look with focus assist

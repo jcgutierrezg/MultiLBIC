@@ -88,26 +88,30 @@ spot_um = 30.9  # commission 2026-10-30
 number = 4
 wavelength_nm = 676
 servo_angle_deg = 150
-# Lasers 4-6 placed by eye on the photodiode's open quarter (laser 4 by
-# sight, 5 and 6 with an IR card, 2026-10-30): XY there, AB at 20, 20,
-# taken as the open quarter's middle. Laser 4 lit it at its old
-# placeholder; laser 6 was 12 mm from its own.
-xy_centre_mm = [49.4, 43.0]
-measured = false
+# Lasers 4-6 placed by eye on the photodiode's open quarter first (laser
+# 4 by sight, 5 and 6 with an IR card; laser 6 was 12 mm from its
+# placeholder), then commissioned across the blades (2026-10-30,
+# 0.6.27): moved by up to 0.9 mm from there. All three give 1.3-2.0 mA
+# on the photodiode, bright enough that its response may bend.
+xy_centre_mm = [48.857, 43.924]  # commission 2026-10-30
+measured = true  # commission 2026-10-30
+spot_um = 98.4  # commission 2026-10-30
 
 [[lasers]]
 number = 5
 wavelength_nm = 785
 servo_angle_deg = 90
-xy_centre_mm = [48.4, 42.0]
-measured = false
+xy_centre_mm = [48.039, 42.218]  # commission 2026-10-30
+measured = true  # commission 2026-10-30
+spot_um = 71.3  # commission 2026-10-30
 
 [[lasers]]
 number = 6
 wavelength_nm = 848
 servo_angle_deg = 30
-xy_centre_mm = [49.4, 38.0]
-measured = false
+xy_centre_mm = [49.473, 38.295]  # commission 2026-10-30
+measured = true  # commission 2026-10-30
+spot_um = 74.9  # commission 2026-10-30
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's

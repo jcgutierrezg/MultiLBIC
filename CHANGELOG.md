@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.28 - Lasers 4-6 commissioned
+
+- `multilbic commission --lasers 4,5,6` (2026-10-30), written to
+  `machine.toml`: positions moved up to 0.9 mm from where they were
+  placed by eye, spots 98.4, 71.3 and 74.9 um, all `measured = true`.
+  All six lasers are now measured.
+- Tests that needed a placeholder laser make one.
+
 ## 0.6.27 - Sweeps from both sides, each finer than the last
 
 - Each edge is swept coarse (±2 mm round where the light was found,

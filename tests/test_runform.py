@@ -46,6 +46,7 @@ def test_each_bad_field_is_named(machine, calibration):
 
 
 def test_what_plan_run_refuses_is_shown(machine, calibration):
+    machine = placeholders(machine, 4)
     with pytest.raises(FormError, match="placeholder"):
         plan_form(RunForm(lasers=(4,)), calibration, machine, simulated=True)
     assert plan_form(RunForm(lasers=(4,), allow_unmeasured=True),
@@ -150,11 +151,23 @@ def test_spot_against_pitch():
 
 
 def test_unmeasured_spots_share_one_note(machine, calibration):
+    machine = placeholders(machine, 4, 5, 6)
     plan = plan_form(RunForm(lasers=(2, 4, 5, 6), allow_unmeasured=True),
                      calibration, machine, simulated=True)
     unmeasured = [n for n in plan.notes if "not measured" in n]
     assert unmeasured == ["lasers 4, 5, 6: spots not measured yet (the "
                           "photodiode measures them, Phase 6)"]
+
+
+def placeholders(machine, *numbers):
+    """`machine` with lasers `numbers` back to placeholders: unmeasured,
+    no spot (all six were commissioned 2026-10-30)."""
+    from dataclasses import replace as _replace
+
+    lasers = tuple(_replace(laser, measured=False, spot_um=None)
+                   if laser.number in numbers else laser
+                   for laser in machine.lasers)
+    return _replace(machine, lasers=lasers)
 
 
 def test_the_version_is_the_running_codes():

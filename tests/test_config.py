@@ -43,7 +43,7 @@ def test_values_match_hardware_notes():
         )
     # 4, 5 and 6 are placeholders until commissioning.
     assert [laser.measured for laser in config.lasers] == [
-        True, True, True, False, False, False,
+        True, True, True, True, True, True,
     ]
     assert config.ab.centre_mm == (20.0, 20.0)
     # Zero at the hard stop, 0.5 mm kept clear of both (2026-10-29).
