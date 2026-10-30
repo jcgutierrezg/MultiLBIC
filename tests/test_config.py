@@ -49,7 +49,8 @@ def test_values_match_hardware_notes():
     # Zero at the hard stop, 0.5 mm kept clear of both (2026-10-29).
     assert config.ab.home_offset_mm == 5.0
     assert (config.ab.safe_min_mm, config.ab.safe_max_mm) == (0.5, 39.5)
-    assert config.xy.travel_mm == (104.5, 120.0)
+    # X stops short of a cable (2026-10-30).
+    assert config.xy.travel_mm == (103.0, 120.0)
     assert config.ab.max_feed_mm_s == 6.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 

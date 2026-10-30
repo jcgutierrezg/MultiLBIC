@@ -415,9 +415,10 @@ them**, with someone at the machine:
 1. Home in the window. The position should read A 5, B 5 (the driver
    refuses to move otherwise).
 2. Jog A down to 1.0, slowly: about 1 mm should be left to the hard
-   stop. The same for B. Then A and B up to 39.0, and X up to 104:
-   about 1 mm left each time. If any is touching or far off, stop and
-   say.
+   stop. The same for B. Then A and B up to 39.0, and X up to 102.5:
+   about 1 mm left each time, and clear of the cable that X touches at
+   104 (2026-10-30, so X stops at 103). If any is touching or far off,
+   stop and say.
 3. Calibrate the sample again: calibrations from before 0.6.17 are
    refused (their A/B are 5 mm off).
 

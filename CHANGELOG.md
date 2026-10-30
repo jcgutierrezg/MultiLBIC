@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.18 - X stops at 103
+
+- X's limit is 103, down from 104.5: at 104 the carriage just touches a
+  cable (the limit check at the machine, 2026-10-30). A/B checked: about
+  1 mm left at 1.0 and 39.0.
+- Laser 1 reaches 3.2 mm past the photodiode's corner, enough for
+  commissioning's passes (they stop at what each laser can reach).
+
 ## 0.6.17 - Wider limits, without recompiling Marlin
 
 - At every connect MultiLBIC turns Marlin's software endstops off

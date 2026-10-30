@@ -213,17 +213,18 @@ Other relevant options:
     and B read the offset, and refuses to move if not: an offset taken
     the other way round would put 39.5 past the far stop.
   - **Limits** with 0.5 mm kept clear of each stop: A/B 0.5-39.5
-    (centre 20), X 0-104.5.
+    (centre 20), X 0-104.5. **X lowered to 103 (0.6.18, 2026-10-30)**:
+    at 104 the carriage just touches a cable (the limit check).
   - **Every A/B coordinate moved by +5 mm**: positions noted before
     0.6.17 read 5 less than today's for the same place. The
     photodiode's corner moved with them (59.7, 23.6), `xy_centre_mm`
     did not (XY is unchanged). Calibrations record the offset; one
     made before is refused (`CalibrationMismatch`): calibrate again.
-  - Laser 1 now reaches 4.7 mm past the corner, lasers 2 and 3 8.7 and
-    9.3 mm.
-  - *To check at the machine*, once: home, jog A and B down to 1.0 and
-    up to 39.0, and X to 104, slowly, and see about 1 mm left to each
-    stop.
+  - Laser 1 now reaches 3.2 mm past the corner (4.7 with X to 104.5),
+    lasers 2 and 3 7.2 and 7.8 mm.
+  - *Checked at the machine* (2026-10-30): home reads A 5, B 5; about
+    1 mm left at A and B 1.0 and 39.0; X at 104 touches a cable, hence
+    103.
 - `EMERGENCY_PARSER`: `M410` (quickstop) and `M112` act mid-move. This is
   what Stop uses.
 - `ADVANCED_OK`: each `ok` reports free planner and serial buffer space.

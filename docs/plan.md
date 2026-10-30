@@ -381,9 +381,9 @@ a new window on the new cell, or the blade over the photodiode.
 **State (0.6.17): wider limits.** Marlin's software endstops are off
 (`M211 S0` at every connect) and A/B get a 5 mm home offset (`M206`),
 so `machine.toml` holds the only limits: A/B 0.5-39.5 with 0 at the
-hard stop, X to 104.5. Every A/B coordinate moved by +5 mm; old
-calibrations are refused. Laser 1 now has 4.7 mm past the photodiode's
-corner. To check at the machine before commissioning
+hard stop, X to 103 (0.6.18: a cable at 104). Every A/B coordinate
+moved by +5 mm; old calibrations are refused. Laser 1 now has 3.2 mm
+past the photodiode's corner. Checked at the machine 2026-10-30
 ([bench](bench.md#phase-6-the-new-limits-0617)).
 
 **State (0.6.16): step 5 done** in simulation: `multilbic commission`

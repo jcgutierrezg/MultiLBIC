@@ -79,8 +79,8 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
     assert x == pytest.approx(machine.xy.travel_mm[0])
     assert b == pytest.approx(machine.ab.centre_mm[1])
     assert carriage_point(machine, 1, r.xyab) == pytest.approx(corner)
-    # Laser 1 has 4.7 mm left above the corner along A.
-    assert r.room_mm[1] == pytest.approx(4.7, abs=1e-6)
+    # Laser 1 has 3.2 mm left above the corner along A.
+    assert r.room_mm[1] == pytest.approx(3.2, abs=1e-6)
     for n in (2, 3, 4, 5, 6):
         r = reach(machine, n, corner)
         assert carriage_point(machine, n, r.xyab) == pytest.approx(corner)
@@ -89,7 +89,7 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
 def test_out_of_reach_says_by_how_much(machine):
     corner = machine.photodiode.corner_ab_mm
     with pytest.raises(OutOfReach, match="short by 0.300"):
-        reach(machine, 1, corner, room_mm=5.0)
+        reach(machine, 1, corner, room_mm=3.5)
 
 
 def test_reach_follows_reversed_and_swapped_axes(machine):
