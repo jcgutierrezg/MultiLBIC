@@ -791,6 +791,17 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     from the window corner along both, (58.44, 21.26), which puts the
     open quarter's middle where the light was found. Laser 1 then
     reaches 5.0 mm past it along A.
+- **Laser 4's first tries (2026-10-30).** At its placeholder it lit
+  the photodiode at -4.5 uA, the spot mostly elsewhere; refocused by
+  the builder, -560 uA. Then the edge along B (passes along A) came out
+  clean (A 58.140, 86 um), but the light had been found on the blade
+  along A itself, about 0.9 mm off along B: the coarse pass along B
+  started at half light and fell to dark within 0.1 mm, with no full
+  light to fit from. Since 0.6.27 the coarse sweep spans ±2 mm round
+  where the light was found (the builder's suggestion), then a medium
+  sweep, then the fine passes; a pass that clips steps the range up.
+  Lasers 5 and 6 were found with an IR card (laser 6 12 mm from its
+  placeholder).
 - **Commissioned across the blades (2026-10-30,
   `20261030T164634Z_commission`, 0.6.22)**, lasers 1-3 at 0 V, box
   closed, written to `machine.toml` (0.6.23):

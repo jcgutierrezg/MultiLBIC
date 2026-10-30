@@ -219,18 +219,15 @@ class FocusAssist(Commissioner):
         first = LaserCommission(n)
         light = self._find(first, commission)
         assert first.found_mm is not None
-        self._coarse(first, commission, first.found_mm, light, axes)
+        # Both edges, roughly, whichever are passed: each pass then runs
+        # through the open quarter's middle, with the whole spot on it.
+        light = self._coarse(first, commission, first.found_mm, light,
+                             (0, 1))
         tracks: dict[int, _Track] = {}
         for k in axes:
-            fit = first.coarse[k].fit
-            assert fit is not None
-            if k == 0:
-                other = first.found_mm[1]
-            else:
-                a_fit = first.coarse[0].fit
-                assert a_fit is not None
-                other = a_fit.position_mm + signs[0] * quarter
-            tracks[k] = _Track(fit.position_mm, fit.width_mm,
+            other = self._rough(first, 1 - k) + signs[1 - k] * quarter
+            tracks[k] = _Track(self._rough(first, k),
+                               self._rough_width(first, k),
                                light * signs[k], other)
         self.say(f"laser {n}: passing across the edge"
                  + ("s" if len(axes) > 1 else "")

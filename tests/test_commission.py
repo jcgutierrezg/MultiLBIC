@@ -35,7 +35,7 @@ def machine_text():
 
 
 def rig_for(machine, *, offsets=None, corner_shift=(0.0, 0.0),
-            faults=None):
+            faults=None, spot_sigma=None):
     clock = ScaledClock(50.0, precise=True)
     laser_xy = {
         n: (machine.laser(n).xy_centre_mm[0] + dx,
@@ -47,6 +47,9 @@ def rig_for(machine, *, offsets=None, corner_shift=(0.0, 0.0),
     c = rig.photodiode.corner_mm
     rig.photodiode.corner_mm = (c[0] + corner_shift[0],
                                 c[1] + corner_shift[1])
+    if spot_sigma is not None:
+        for n in rig.photodiode.sigma_mm:
+            rig.photodiode.sigma_mm[n] = spot_sigma
     rig.open()
     return rig, Connection(ScanDevices(rig.marlin, rig.laser, rig.smu),
                            clock, True, rig=rig)
@@ -287,3 +290,44 @@ def test_a_failed_run_still_saves_what_it_read(tmp_path):
     laser = report["lasers"]["2"]
     assert laser["first_dark"] is not None and laser["first"] is None
     assert not (folder / "machine-proposed.toml").exists()
+
+
+def test_light_found_on_the_edge_of_the_spot(machine):
+    # Laser 3 0.95 mm off along Y (+B), with a 250 um spot: the open
+    # quarter's middle, where the light is first found, sits 0.1 mm past
+    # the blade along A, on the spot's tail (laser 4, bench 2026-10-30,
+    # was on the edge). The range chosen from that sliver is too small:
+    # a pass that clips goes again on a larger one, and the edges, the
+    # widths and the power come out as with the laser where it should
+    # be. (On the bench the first coarse pass found no edge there, and
+    # is tried again from further into the open quarter.)
+    wide = 0.1
+    _, base = commission(machine, (3,), spot_sigma=wide)
+    _, off = commission(machine, (3,), offsets={3: (0.0, 0.95)},
+                        spot_sigma=wide)
+    b0, r = base.lasers[3], off.lasers[3]
+    assert abs(r.first.median_a) < 0.2 * abs(r.power_a)
+    assert any("range's limit" in w for w in r.warnings)
+    assert r.edges[1].position_mm - b0.edges[1].position_mm == pytest.approx(
+        0.95, abs=0.005)
+    assert r.edges[0].position_mm == pytest.approx(b0.edges[0].position_mm,
+                                                   abs=0.005)
+    for k in (0, 1):
+        assert r.edges[k].width_mm == pytest.approx(b0.edges[k].width_mm,
+                                                    rel=0.03)
+    assert r.power_a == pytest.approx(b0.power_a, rel=0.01)
+
+
+def test_a_coarse_pass_that_starts_past_the_far_edge(machine):
+    # Laser 3 0.8 mm off the other way along Y: found 1.65 mm into the
+    # open quarter, so the coarse pass starts 1 mm further, past the
+    # chip's far edge, and crosses two edges. Only the blade's, from the
+    # brightest point on, is fitted.
+    _, base = commission(machine, (3,))
+    _, off = commission(machine, (3,), offsets={3: (0.0, -0.8)})
+    b0, r = base.lasers[3], off.lasers[3]
+    assert not r.searched
+    assert r.edges[1].position_mm - b0.edges[1].position_mm == pytest.approx(
+        -0.8, abs=0.005)
+    assert r.edges[1].width_mm == pytest.approx(b0.edges[1].width_mm,
+                                                rel=0.05)

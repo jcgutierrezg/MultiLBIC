@@ -300,13 +300,20 @@ each laser:
    comes on, warms up (`--warmup`, 60 s), and is read on the 15 mA range.
    No light there: it searches outwards on a 1 mm grid, 3 mm for a
    measured laser, 8 mm for a placeholder (4-6).
-2. The range for the rest is the smallest holding 3x that reading.
-3. A coarse pass (`--coarse-feed`, 0.5 mm/s) from the open quarter
-   towards each blade finds each edge; then a slow pass up and one down
-   across it (`--fine-feed`, 0.05 mm/s). Each reading's position comes
-   from the time, anchored on the move's end; the mean of the two
-   directions is the edge, their difference (backlash plus lag) is
-   printed. An edge counts only if its step matches the light.
+2. The range for the rest is the smallest holding 3x that reading. A
+   pass that reaches the range's limit goes again one range up: the
+   light may have been found on an edge, a sliver of the spot.
+3. Each edge is swept three times, each finer than the last (since
+   0.6.27): coarse, ±2 mm round where the light was found
+   (`--coarse-feed`, 0.5 mm/s); medium, ±0.6 mm round that edge
+   (0.15 mm/s); then a slow pass up and one down across it
+   (`--fine-feed`, 0.05 mm/s). The coarse and medium sweeps fit only
+   from their brightest point towards the blade, so a sweep that also
+   crosses the can window's far edge leaves it out. Each reading's
+   position comes from the time, anchored on the move's end; the mean
+   of the two fine directions is the edge, their difference (backlash
+   plus lag) is printed. An edge counts only if its step goes the
+   light's way and is at least half the light seen so far.
 4. The power is read again on the open quarter, warm by then, and the
    dark on the same range with the laser off.
 

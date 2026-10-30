@@ -60,7 +60,7 @@ from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig, Photodiode, parse
 from multilbic.hardware.marlin import Reply
 from multilbic.run.motion import RunStopped, approach, check
-from multilbic.run.ranges import choose_range
+from multilbic.run.ranges import AT_LIMIT_SHARE, choose_range
 from multilbic.run.reading import Reading, amps, summarise
 from multilbic.run.rows import ScanDevices, current_limit_for, next_range
 from multilbic.scan.edges import EdgeFit, NoEdge, fit_edge
@@ -80,12 +80,20 @@ READ_S = 2.0
 #: With the laser on before its power is trusted (D16: laser 2 doubles
 #: in two minutes, laser 1 drifted 93 to 80 uA in half a minute).
 WARMUP_S = 60.0
-#: Feeds of the coarse and the fine passes, mm/s.
+#: Each edge is swept three times, each finer than the last: coarse,
+#: medium, then fine passes up and down. Feeds, mm/s.
 COARSE_FEED_MM_S = 0.5
+MEDIUM_FEED_MM_S = 0.15
 FINE_FEED_MM_S = 0.05
-#: How far past the open quarter's middle the coarse pass looks for the
-#: blade, mm.
-COARSE_REACH_MM = 2.5
+#: The coarse sweep spans this either side of where the light was found
+#: (the builder's suggestion, 2026-10-30): it sees the full light and
+#: the blade whichever way the laser is off its position (laser 4 was
+#: found on the edge itself, 0.9 mm off along B). Only the stretch from
+#: the brightest point towards the blade is fitted, so the can window's
+#: far edge, if the sweep crosses it, is left out.
+COARSE_HALF_MM = 2.0
+#: The medium sweep spans this either side of the coarse edge.
+MEDIUM_HALF_MM = 0.6
 #: A fine pass reaches this many coarse widths either side of the edge,
 #: and at least `FINE_HALF_MIN_MM`.
 FINE_WIDTHS = 4.0
@@ -102,6 +110,8 @@ LIT_SIGMAS = 20.0
 LIT_FLOOR_A = 0.2e-6
 #: An edge's step must be within this share of the light's.
 EDGE_STEP_SHARE = 0.5
+#: Readings averaged to find a pass's brightest point.
+SMOOTH_READINGS = 7
 #: The simulated SMU answers at once; no faster than this.
 MIN_READ_INTERVAL_S = 0.005
 #: A channel at its bias reports within this; more is the state seen on
@@ -168,6 +178,7 @@ class LaserCommission:
     lit: Reading | None = None
     dark: Reading | None = None
     coarse: dict[int, EdgePass] = field(default_factory=dict)
+    medium: dict[int, EdgePass] = field(default_factory=dict)
     edges: dict[int, Edge] = field(default_factory=dict)
     warnings: list[str] = field(default_factory=list)
 
@@ -212,6 +223,7 @@ class LaserCommission:
             "dark": None if self.dark is None else self.dark.as_dict(),
             "corner_mm": self.corner_mm,
             "coarse": {AXES[k]: p.as_dict() for k, p in self.coarse.items()},
+            "medium": {AXES[k]: p.as_dict() for k, p in self.medium.items()},
             "edges": {AXES[k]: e.as_dict() for k, e in self.edges.items()},
             "warnings": self.warnings,
         }
@@ -515,7 +527,7 @@ class Commissioner:
     def _laser(self, r: LaserCommission, request: CommissionRequest) -> None:
         light = self._find(r, request)
         assert r.found_mm is not None
-        self._coarse(r, request, r.found_mm, light, (0, 1))
+        light = self._coarse(r, request, r.found_mm, light, (0, 1))
         self._fine(r, request, light)
         self._power(r, request)
 
@@ -574,22 +586,27 @@ class Commissioner:
 
     def _coarse(self, r: LaserCommission, request: CommissionRequest,
                 found: tuple[float, float], light: float,
-                axes: tuple[int, ...]) -> None:
-        """From where the light is, towards each blade: the edges
-        roughly. B needs A's edge first, to pass along B through the
-        open quarter."""
+                axes: tuple[int, ...]) -> float:
+        """A coarse sweep `COARSE_HALF_MM` either side of where the
+        light is, then a medium one round the edge it found: each edge
+        to within a few readings. B needs A's edge first, to pass along
+        B through the open quarter.
+        `light` is what was read where it was found, and may be only
+        part of the spot (found on an edge): a step at least half of it
+        counts. Returns the full light, the largest step seen, for the
+        passes that follow."""
         n = r.laser
         signs = self.pd.open_signs
         quarter = self.pd.chip_mm / 4
         for k in sorted(set(axes) | ({0} if 1 in axes else set())):
-            other = found[1 - k] if k == 0 else (
-                r.coarse[0].fit.position_mm + signs[0] * quarter
-                if r.coarse[0].fit is not None else found[0])
-            start = found[k]
-            wanted = start - signs[k] * COARSE_REACH_MM
+            other = (found[1 - k] if k == 0
+                     else self._rough(r, 0) + signs[0] * quarter)
+            start = self._clip(n, k, found[k] + signs[k] * COARSE_HALF_MM)
+            wanted = found[k] - signs[k] * COARSE_HALF_MM
             end = self._clip(n, k, wanted)
-            p = self._pass(n, k, start, end, other, request.coarse_feed_mm_s,
-                           light * signs[k])
+            p = self._ranged_pass(r, k, start, end, other,
+                                  request.coarse_feed_mm_s, light * signs[k],
+                                  blade_side=-signs[k])
             r.coarse[k] = p
             if p.fit is None:
                 short = (f"; laser {n} reaches only {AXES[k]} {end:.2f} on "
@@ -598,6 +615,63 @@ class Commissioner:
                 raise CommissionError(
                     f"laser {n}: no edge along {AXES[1 - k]} between "
                     f"{AXES[k]} {start:.2f} and {end:.2f} ({p.error}){short}")
+            assert p.fit is not None
+            # Each step is at least part of the light (a pass along an
+            # edge's partner sees what that edge leaves): the largest.
+            light = _larger(light, p.fit.step_a * signs[k])
+            edge = p.fit.position_mm
+            mid = self._ranged_pass(
+                r, k, self._clip(n, k, edge + signs[k] * MEDIUM_HALF_MM),
+                self._clip(n, k, edge - signs[k] * MEDIUM_HALF_MM), other,
+                MEDIUM_FEED_MM_S, light * signs[k], blade_side=-signs[k])
+            r.medium[k] = mid
+            if mid.fit is None:
+                r.warnings.append(f"the medium sweep along {AXES[k]} found "
+                                  f"no edge ({mid.error}); the coarse one's "
+                                  "is used")
+            else:
+                light = _larger(light, mid.fit.step_a * signs[k])
+        return light
+
+    def _rough(self, r: LaserCommission, k: int) -> float:
+        """Where the edge along `k` is before the fine passes: the
+        medium sweep's, or the coarse one's."""
+        for passes in (r.medium, r.coarse):
+            p = passes.get(k)
+            if p is not None and p.fit is not None:
+                return p.fit.position_mm
+        raise CommissionError(f"laser {r.laser}: no edge along "
+                              f"{AXES[1 - k]} yet")
+
+    def _rough_width(self, r: LaserCommission, k: int) -> float:
+        for passes in (r.medium, r.coarse):
+            p = passes.get(k)
+            if p is not None and p.fit is not None:
+                return p.fit.width_mm
+        raise CommissionError(f"laser {r.laser}: no edge along "
+                              f"{AXES[1 - k]} yet")
+
+    def _ranged_pass(self, r: LaserCommission, k: int, start: float,
+                     end: float, other: float, feed: float,
+                     step_a: float, blade_side: int = 0) -> EdgePass:
+        """A pass, again on a larger range if it clips: the range was
+        chosen from where the light was found, which may have been only
+        the edge of the spot."""
+        while True:
+            p = self._pass(r.laser, k, start, end, other, feed, step_a,
+                           at_least=True, blade_side=blade_side)
+            assert self._range is not None
+            limit = current_limit_for(self._range)
+            peak = max((abs(i) for i in p.currents_a), default=0.0)
+            larger = next_range(self._range)
+            if peak < AT_LIMIT_SHARE * limit or larger is None:
+                return p
+            r.warnings.append(
+                f"a pass along {AXES[k]} reached the {amps(self._range)} "
+                f"range's limit; again on {amps(larger)}")
+            self.say(f"laser {r.laser}: {r.warnings[-1]}")
+            self._set_range(larger)
+            r.range_a = larger
 
     def _fine(self, r: LaserCommission, request: CommissionRequest,
               light: float) -> None:
@@ -606,17 +680,19 @@ class Commissioner:
         n = r.laser
         signs = self.pd.open_signs
         quarter = self.pd.chip_mm / 4
-        edge_at = {k: r.coarse[k].fit.position_mm for k in (0, 1)}  # type: ignore[union-attr]
-        width = {k: r.coarse[k].fit.width_mm for k in (0, 1)}  # type: ignore[union-attr]
+        edge_at = {k: self._rough(r, k) for k in (0, 1)}
+        width = {k: self._rough_width(r, k) for k in (0, 1)}
         for k in (0, 1):
             other = edge_at[1 - k] + signs[1 - k] * quarter
             half = max(FINE_HALF_MIN_MM, FINE_WIDTHS * width[k])
             lo = self._clip(n, k, edge_at[k] - half)
             hi = self._clip(n, k, edge_at[k] + half)
-            up = self._pass(n, k, lo, hi, other, request.fine_feed_mm_s,
-                            light * signs[k])
-            down = self._pass(n, k, hi, lo, other, request.fine_feed_mm_s,
-                              light * signs[k])
+            # Now through the open quarter's middle: the whole spot, at
+            # least what the coarse passes saw.
+            up = self._ranged_pass(r, k, lo, hi, other,
+                                   request.fine_feed_mm_s, light * signs[k])
+            down = self._ranged_pass(r, k, hi, lo, other,
+                                     request.fine_feed_mm_s, light * signs[k])
             fits = [p.fit for p in (up, down) if p.fit is not None]
             if len(fits) < 2:
                 raise CommissionError(
@@ -750,11 +826,17 @@ class Commissioner:
         return min(max(value, lo + margin), hi - margin)
 
     def _pass(self, laser: int, axis: int, start: float, end: float,
-              other: float, feed: float, step_a: float) -> EdgePass:
+              other: float, feed: float, step_a: float,
+              at_least: bool = False, blade_side: int = 0) -> EdgePass:
         """One pass along `axis` from carriage `start` to `end`, the other
         axis at `other`, reading all the way; the edge fitted. Only an
         edge whose step (along increasing position) is within half of
-        `step_a` counts: noise on a flat stretch fits an edge too."""
+        `step_a` counts: noise on a flat stretch fits an edge too. With
+        `at_least`, `step_a` may be only part of the light, and any step
+        the same way and at least half of it counts. With `blade_side`
+        (+1 or -1, the blade's way along the axis), only the readings
+        from the brightest point that way are fitted: a pass that starts
+        across another edge (the can window's) leaves it out."""
         d = self.devices
         name = AXES[axis].lower()
         mid = (start + end) / 2
@@ -809,18 +891,39 @@ class Commissioner:
         keep = (stage >= low) & (stage <= high)
         positions = stage[keep] + offset
         values = np.asarray(currents)[keep]
+        fitted_positions, fitted_values = positions, values
+        if blade_side and len(values) >= SMOOTH_READINGS:
+            # Brightest: most light, the light's sign being step_a's
+            # along the way away from the blade.
+            light_sign = 1.0 if step_a * -blade_side > 0 else -1.0
+            kernel = np.ones(SMOOTH_READINGS) / SMOOTH_READINGS
+            smooth = np.convolve(values * light_sign, kernel, mode="same")
+            peak = positions[int(np.argmax(smooth))]
+            side = (positions - peak) * blade_side >= 0
+            fitted_positions, fitted_values = positions[side], values[side]
         fit: EdgeFit | None = None
         error = None
         try:
-            fit = fit_edge(positions, values)
+            fit = fit_edge(fitted_positions, fitted_values)
         except NoEdge as exc:
             error = str(exc)
-        if fit is not None and abs(fit.step_a - step_a) > EDGE_STEP_SHARE * abs(step_a):
+        if fit is None:
+            wrong = False
+        elif at_least:
+            wrong = (fit.step_a * step_a <= 0
+                     or abs(fit.step_a) < EDGE_STEP_SHARE * abs(step_a))
+        else:
+            wrong = abs(fit.step_a - step_a) > EDGE_STEP_SHARE * abs(step_a)
+        if fit is not None and wrong:
             error = (f"the step there, {amps(fit.step_a)}, is not the "
                      f"blade's {amps(step_a)}")
             fit = None
         return EdgePass(axis, direction, feed, tuple(positions.tolist()),
                         tuple(values.tolist()), fit, error)
+
+
+def _larger(a: float, b: float) -> float:
+    return b if abs(b) > abs(a) else a
 
 
 def write_report(folder: Path, machine: MachineConfig,
@@ -857,9 +960,10 @@ def folder_name(simulated: bool) -> str:
 
 def estimate_s(request: CommissionRequest, lasers: Sequence[int]) -> float:
     """Roughly how long: homing, then per laser the warm-up, readings,
-    and the passes (two coarse, six fine)."""
+    and the sweeps (two coarse, two medium, four fine)."""
     per_laser = (request.warmup_s + 4 * request.read_s
-                 + 2 * COARSE_REACH_MM / request.coarse_feed_mm_s
-                 + 6 * 2 * FINE_HALF_MIN_MM / request.fine_feed_mm_s
+                 + 2 * 2 * COARSE_HALF_MM / request.coarse_feed_mm_s
+                 + 2 * 2 * MEDIUM_HALF_MM / MEDIUM_FEED_MM_S
+                 + 4 * 2 * FINE_HALF_MIN_MM / request.fine_feed_mm_s
                  + 30.0)
     return 30.0 + per_laser * len(lasers)

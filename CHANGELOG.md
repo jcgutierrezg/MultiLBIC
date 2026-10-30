@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.27 - Sweeps from both sides, each finer than the last
+
+- Each edge is swept coarse (±2 mm round where the light was found,
+  0.5 mm/s), medium (±0.6 mm, 0.15 mm/s), then fine up and down. The
+  coarse pass used to go one way from where the light was found, and
+  laser 4's light was found on the blade itself: no full light to fit.
+- Coarse and medium sweeps fit from their brightest point towards the
+  blade, so the can window's far edge is left out when crossed.
+- A pass that reaches the range's limit goes again one range up; an
+  edge's step need only go the light's way and be at least half the
+  light seen so far (the first reading may be a sliver of the spot).
+- Focus assist sweeps both edges roughly before its passes, so they run
+  through the open quarter's middle.
+
 ## 0.6.26 - Lasers 5 and 6 placed by eye
 
 - `xy_centre_mm` for lasers 5 (48.4, 42.0) and 6 (49.4, 38.0) from
