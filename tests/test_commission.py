@@ -269,3 +269,21 @@ def test_cli_writes_only_with_write(tmp_path, capsys):
     x, y = load().laser(3).xy_centre_mm
     assert machine.laser(3).xy_centre_mm == pytest.approx(
         (x + 0.1, y + 0.1), abs=0.003)
+
+
+def test_a_failed_run_still_saves_what_it_read(tmp_path):
+    import json
+
+    # Laser 2 10 mm off: no light anywhere it searches.
+    args = ["commission", "--sim", "--lasers", "2", "--warmup", "0",
+            "--read", "0.3", "--speedup", "50", "--sim-offset", "2=10,10",
+            "--out", str(tmp_path / "runs")]
+    with pytest.raises(SystemExit, match="no light"):
+        cli.main(args)
+    (folder,) = (tmp_path / "runs").iterdir()
+    report = json.loads((folder / "commission.json").read_text())
+    assert "no light" in report["error"]
+    assert report["proposal"] is None
+    laser = report["lasers"]["2"]
+    assert laser["first_dark"] is not None and laser["first"] is None
+    assert not (folder / "machine-proposed.toml").exists()

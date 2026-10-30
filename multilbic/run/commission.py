@@ -457,6 +457,14 @@ class Commissioner:
         self._range: float | None = None
         self._bias = 0.0
 
+    def partial(self, error: str) -> CommissionResult | None:
+        """What a run that failed had measured, with why it failed;
+        None if it never started."""
+        request = getattr(self, "request", None)
+        if request is None:
+            return None
+        return CommissionResult(request, dict(self.results), None, error)
+
     def request_stop(self) -> None:
         self.halt.set()
         try:
@@ -470,6 +478,10 @@ class Commissioner:
         d = self.devices
         self._bias = request.bias_v
         results: dict[int, LaserCommission] = {}
+        #: What was measured so far, kept when the run fails, so a
+        #: failed run's readings can be saved (`partial`).
+        self.results = results
+        self.request = request
         d.laser.off()
         try:
             self.say("homing")

@@ -629,15 +629,23 @@ def commission(args: argparse.Namespace) -> int:
             _CommissionJob(commissioner, request))  # type: ignore[arg-type]
     finally:
         conn.close()
+    out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
+    folder = out / folder_name(args.sim)
     if failure is not None:
+        # Whatever was read before it failed is kept: a pass that found
+        # no edge still shows what the light did.
+        partial = commissioner.partial(str(failure) or type(failure).__name__)
+        if partial is not None and partial.lasers:
+            report = write_report(folder, machine, partial,
+                                  simulated=args.sim,
+                                  provenance=provenance())
+            say(f"report (failed run): {report}")
         if isinstance(failure, RunStopped):
             say("stopped")
             return 1
         if isinstance(failure, CommissionError):
             raise SystemExit(f"commissioning failed: {failure}")
         raise failure
-    out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
-    folder = out / folder_name(args.sim)
     report = write_report(folder, machine, result, simulated=args.sim,
                           provenance=provenance())
     for line in result.lines(machine):

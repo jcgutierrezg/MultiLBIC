@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.25 - A failed commissioning run keeps its readings
+
+- `commission` writes `commission.json` when it fails too: the darks,
+  the first reading, the passes so far (with every reading) and why it
+  stopped. Laser 4 (2026-10-30) found light at its placeholder but no
+  edge, and that pass was lost.
+
 ## 0.6.24 - The focus feed test is a timing test
 
 - It counts readings per pass, which follow the host's sleeps: marked

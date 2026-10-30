@@ -333,7 +333,9 @@ which a deploy resets: copy it back and commit it.
 A laser that cannot reach past an edge says so: laser 1 has about
 3.2 mm past the corner along A. A channel reporting more than 10 mV off
 its bias (the state of 2026-10-29) is reported; the positions stand.
-Ctrl+C or `kill` stops it: motion stops, laser and channel off.
+Ctrl+C or `kill` stops it: motion stops, laser and channel off. A run that fails or is stopped still writes `commission.json`
+with what it read up to then and why it ended (since 0.6.25), but no
+proposal.
 
 `--sim` runs it on the simulated photodiode; `--sim-offset N=DX,DY`
 puts laser N that far from its `xy_centre_mm` and `--sim-corner DA,DB`
