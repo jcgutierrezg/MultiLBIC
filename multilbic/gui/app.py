@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import datetime
 import tkinter as tk
+from pathlib import Path
 from tkinter import messagebox, ttk
 from typing import Protocol
 
@@ -32,6 +33,7 @@ from smuniversal_lab_suite.core.gui.theme import Theme, set_dark_title_bar
 
 from multilbic.config.machine import MachineConfig
 from multilbic.gui import look
+from multilbic.gui.focus_window import FocusWindow
 from multilbic.gui.machine_panels import (
     ConnectionPanel,
     LaserPanel,
@@ -43,6 +45,7 @@ from multilbic.gui.worker import (
     Event,
     Homed,
     Log,
+    MachineChanged,
     MachineWorker,
     State,
     StateChanged,
@@ -68,6 +71,7 @@ STATE_TEXT = {
     State.IDLE: "ready",
     State.MOVING: "busy",
     State.RUNNING: "running",
+    State.FOCUSING: "focusing",
     State.STOPPING: "stopping...",
 }
 
@@ -95,6 +99,7 @@ class App:
         self.console_window: ConsoleWindow | None = None
         self._closing = False
         self._pump_id: str | None = None
+        self.focus_window: FocusWindow | None = None
 
         root.title("MultiLBIC" + (" (simulated)" if simulated else ""))
         root.minsize(1280, 720)
@@ -230,6 +235,13 @@ class App:
         self.worker.stop()
         self.status("Stop pressed")
 
+    def open_focus(self) -> None:
+        """Focus assist's window, or the open one to the front."""
+        if self.focus_window is None:
+            self.focus_window = FocusWindow(self)
+        else:
+            self.focus_window.top.lift()
+
     def calibration(self) -> Calibration | None:
         """The calibration a run would start from now."""
         return self.calibration_panel.current()
@@ -241,6 +253,9 @@ class App:
     def refused(self, what: str) -> None:
         if self.state is State.RUNNING:
             self.status(f"{what}: not during a run", error=True)
+        elif self.state is State.FOCUSING:
+            self.status(f"{what}: not while focusing (Done or Stop first)",
+                        error=True)
         elif self.state is State.DISCONNECTED:
             self.status(f"{what}: connect first", error=True)
         else:
@@ -276,8 +291,13 @@ class App:
             self.homed = event.homed
         elif isinstance(event, Log):
             self.status(event.text, error=event.error)
+        elif isinstance(event, MachineChanged):
+            self.machine = event.machine
+            self.setup.replan()
         for panel in self.panels:
             panel.handle(event)
+        if self.focus_window is not None:
+            self.focus_window.handle(event)
         if isinstance(event, (StateChanged, Homed)):
             self._refresh()
 
@@ -289,6 +309,8 @@ class App:
             else ["!disabled"])
         for panel in self.panels:
             panel.refresh()
+        if self.focus_window is not None:
+            self.focus_window.refresh()
 
     def _console(self, text: str, error: bool) -> None:
         stamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -317,6 +339,10 @@ class App:
                 parent=self.root,
             ):
                 return
+        elif self.state is State.FOCUSING and not messagebox.askyesno(
+                "Stop focusing?", "Focus assist is running. Stop it and "
+                "close? Nothing is saved.", parent=self.root):
+            return
         self._closing = True
         self.status("closing: making everything safe")
         self.worker.stop()
@@ -335,7 +361,8 @@ class App:
             pass
 
 
-def launch(machine: MachineConfig, *, simulated: bool, speedup: float) -> int:
+def launch(machine: MachineConfig, *, simulated: bool, speedup: float,
+           machine_path: Path | None = None) -> int:
     """Open the window, connect, and run until it is closed. Whatever
     ends the window, the worker is closed: a run is stopped and every
     device made safe."""
@@ -351,7 +378,7 @@ def launch(machine: MachineConfig, *, simulated: bool, speedup: float) -> int:
             return open_sim(machine, speed=speedup, smu_channels=channels)
         return open_real(machine, smu_channels=channels)
 
-    worker = MachineWorker(machine, connector)
+    worker = MachineWorker(machine, connector, machine_path=machine_path)
     try:
         root = tk.Tk()
         App(root, machine, worker, simulated=simulated)

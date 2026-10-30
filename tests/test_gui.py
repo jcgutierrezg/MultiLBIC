@@ -606,3 +606,39 @@ def test_the_ranges_line_follows_the_ticked_lasers(window, tmp_path,
     assert setup._ranges_shown == [1, 2, 3]
     combos = [w for w in setup._range_widgets]
     assert len(combos) == 3
+
+
+def test_focus_assist_from_its_button(window, tmp_path):
+    from importlib import resources
+
+    app = window.app
+    path = tmp_path / "machine.toml"
+    path.write_text(resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
+        newline="")
+    app.worker.machine_path = path
+    window.click(app.lasers.focus_btn)
+    fw = app.focus_window
+    assert fw is not None
+    # Off the developer's screen; it is the main window's child, so it
+    # goes with it whatever happens.
+    fw.top.withdraw()
+    assert "disabled" in fw.done_btn.state()
+    fw.laser.set(2)
+    fw.start_btn.invoke()
+    window.pump(lambda: len(fw.passes) >= 2)
+    assert app.state is State.FOCUSING
+    assert "µm" in fw.width.cget("text")
+    assert "best" in fw.detail.cget("text")
+    assert len(fw.canvas.find_all()) > 5
+    # The main window's laser buttons wait while it focuses.
+    assert "disabled" in app.lasers.buttons[1].state()
+    fw.done_btn.invoke()
+    window.pump(lambda: "proposed" in fw.summary.cget("text")
+                and app.state is State.IDLE)
+    window.click(fw.save_btn)
+    window.pump(lambda: "saved:" in fw.summary.cget("text"))
+    assert "# focus " in path.read_text(encoding="utf-8")
+    assert "disabled" in fw.save_btn.state()
+    fw.close()
+    assert app.focus_window is None

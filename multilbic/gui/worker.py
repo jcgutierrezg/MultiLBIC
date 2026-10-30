@@ -33,11 +33,19 @@ States::
 
     DISCONNECTED -> CONNECTING -> IDLE <-> MOVING      (calibration actions)
                                    IDLE <-> RUNNING    (a run)
-                     MOVING, RUNNING -> STOPPING -> IDLE
+                                   IDLE <-> FOCUSING   (focus assist)
+           MOVING, RUNNING, FOCUSING -> STOPPING -> IDLE
+
+**Focus assist** (Phase 6 step 6) passes across a blade edge on the
+photodiode until `finish_focus()` (Done), then measures the laser again
+and sends `FocusEnded` with what it proposes for `machine.toml`;
+`save_focus()` writes it, and the worker and calibration carry on with
+the new file (`MachineChanged`).
 """
 
 from __future__ import annotations
 
+import datetime
 import enum
 import queue
 import threading
@@ -46,13 +54,20 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from multilbic.config.machine import MachineConfig
+from multilbic.config.machine import MachineConfig, load
 from multilbic.run.calibrate import (
     Calibrator,
     load_calibration,
     load_ranges,
 )
+from multilbic.run.commission import CommissionError, apply_proposal
 from multilbic.run.devices import Connection
+from multilbic.run.focus import (
+    FocusAssist,
+    FocusPass,
+    FocusRequest,
+    FocusResult,
+)
 from multilbic.run.motion import RunStopped
 from multilbic.run.ranges import RangeCheck
 from multilbic.run.rows import RowDone
@@ -78,6 +93,7 @@ class State(enum.StrEnum):
     IDLE = "idle"
     MOVING = "moving"
     RUNNING = "running"
+    FOCUSING = "focusing"
     STOPPING = "stopping"
 
 
@@ -165,10 +181,35 @@ class RunEnded:
     outcome: RunOutcome
 
 
+@dataclass(frozen=True)
+class FocusStarted:
+    request: FocusRequest
+
+
+@dataclass(frozen=True)
+class FocusPassed:
+    focus_pass: FocusPass
+
+
+@dataclass(frozen=True)
+class FocusEnded:
+    #: None if it was stopped or failed before the end.
+    result: FocusResult | None
+    #: Why there is nothing to save, if there isn't.
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class MachineChanged:
+    machine: MachineConfig
+    path: Path
+
+
 Event = (
     StateChanged | Log | Connected | Homed | Position | Reading
     | LaserChanged
     | CalibrationChanged | RunStarted | RowEvent | MapEvent | RunEnded
+    | FocusStarted | FocusPassed | FocusEnded | MachineChanged
 )
 
 
@@ -189,8 +230,11 @@ class MachineWorker:
         *,
         sample: str = "sample",
         poll_s: float = POLL_S,
+        machine_path: Path | None = None,
     ):
         self.machine = machine
+        #: The machine.toml focus assist writes; None: it can't.
+        self.machine_path = machine_path
         self._connector = connector
         self._sample = sample
         self._poll_s = poll_s
@@ -203,6 +247,9 @@ class MachineWorker:
         self._conn: Connection | None = None
         self._cal: Calibrator | None = None
         self._session: Session | None = None
+        self._focus: FocusAssist | None = None
+        #: The last focus assist's result, until saved.
+        self._focused: FocusResult | None = None
         #: The stage's coordinates mean something.
         self._homed = False
         #: The SMU output is on at 0 V, so readings can be taken.
@@ -386,6 +433,28 @@ class MachineWorker:
             State.RUNNING,
         )
 
+    # ---- focus assist ----
+
+    def start_focus(self, request: FocusRequest) -> bool:
+        """Home, bring the photodiode under the laser and pass across
+        its edge until `finish_focus()`. Moves the stage and lights the
+        laser."""
+        return self._submit("focus", lambda: self._run_focus(request),
+                            State.FOCUSING)
+
+    def finish_focus(self) -> bool:
+        """Done: end the passes and measure the laser again."""
+        with self._lock:
+            if self._state is not State.FOCUSING or self._focus is None:
+                return False
+            self._focus.finish()
+        return True
+
+    def save_focus(self) -> bool:
+        """Write the last focus assist's proposal into machine.toml and
+        carry on with it."""
+        return self._moving("save focus", self._save_focus)
+
     # ---- Stop ----
 
     def stop(self) -> None:
@@ -397,6 +466,10 @@ class MachineWorker:
                 # checks it before it starts.
                 if self._session is not None:
                     self._session.request_stop()
+                self._set_state_locked(State.STOPPING)
+            elif state is State.FOCUSING:
+                if self._focus is not None:
+                    self._focus.request_stop()
                 self._set_state_locked(State.STOPPING)
             elif state is State.MOVING and self._cal is not None:
                 self._cal.halt()
@@ -477,6 +550,7 @@ class MachineWorker:
             finally:
                 with self._lock:
                     self._session = None
+                    self._focus = None
                     connected = self._conn is not None
                     self._set_state_locked(
                         State.IDLE if connected else State.DISCONNECTED
@@ -592,6 +666,65 @@ class MachineWorker:
         # A laser was started only after homing finished.
         self._set_homed(bool(outcome.lasers))
         self._position()
+
+    def _run_focus(self, request: FocusRequest) -> None:
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("not connected")
+        assist = FocusAssist(conn.devices, self.machine, conn.clock,
+                             say=self._log)
+        with self._lock:
+            if self._state is State.STOPPING:
+                raise RunStopped("stopped before it started")
+            self._focus = assist
+        self._focused = None
+        self._emit(FocusStarted(request))
+        self._reading = False
+        self._set_homed(False)
+        self._emit(LaserChanged(request.laser))
+        try:
+            result = assist.run_focus(
+                request, on_pass=lambda p: self._emit(FocusPassed(p)))
+        except BaseException as exc:
+            self._emit(FocusEnded(None, str(exc) or type(exc).__name__))
+            raise
+        finally:
+            self._emit(LaserChanged(0))
+        self._set_homed(True)
+        error = result.error
+        if result.proposal is not None:
+            if self.machine_path is None:
+                error = "the window was not given machine.toml's path"
+            else:
+                self._focused = result
+        self._emit(FocusEnded(result, error))
+        for line in result.lines(self.machine):
+            self._log(line)
+        # Readings again, as after homing.
+        d = conn.devices
+        d.smu.prepare(bias_v=0.0)
+        d.smu.output_on()
+        self._reading = True
+        self._position()
+
+    def _save_focus(self) -> None:
+        result, path = self._focused, self.machine_path
+        if result is None or result.proposal is None or path is None:
+            raise RuntimeError("nothing to save: run focus assist first")
+        when = datetime.date.today().isoformat()
+        try:
+            text = apply_proposal(path.read_text(encoding="utf-8"),
+                                  result.proposal, when, source="focus")
+        except CommissionError as exc:
+            raise RuntimeError(str(exc)) from None
+        path.write_text(text, encoding="utf-8", newline="")
+        machine = load(path)
+        self.machine = machine
+        self._calibrator().use_machine(machine)
+        self._focused = None
+        self._emit(MachineChanged(machine, path))
+        self._log(f"machine.toml written: {path}")
+        self._calibration_changed()
 
     def _release(self) -> None:
         """Laser and SMU off, devices closed. Every step is tried."""

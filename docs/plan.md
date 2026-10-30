@@ -378,6 +378,17 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.20): step 6 done** in simulation, with the window part
+of step 7: **Focus...** in the Lasers panel opens focus assist in a
+small window (the operator wanted a button, not a terminal):
+`run/focus.py` on `commission`'s pieces, passes that follow the edge
+and keep about 10 readings across it at any focus, Done measures the
+laser again, Save writes `machine.toml` and the window carries on with
+it. With it: a measured corner now stays and the laser that moved
+moves (`--new-corner` for a moved photodiode), and a loaded or open
+calibration moves its corner XY with laser 2, since refocusing laser 2
+moves it. Not yet used at the machine.
+
 **State (0.6.19): lasers 1-3 commissioned** on the machine and
 written: the photodiode's corner measured, lasers 1 and 3 placed
 against laser 2 (laser 1 moved 1.3 mm), spots about 250 um, so lasers

@@ -262,13 +262,29 @@ class Calibrator:
     def adopt(self, calibration: Calibration,
               ranges: dict[int, RangeCheck] | None = None) -> None:
         """Take the corner and size of a saved calibration, and its
-        checked ranges if it has them, without moving."""
+        checked ranges if it has them, without moving. If the reference
+        laser has moved since (`xy_centre_mm`, refocused), the corner's
+        XY moves with it: the sample stays where it is on the carriage,
+        and XY is where it is under the beam now."""
         if ranges is not None:
             self.ranges = dict(ranges)
         self.sample = calibration.sample
-        self.corner_xy = calibration.corner_xy_mm
+        now = self.machine.laser(self.reference).xy_centre_mm
+        then = calibration.reference_xy_mm
+        x, y = calibration.corner_xy_mm
+        self.corner_xy = (x + now[0] - then[0], y + now[1] - then[1])
         self.corner_ab = calibration.corner_ab_mm
         self.size = (calibration.width_mm, calibration.height_mm)
+
+    def use_machine(self, machine: MachineConfig) -> None:
+        """A changed machine.toml (lasers commissioned or refocused),
+        keeping the sample where it is on the carriage, as `adopt`."""
+        then = self.machine.laser(self.reference).xy_centre_mm
+        now = machine.laser(self.reference).xy_centre_mm
+        if self.corner_xy is not None:
+            x, y = self.corner_xy
+            self.corner_xy = (x + now[0] - then[0], y + now[1] - then[1])
+        self.machine = machine
 
     def calibration(self) -> Calibration:
         if self.corner_xy is None or self.corner_ab is None:

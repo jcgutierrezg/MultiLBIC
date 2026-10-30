@@ -224,6 +224,33 @@ def test_calibrator_refuses_bad_input_before_moving(rig, machine):
     cal.shut_down()
 
 
+def test_the_sample_stays_put_when_the_reference_laser_moves(rig, machine):
+    # Laser 2 refocused: its xy_centre_mm moves by d. A calibration made
+    # before keeps the sample where it is on the carriage, loaded or
+    # already open, and its corner's XY moves by d with the beam.
+    from dataclasses import replace
+
+    ref = machine.geometry.reference_laser
+    truth = rig.perfect_calibration("cell 7")
+    x, y = machine.laser(ref).xy_centre_mm
+    lasers = tuple(replace(laser, xy_centre_mm=(x + 0.3, y - 0.2))
+                   if laser.number == ref else laser
+                   for laser in machine.lasers)
+    moved = replace(machine, lasers=lasers)
+
+    loaded = calibrator(rig, moved)
+    loaded.adopt(truth)
+    opened = calibrator(rig, machine)
+    opened.adopt(truth)
+    opened.use_machine(moved)
+    for cal in (loaded, opened):
+        cx, cy = truth.corner_xy_mm
+        assert cal.corner_xy == pytest.approx((cx + 0.3, cy - 0.2))
+        assert cal.calibration().corner_carriage_mm == pytest.approx(
+            truth.corner_carriage_mm)
+        assert cal.calibration().reference_xy_mm == (x + 0.3, y - 0.2)
+
+
 def test_calibrator_outline_is_the_sample_as_a_run_places_it(rig, machine):
     truth = rig.perfect_calibration("cell 7")
     cal = calibrator(rig, machine)

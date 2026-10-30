@@ -95,10 +95,11 @@ def test_two_lasers_line_up_with_swapped_axes(machine, tmp_path):
     assert summary["status"] == "complete"
     assert [p["laser"] for p in summary["plans"]] == [1, 2]
     xy = {p["laser"]: p["xy_mm"] for p in summary["plans"]}
-    # Laser 1 sits 4 mm further along X than laser 2 (machine.toml), and
-    # its placement moves XY by exactly that.
-    assert xy[1][0] - xy[2][0] == pytest.approx(4.0)
-    assert xy[1][1] - xy[2][1] == pytest.approx(-0.4)
+    # Laser 1's placement moves XY by exactly how far it sits from laser
+    # 2 in machine.toml.
+    (x1, y1), (x2, y2) = (swapped.laser(n).xy_centre_mm for n in (1, 2))
+    assert xy[1][0] - xy[2][0] == pytest.approx(x1 - x2)
+    assert xy[1][1] - xy[2][1] == pytest.approx(y1 - y2)
 
 
 def events(folder):

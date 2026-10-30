@@ -310,12 +310,18 @@ each laser:
 4. The power is read again on the open quarter, warm by then, and the
    dark on the same range with the laser off.
 
-Where the two edges cross is the corner as that laser sees it. The
-reference laser's view (2) becomes `[photodiode] corner_ab_mm`; every
-other laser's `xy_centre_mm` moves by however far its view is from it.
-`spot_um` is the 10-90 % width across the blade along B, which is at
-the sample's height; the other edge, 0.4 mm higher, is printed too.
-Include laser 2 until the corner is measured.
+Where the two edges cross is the corner as that laser sees it, and
+each laser's `xy_centre_mm` moves by however far its view is from the
+corner's true place. **Once the corner is measured it stays** (since
+0.6.20): the photodiode is fixed to the carriage, so a laser whose
+view moved is the one that moved, laser 2 too. Calibrations stay
+right: each records laser 2's position when it was made, and the
+window moves a calibration's corner XY with laser 2. The first time,
+or with **`--new-corner`** (the photodiode was moved), laser 2's view
+becomes `[photodiode] corner_ab_mm` and its own position stays; include
+laser 2 then. `spot_um` is the 10-90 % width across the blade along B,
+which is at the sample's height; the other edge, 0.4 mm higher, is
+printed too.
 
 It prints what it found and the changes it proposes, and saves
 `commission.json` (every pass's readings) and `machine-proposed.toml`
@@ -325,7 +331,7 @@ in a run folder. **`--write` writes the changes into `machine.toml`**
 which a deploy resets: copy it back and commit it.
 
 A laser that cannot reach past an edge says so: laser 1 has about
-0.7 mm past the corner along A. A channel reporting more than 10 mV off
+3.2 mm past the corner along A. A channel reporting more than 10 mV off
 its bias (the state of 2026-10-29) is reported; the positions stand.
 Ctrl+C or `kill` stops it: motion stops, laser and channel off.
 

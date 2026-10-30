@@ -39,6 +39,9 @@ from multilbic.scan.mapping import BASELINE_ROW
 if TYPE_CHECKING:
     from multilbic.gui.app import App
 
+#: The widest live reading: "-1.234 mA (limit)".
+READOUT_CHARS = 17
+
 #: How the device rows are labelled, and their key in `Connected.firmware`.
 DEVICES = (("marlin", "Motion (SKR)"), ("laser", "Laser board"),
            ("smu", "miniSMU"))
@@ -246,7 +249,8 @@ class StagePanel:
     # ---- actions ----
 
     def jog(self, direction: str, quiet: bool = False) -> None:
-        if not self.app.homed or self.app.state is State.RUNNING:
+        if not self.app.homed or self.app.state in (State.RUNNING,
+                                                    State.FOCUSING):
             return
         axis, sign = jog_for(direction, self.pair.get(), self.app.machine)
         if not self.app.worker.jog(axis, sign * self.step.get()) \
@@ -341,16 +345,27 @@ class LaserPanel:
                       text="* position not measured yet: maps from it "
                            "land in the wrong place").grid(
                 row=1, column=0, sticky="w", pady=(2, 0))
+        # The readings one above the other, each as wide as the longest
+        # it can be ("-1.234 mA (limit)"), so a reading that gains a
+        # digit doesn't widen the column under everything else.
         reading = ttk.Frame(self.frame)
         reading.grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Label(reading, text="Cell").pack(side="left")
-        self.current = ttk.Label(reading, text="-", style="Readout.TLabel")
-        self.current.pack(side="left", padx=(12, 0))
-        ttk.Label(reading, text="Photodiode").pack(side="left",
-                                                   padx=(24, 0))
+        ttk.Label(reading, text="Cell").grid(row=0, column=0, sticky="w")
+        self.current = ttk.Label(reading, text="-", style="Readout.TLabel",
+                                 width=READOUT_CHARS, anchor="w")
+        self.current.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        ttk.Label(reading, text="Photodiode").grid(row=1, column=0,
+                                                   sticky="w")
         self.photodiode = ttk.Label(reading, text="-",
-                                    style="Readout.TLabel")
-        self.photodiode.pack(side="left", padx=(12, 0))
+                                    style="Readout.TLabel",
+                                    width=READOUT_CHARS, anchor="w")
+        self.photodiode.grid(row=1, column=1, sticky="w", padx=(12, 0))
+        # Focus assist on the photodiode (Phase 6 step 6), in a window
+        # of its own.
+        self.focus_btn = ttk.Button(reading, text="Focus...", width=9,
+                                    command=app.open_focus)
+        if app.machine.photodiode is not None:
+            self.focus_btn.grid(row=0, column=2, rowspan=2, padx=(12, 0))
         self.lit = 0
 
     def select(self, number: int) -> None:
@@ -374,7 +389,7 @@ class LaserPanel:
             self.photodiode.configure(
                 text=reading_text(event.photodiode_a))
         elif isinstance(event, StateChanged) and event.state in (
-                State.RUNNING, State.DISCONNECTED):
+                State.RUNNING, State.FOCUSING, State.DISCONNECTED):
             self.current.configure(text="-")
             self.photodiode.configure(text="-")
             if event.state is State.DISCONNECTED:
@@ -384,6 +399,7 @@ class LaserPanel:
         usable = self.app.state in (State.IDLE, State.MOVING)
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
+        _enable(self.focus_btn, self.app.connected)
 
 
 def reading_text(amps: float | None) -> str:

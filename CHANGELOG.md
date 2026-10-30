@@ -3,6 +3,25 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.20 - Focus assist, from a button in the window
+
+- **Focus...** in the Lasers panel opens focus assist (Phase 6 step 6):
+  pick a laser and the edges, Start, and turn the focus while the
+  stage passes across the blade's edge on the photodiode. Each pass's
+  10-90 % width, the best, and the last five's mean and scatter, with a
+  trace. Done measures the laser again; Save writes its position and
+  spot into `machine.toml`, and the window carries on with the new file.
+- Passes follow the edge as the beam moves and pick their feed for
+  about 10 readings across the edge, so about 3 s each at any focus.
+- `commission` keeps a measured corner: the laser that moved moves,
+  laser 2 too. `--new-corner` when the photodiode itself was moved.
+- A calibration loaded into the window, or open while machine.toml
+  changes, moves its corner XY with laser 2's position, so the sample
+  stays where it is on the carriage. Before, a calibration loaded after
+  laser 2 moved would have been off by that much.
+- The Cell and Photodiode readings sit one above the other at a fixed
+  width: a digit more no longer moves the machine column.
+
 ## 0.6.19 - Lasers 1-3 commissioned
 
 - `multilbic commission --lasers 1,2,3` on the machine (2026-10-30),

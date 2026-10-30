@@ -225,7 +225,35 @@ SMU output off, so readings stop until the next Home.
 window opens the SMU with both, at 0 V on autorange. Autorange is
 limited to 1 mA, and a reading at that limit is marked `(limit)`: the
 truth may be larger (laser 3 on the photodiode is). During a run
-channel 2 is set up as channel 1 is, but not read.
+channel 2 is set up as channel 1 is, but not read. The two readings
+sit one above the other at a fixed width, so a digit more doesn't move
+the column (0.6.20).
+
+### Focus assist
+
+**Focus...** beside the readings opens a small window of its own
+(Phase 6 step 6, D24). Pick the laser and the edges (A, the blade at
+the sample's height, or A and B, to see astigmatism), then **Start**:
+the stage homes, brings the photodiode under the laser (as `commission`
+does), lights it and passes back and forth across the edge, about
+±4 spot widths, a pass every 3 s or so. Turn the focus at the laser
+meanwhile. Each pass shows its 10-90 % width big, the best so far, and
+the mean ± scatter of the last 5, so a real change shows apart from
+noise; the trace below has every pass, A in the accent colour, B grey,
+the best as a dashed line. Each pass follows the edge if the beam
+moves, and is fitted with its own light level, so power drift doesn't
+look like focus.
+
+**Done: measure** ends the passes and measures the laser again as
+`commission` does: a refocused laser has a new position. The window
+then shows the laser's new `xy_centre_mm` and `spot_um`; **Save to
+machine.toml** writes them (`# focus <date>`), and the window carries
+on with the new file at once, a loaded calibration included. On the
+Pi, copy machine.toml back and commit it (a deploy resets it).
+
+Esc or Stop stops at once: laser and channel off, nothing saved, and
+the stage wants Home again. While it focuses, the rest of the window
+waits.
 
 ## Colours
 

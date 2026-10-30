@@ -52,12 +52,13 @@ def rig_for(machine, *, offsets=None, corner_shift=(0.0, 0.0),
                            clock, True, rig=rig)
 
 
-def commission(machine, lasers, **rig_args):
+def commission(machine, lasers, *, new_corner=False, **rig_args):
     rig, conn = rig_for(machine, **rig_args)
     try:
         c = Commissioner(conn.devices, machine, conn.clock,
                          say=lambda _: None)
-        return rig, c.run(CommissionRequest(tuple(lasers), **QUICK))
+        return rig, c.run(CommissionRequest(tuple(lasers), **QUICK,
+                                            new_corner=new_corner))
     finally:
         conn.close()
 
@@ -68,8 +69,10 @@ def commission(machine, lasers, **rig_args):
 def test_it_recovers_wrong_laser_positions_the_corner_and_the_spots(machine):
     offsets = {1: (0.1, -0.2), 3: (-0.25, 0.15)}
     faults = Faults(smu_stamp_lag_s=0.0186)
+    # The photodiode moved since it was measured: a new corner.
     rig, result = commission(machine, (2, 1, 3), offsets=offsets,
-                             corner_shift=(0.2, -0.3), faults=faults)
+                             corner_shift=(0.2, -0.3), faults=faults,
+                             new_corner=True)
     p = result.proposal
     assert p is not None and p.reference == 2
     for n in (1, 2, 3):
@@ -96,7 +99,8 @@ def test_it_recovers_wrong_laser_positions_the_corner_and_the_spots(machine):
 
 
 def test_a_placeholder_laser_is_found_by_searching(machine):
-    rig, result = commission(machine, (2, 4), offsets={4: (2.5, -1.5)})
+    rig, result = commission(machine, (2, 4), offsets={4: (2.5, -1.5)},
+                             new_corner=True)
     r = result.lasers[4]
     assert r.searched
     old = machine.laser(4).xy_centre_mm
@@ -108,7 +112,7 @@ def test_a_corner_beyond_reach_says_so(machine):
     from dataclasses import replace
 
     # X stopping at 100, as Marlin's compiled limit did: laser 1 reaches
-    # A 59.9 on the carriage, short of a corner 0.8 mm past its 59.7.
+    # A 60.43 on the carriage, short of a corner 0.8 mm past its 60.24.
     short = replace(machine, xy=replace(machine.xy, travel_mm=(100.0, 120.0)))
     with pytest.raises(CommissionError, match="beyond its reach"):
         commission(short, (1,), corner_shift=(0.8, 0.0))
@@ -125,6 +129,22 @@ def estimated(machine):
 
     return replace(machine, photodiode=replace(machine.photodiode,
                                                measured=False))
+
+
+def test_a_measured_corner_stays_and_the_reference_laser_moves(machine):
+    # Laser 2's beam moved (refocused): the photodiode did not, so laser
+    # 2's position follows, against a run before it moved.
+    _, before = commission(machine, (2, 3))
+    _, after = commission(machine, (2, 3), offsets={2: (0.3, -0.2)})
+    p0, p1 = before.proposal, after.proposal
+    assert p1.reference == 0
+    assert p1.corner_ab_mm == machine.photodiode.corner_ab_mm
+    dx = p1.xy_centre_mm[2][0] - p0.xy_centre_mm[2][0]
+    dy = p1.xy_centre_mm[2][1] - p0.xy_centre_mm[2][1]
+    assert (dx, dy) == pytest.approx((0.3, -0.2), abs=0.003)
+    # Laser 3 did not move.
+    assert p1.xy_centre_mm[3] == pytest.approx(p0.xy_centre_mm[3], abs=0.003)
+    assert any("stays" in line for line in p1.lines(machine))
 
 
 def test_without_the_reference_laser_there_is_no_proposal(machine):
@@ -161,7 +181,9 @@ def result_with(laser, corner, width=0.04):
 def test_each_laser_moves_by_its_view_of_the_corner(machine):
     results = {2: result_with(2, (54.8, 18.5)),
                1: result_with(1, (55.0, 18.4))}
-    p = propose(machine, results)
+    for p in (propose(estimated(machine), results),
+              propose(machine, results, new_corner=True)):
+        assert p.reference == 2
     assert p.corner_ab_mm == (54.8, 18.5)
     assert p.xy_centre_mm[2] == machine.laser(2).xy_centre_mm
     x, y = machine.laser(1).xy_centre_mm
@@ -218,6 +240,7 @@ def test_cli_writes_only_with_write(tmp_path, capsys):
     path.write_text(machine_text(), encoding="utf-8", newline="")
     before = path.read_bytes()
     args = ["--machine", str(path), "commission", "--sim", "--lasers", "2,3",
+            "--new-corner",
             "--warmup", "0", "--read", "0.3", "--speedup", "50",
             "--sim-offset", "3=0.1,0.1", "--out", str(tmp_path / "runs")]
     assert cli.main(args) == 0

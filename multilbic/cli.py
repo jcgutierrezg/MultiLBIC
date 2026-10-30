@@ -585,7 +585,7 @@ def commission(args: argparse.Namespace) -> int:
     request = CommissionRequest(
         lasers, warmup_s=args.warmup, read_s=args.read, bias_v=args.bias,
         coarse_feed_mm_s=args.coarse_feed, fine_feed_mm_s=args.fine_feed,
-        note=args.note)
+        note=args.note, new_corner=args.new_corner)
     say(f"lasers {', '.join(map(str, lasers))}: about "
         f"{duration(estimate_s(request, lasers))}, homing included")
     if args.sim:
@@ -718,7 +718,8 @@ def gui(args: argparse.Namespace) -> int:
     from multilbic.gui.app import launch
 
     return launch(load(args.machine), simulated=args.sim,
-                  speedup=args.speedup)
+                  speedup=args.speedup,
+                  machine_path=machine_file(args.machine))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -817,6 +818,9 @@ def main(argv: list[str] | None = None) -> int:
                      help="mm/s of the passes that measure it")
     com.add_argument("--note", default="")
     com.add_argument("--out", default="", help="folder for runs")
+    com.add_argument("--new-corner", action="store_true",
+                     help="the photodiode was moved: measure its corner "
+                     "again with the reference laser (include it)")
     com.add_argument("--write", action="store_true",
                      help="write the proposed changes into machine.toml "
                      "(asks first unless --yes)")

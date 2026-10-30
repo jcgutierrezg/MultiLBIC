@@ -222,7 +222,8 @@ class LaserCommission:
 
 @dataclass(frozen=True)
 class Proposal:
-    #: The laser whose view of the corner is taken as the truth.
+    #: The laser whose view of the corner is taken as the truth; 0 for
+    #: the corner measured before, which stays as it is.
     reference: int
     corner_ab_mm: tuple[float, float]
     xy_centre_mm: dict[int, tuple[float, float]]
@@ -231,10 +232,13 @@ class Proposal:
     def lines(self, machine: MachineConfig) -> list[str]:
         pd = machine.photodiode
         assert pd is not None
-        source = (f"as laser {self.reference} sees it" if self.reference
-                  else "as measured before")
-        out = [f"[photodiode] corner_ab_mm {_pair(pd.corner_ab_mm)} -> "
-               f"{_pair(self.corner_ab_mm)}, measured = true ({source})"]
+        if self.reference:
+            out = [f"[photodiode] corner_ab_mm {_pair(pd.corner_ab_mm)} -> "
+                   f"{_pair(self.corner_ab_mm)}, measured = true (as laser "
+                   f"{self.reference} sees it)"]
+        else:
+            out = [f"[photodiode] corner_ab_mm {_pair(pd.corner_ab_mm)} "
+                   "stays (measured before)"]
         for n in sorted(self.xy_centre_mm):
             old = machine.laser(n)
             new = self.xy_centre_mm[n]
@@ -262,28 +266,36 @@ def _pair(p: tuple[float, float]) -> str:
 
 
 def propose(machine: MachineConfig,
-            results: dict[int, LaserCommission]) -> Proposal:
-    """The changes the corners and widths call for. The reference
-    laser's view of the corner becomes `corner_ab_mm` (calibration is
-    done under it, so its position stays as it is), and every other
-    laser moves by however far its view of the corner is from that:
+            results: dict[int, LaserCommission], *,
+            new_corner: bool = False) -> Proposal:
+    """The changes the corners and widths call for. Every laser moves by
+    however far its view of the corner is from the corner's true place:
     a laser seeing the corner d further along A is d further along A
-    than machine.toml says. Without the reference laser, a measured
-    corner is taken as it is."""
+    than machine.toml says.
+
+    The true place is the measured corner: the photodiode is fixed to
+    the carriage, so a laser whose view moved (refocused, knocked) is
+    the one that moved, the reference laser too. Calibrations stay
+    right, since each records the reference laser's position when it
+    was made. The first time, or with `new_corner` (the photodiode was
+    moved), the reference laser's view becomes the corner, and its own
+    position stays as it is."""
     pd = machine.photodiode
     if pd is None:
         raise CommissionError("machine.toml has no [photodiode]")
     corners = {n: r.corner_mm for n, r in results.items()
                if r.corner_mm is not None}
     reference = machine.geometry.reference_laser
-    if reference in corners:
-        truth = corners[reference]
-    elif pd.measured:
+    if pd.measured and not new_corner:
         truth = pd.corner_ab_mm
+        reference = 0
+    elif reference in corners:
+        truth = corners[reference]
     else:
+        why = ("a new corner is asked for" if pd.measured
+               else "the corner has not been measured")
         raise CommissionError(
-            f"the corner has not been measured: commission laser "
-            f"{reference} (the reference) too")
+            f"{why}: commission laser {reference} (the reference) too")
     g = machine.geometry
     xy: dict[int, tuple[float, float]] = {}
     spot: dict[int, float] = {}
@@ -294,25 +306,26 @@ def propose(machine: MachineConfig,
         xy[n] = (old[0] + dx, old[1] + dy)
         if 0 in results[n].edges:
             spot[n] = results[n].edges[0].width_mm * 1000.0
-    return Proposal(reference if reference in corners else 0,
-                    (float(truth[0]), float(truth[1])), xy, spot)
+    return Proposal(reference, (float(truth[0]), float(truth[1])), xy, spot)
 
 
 _NUMBER = re.compile(r"^\s*number\s*=\s*(\d+)")
 _HEADER = re.compile(r"^\s*\[")
 
 
-def apply_proposal(text: str, proposal: Proposal, when: str) -> str:
+def apply_proposal(text: str, proposal: Proposal, when: str,
+                   source: str = "commission") -> str:
     """machine.toml's text with the proposal written in, everything else
     (comments included) as it was. Each changed line says where it came
-    from. Checked by loading the result."""
+    from (`# <source> <when>`). A corner measured before is left alone.
+    Checked by loading the result."""
     lines = text.splitlines(keepends=True)
     blocks: list[tuple[str, int, int]] = []  # (header, start, end)
     starts = [i for i, line in enumerate(lines) if _HEADER.match(line)]
     for k, i in enumerate(starts):
         end = starts[k + 1] if k + 1 < len(starts) else len(lines)
         blocks.append((lines[i].strip(), i, end))
-    note = f"  # commission {when}"
+    note = f"  # {source} {when}"
 
     def set_key(start: int, end: int, key: str, value: str,
                 after: str | None = None) -> None:
@@ -334,7 +347,7 @@ def apply_proposal(text: str, proposal: Proposal, when: str) -> str:
 
     # Back to front, so inserting a line moves no block still to come.
     for header, start, end in reversed(blocks):
-        if header == "[photodiode]":
+        if header == "[photodiode]" and proposal.reference:
             c = proposal.corner_ab_mm
             set_key(start, end, "measured", "true")
             set_key(start, end, "corner_ab_mm", f"[{c[0]:.3f}, {c[1]:.3f}]")
@@ -392,6 +405,9 @@ class CommissionRequest:
     coarse_feed_mm_s: float = COARSE_FEED_MM_S
     fine_feed_mm_s: float = FINE_FEED_MM_S
     note: str = ""
+    #: The photodiode was moved: take the reference laser's view of the
+    #: corner again (`propose`).
+    new_corner: bool = False
 
 
 @dataclass
@@ -475,7 +491,8 @@ class Commissioner:
                 except Exception as exc:
                     self.say(f"switching off failed: {exc}")
         try:
-            proposal: Proposal | None = propose(self.machine, results)
+            proposal: Proposal | None = propose(
+                self.machine, results, new_corner=request.new_corner)
             error = None
         except CommissionError as exc:
             proposal, error = None, str(exc)
@@ -484,10 +501,19 @@ class Commissioner:
     # ---- one laser ----
 
     def _laser(self, r: LaserCommission, request: CommissionRequest) -> None:
+        light = self._find(r, request)
+        assert r.found_mm is not None
+        self._coarse(r, request, r.found_mm, light, (0, 1))
+        self._fine(r, request, light)
+        self._power(r, request)
+
+    def _find(self, r: LaserCommission, request: CommissionRequest) -> float:
+        """The open quarter under laser `r.laser` (light on), its first
+        reading and the range for the rest. Returns the light: the
+        reading less the dark. The laser must be off to start (the dark
+        is read first); it ends lit."""
         n = r.laser
         d = self.devices
-        signs = self.pd.open_signs
-        quarter = self.pd.chip_mm / 4
         middle = open_quarter_middle(self.machine)
         self.say(f"laser {n}: to the open quarter")
         self._go(n, middle)
@@ -527,10 +553,18 @@ class Commissioner:
         self._set_range(r.range_a)
         # Crossing into the blade the light goes; along increasing A or
         # B, an edge's step is this times the open side's sign.
-        light = first.median_a - r.first_dark.median_a
+        return first.median_a - r.first_dark.median_a
 
-        # Coarse: from where the light is, towards each blade.
-        for k in (0, 1):
+    def _coarse(self, r: LaserCommission, request: CommissionRequest,
+                found: tuple[float, float], light: float,
+                axes: tuple[int, ...]) -> None:
+        """From where the light is, towards each blade: the edges
+        roughly. B needs A's edge first, to pass along B through the
+        open quarter."""
+        n = r.laser
+        signs = self.pd.open_signs
+        quarter = self.pd.chip_mm / 4
+        for k in sorted(set(axes) | ({0} if 1 in axes else set())):
             other = found[1 - k] if k == 0 else (
                 r.coarse[0].fit.position_mm + signs[0] * quarter
                 if r.coarse[0].fit is not None else found[0])
@@ -547,8 +581,14 @@ class Commissioner:
                 raise CommissionError(
                     f"laser {n}: no edge along {AXES[1 - k]} between "
                     f"{AXES[k]} {start:.2f} and {end:.2f} ({p.error}){short}")
-        # Fine: up and down across each edge, the other axis in the
-        # middle of the open quarter.
+
+    def _fine(self, r: LaserCommission, request: CommissionRequest,
+              light: float) -> None:
+        """Up and down across each edge, the other axis in the middle of
+        the open quarter: each edge's place, width and split."""
+        n = r.laser
+        signs = self.pd.open_signs
+        quarter = self.pd.chip_mm / 4
         edge_at = {k: r.coarse[k].fit.position_mm for k in (0, 1)}  # type: ignore[union-attr]
         width = {k: r.coarse[k].fit.width_mm for k in (0, 1)}  # type: ignore[union-attr]
         for k in (0, 1):
@@ -577,8 +617,15 @@ class Commissioner:
                  f"10-90 % {r.edges[0].width_mm * 1000:.1f} um along A, "
                  f"{r.edges[1].width_mm * 1000:.1f} um along B")
 
-        # Power, warm by now, on the open quarter's middle, then the
-        # dark on the same range.
+    def _power(self, r: LaserCommission, request: CommissionRequest) -> None:
+        """Power, warm by now, on the open quarter's middle, then the
+        dark on the same range. Ends with the laser off."""
+        n = r.laser
+        d = self.devices
+        signs = self.pd.open_signs
+        quarter = self.pd.chip_mm / 4
+        corner = r.corner_mm
+        assert corner is not None and r.range_a is not None
         self._go(n, (corner[0] + signs[0] * quarter,
                      corner[1] + signs[1] * quarter))
         r.lit = self._read(n, request.read_s)
@@ -769,7 +816,8 @@ def write_report(folder: Path, machine: MachineConfig,
                     "bias_v": result.request.bias_v,
                     "coarse_feed_mm_s": result.request.coarse_feed_mm_s,
                     "fine_feed_mm_s": result.request.fine_feed_mm_s,
-                    "note": result.request.note},
+                    "note": result.request.note,
+                    "new_corner": result.request.new_corner},
         "lasers": {str(n): r.as_dict() for n, r in result.lasers.items()},
         "proposal": (None if result.proposal is None
                      else result.proposal.as_dict()),

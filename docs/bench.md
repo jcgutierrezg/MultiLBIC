@@ -443,6 +443,24 @@ more travel (Marlin's limits), not a special case.
 photodiode's leads had come off during homing. Check they are secure
 before a run.
 
+## Phase 6: focusing lasers 1 and 2 (0.6.20)
+
+Both are about 250 um on the photodiode after the stage was lowered
+(65 and 41 um before). **The box is open for this**, and the stage
+moves while your hands are at the laser, though only about a
+millimetre round the edge once it is there.
+
+1. In the window: Home, then **Focus...**, laser 1, edge A, **Start**.
+   Wait for the passes (the stage first goes to the photodiode).
+2. Turn the focus slowly and watch the width: it should drop towards
+   tens of um. Stop turning once it rises again, and go back to the best.
+   A change smaller than the scatter shown is noise.
+3. **Done: measure**, read what it proposes, **Save to machine.toml**.
+4. The same for laser 2. Laser 2 is the reference: its position moves
+   too, and a loaded calibration follows it.
+5. Copy `machine.toml` back to the repository and commit it (Claude
+   does this over SSH).
+
 ## Afterwards
 
 Copy the reports back:
