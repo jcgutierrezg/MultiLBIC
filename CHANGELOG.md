@@ -3,6 +3,11 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.22 - A steadier focus test
+
+- The test that focus assist follows a moving beam compares as many
+  passes up as down, so the reading lag cancels on the slower Pi too.
+
 ## 0.6.21 - The open quarter's side, the right way round
 
 - Commissioning and focus assist passed away from the blades, into the

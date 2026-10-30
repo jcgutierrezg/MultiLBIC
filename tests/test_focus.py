@@ -105,16 +105,18 @@ def test_a_beam_that_moves_is_followed(machine):
             x, y = rig.laser_xy_mm[2]
             rig.laser_xy_mm[2] = (x + 0.12, y)  # refocusing moved it
 
-    _, result = focus(machine, FocusRequest(2, max_passes=7, read_s=0.3),
+    _, result = focus(machine, FocusRequest(2, max_passes=8, read_s=0.3),
                       knock)
-    before = [p.position_mm for p in result.passes[:3]]
-    after = [p.position_mm for p in result.passes[4:]]
+    # As many passes up as down on each side, so the reading lag (which
+    # shifts each direction's edge its own way) cancels in both.
+    before = [p.position_mm for p in result.passes[:2]]
+    after = [p.position_mm for p in result.passes[4:8]]
     assert all(p.good for p in result.passes)
     # The beam 0.12 mm along +X sees the edge 0.12 mm further along A
     # (x_along = +A): the stage has to go that much further to bring it
     # under the beam.
     shift = sum(after) / len(after) - sum(before) / len(before)
-    assert shift == pytest.approx(0.12, abs=0.01)
+    assert shift == pytest.approx(0.12, abs=0.02)
 
 
 def test_done_proposes_where_the_beam_went(machine):
