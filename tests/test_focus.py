@@ -57,6 +57,7 @@ def focus(machine, request, on_pass=lambda assist, rig, p: None, **rig_args):
         conn.close()
 
 
+@pytest.mark.sim_timing  # readings per pass follow the host's sleeps
 def test_the_widths_follow_the_focus_and_done_measures_again(machine,
                                                               monkeypatch):
     # Readings as far apart as the real SMU's (the simulated one answers

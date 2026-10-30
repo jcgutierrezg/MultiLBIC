@@ -3,6 +3,11 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.24 - The focus feed test is a timing test
+
+- It counts readings per pass, which follow the host's sleeps: marked
+  `sim_timing`, so the loaded Pi skips it as it skips the others.
+
 ## 0.6.23 - Lasers 1-3 commissioned across the blades
 
 - `multilbic commission --lasers 1,2,3` with the open side fixed
