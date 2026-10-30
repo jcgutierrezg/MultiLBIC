@@ -36,10 +36,23 @@ def test_the_table_loads(machine):
     pd = machine.photodiode
     assert pd is not None
     assert pd.channel == 2
-    assert pd.open_signs == (-1, -1)
+    # Open towards A- and B- on the carriage as built: larger A and B
+    # in the carriage frame, the stage's way of counting.
+    assert (pd.open_a, pd.open_b) == ("-", "-")
+    assert pd.open_signs == (1, 1)
     assert pd.chip_mm == pytest.approx(3.6)
-    # Commissioned 2026-10-30.
-    assert pd.measured
+    # The corner 2026-10-30 found was the can window's: an estimate again.
+    assert not pd.measured
+
+
+def test_the_open_quarter_is_where_the_light_was_found(machine):
+    # Laser 2 found light at the open quarter's middle and the window's
+    # far edge at (60.239, 23.062) (bench, 2026-10-30): the open quarter
+    # lies between the corner and that edge.
+    middle = open_quarter_middle(machine)
+    corner = machine.photodiode.corner_ab_mm
+    assert middle[0] > corner[0] and middle[1] > corner[1]
+    assert middle[0] < 60.239 and middle[1] < 23.062
 
 
 def test_the_table_is_optional():
@@ -80,8 +93,8 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
     assert x == pytest.approx(machine.xy.travel_mm[0])
     assert b == pytest.approx(machine.ab.centre_mm[1])
     assert carriage_point(machine, 1, r.xyab) == pytest.approx(corner)
-    # Laser 1 has 3.2 mm left above the corner along A.
-    assert r.room_mm[1] == pytest.approx(3.189, abs=1e-3)
+    # Laser 1 has 5.0 mm left above the corner along A.
+    assert r.room_mm[1] == pytest.approx(4.988, abs=1e-3)
     for n in (2, 3, 4, 5, 6):
         r = reach(machine, n, corner)
         assert carriage_point(machine, n, r.xyab) == pytest.approx(corner)
@@ -89,8 +102,8 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
 
 def test_out_of_reach_says_by_how_much(machine):
     corner = machine.photodiode.corner_ab_mm
-    with pytest.raises(OutOfReach, match="short by 0.311"):
-        reach(machine, 1, corner, room_mm=3.5)
+    with pytest.raises(OutOfReach, match="short by 0.312"):
+        reach(machine, 1, corner, room_mm=5.3)
 
 
 def test_reach_follows_reversed_and_swapped_axes(machine):

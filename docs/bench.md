@@ -443,6 +443,14 @@ more travel (Marlin's limits), not a special case.
 photodiode's leads had come off during homing. Check they are secure
 before a run.
 
+## Phase 6: commissioning again (0.6.21)
+
+The first run crossed the can's window edge, not the blades (the open
+side was read the wrong way round). Before focusing:
+`multilbic commission --lasers 1,2,3`, box closed, and watch that the
+spot now crosses the blades. Laser 2's view gives the corner again;
+write it, then focus.
+
 ## Phase 6: focusing lasers 1 and 2 (0.6.20)
 
 Both are about 250 um on the photodiode after the stage was lowered

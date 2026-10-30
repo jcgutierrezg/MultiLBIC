@@ -20,6 +20,15 @@ SHARP_SIGMA = 0.016  # a 41 um spot at its waist
 BLURRED_MM = 2.0  # the waist this far off the blade: about 260 um
 
 
+def measured(machine):
+    """Focus assist moves the focused laser, the corner staying: as
+    once the corner has been measured."""
+    from dataclasses import replace
+
+    return replace(machine, photodiode=replace(machine.photodiode,
+                                               measured=True))
+
+
 def rig_for(machine, *, faults=None):
     clock = ScaledClock(50.0, precise=True)
     rig = SimRig(machine, clock, SyntheticSample.default(), (15.0, 16.0),
@@ -36,6 +45,7 @@ def width_at(rig, laser, z=0.0):
 
 
 def focus(machine, request, on_pass=lambda assist, rig, p: None, **rig_args):
+    machine = measured(machine)
     rig, conn = rig_for(machine, **rig_args)
     try:
         assist = FocusAssist(conn.devices, machine, conn.clock,
@@ -82,7 +92,7 @@ def test_the_widths_follow_the_focus_and_done_measures_again(machine,
     # is the sharp one.
     p = result.proposal
     assert p is not None and p.reference == 0
-    assert p.corner_ab_mm == machine.photodiode.corner_ab_mm
+    assert p.corner_ab_mm == machine.photodiode.corner_ab_mm  # unchanged
     assert set(p.xy_centre_mm) == {2}
     assert p.spot_um[2] == pytest.approx(sharp * 1000, rel=0.05)
     assert rig.fake_laser.active == 0
@@ -108,6 +118,7 @@ def test_a_beam_that_moves_is_followed(machine):
 
 
 def test_done_proposes_where_the_beam_went(machine):
+    machine = measured(machine)
     rig, conn = rig_for(machine)
     try:
         c = Commissioner(conn.devices, machine, conn.clock,

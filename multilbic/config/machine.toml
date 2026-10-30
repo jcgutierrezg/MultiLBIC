@@ -52,12 +52,14 @@ max_accel_mm_s2 = 100.0
 # puts the AB centre under that beam.
 # spot_um: the spot's size, the 10-90 % width of an edge scanned through
 # it, along A on the blade at the sample's height. Lasers 1-3 from
-# `multilbic commission` on the photodiode (2026-10-30), after the stage
-# was lowered 1 cm and refocused by eye: lasers 1 and 2 were 65 and 41 um
-# on the old stage (the test cell's edge, 2026-10-23), so they are out of
-# focus until step 6. xy_centre_mm of lasers 1 and 3 from the same run,
-# relative to laser 2. Left out where unknown. The window compares it
-# with the row pitch; nothing else uses it yet.
+# `multilbic commission` on 2026-10-30, which crossed the can window's
+# edge instead of the blades (0.6.21): the spots are that edge's, below
+# the sample's height, not the maps'; the positions are each laser's
+# view of the same window corner, so they hold against each other if
+# the beams are near vertical. Both until commissioning runs again.
+# Lasers 1 and 2 were 65 and 41 um on the old stage (the test cell's
+# edge, 2026-10-23). Left out where unknown. The window compares it with
+# the row pitch; nothing else uses it yet.
 
 [[lasers]]
 number = 1
@@ -143,19 +145,25 @@ v_points = "down"
 channel = 2
 # Where the blade edges cross, on the carriage: the AB position that
 # would put it under a laser with XY at that laser's xy_centre_mm. Far
-# outside AB's travel along A; XY makes up the rest. Measured by
-# `multilbic commission` as laser 2 sees it (2026-10-30), 0.5 mm from
-# the estimate by eye (59.7, 23.6). Laser 1 reaches 3.2 mm past it along
-# A with X to 103 and A to 39.5.
-corner_ab_mm = [60.239, 23.062]  # commission 2026-10-30
-# The open quarter is towards A- and B- of the corner (as built).
+# outside AB's travel along A; XY makes up the rest. Estimated, not
+# measured: commissioning on 2026-10-30 passed away from the blades
+# (the open side read the wrong way round, fixed in 0.6.21) and found
+# the can window's far edge at (60.239, 23.062) as laser 2 sees it. The
+# open quarter lies between that and the blades, so the corner is put
+# half the chip (1.8 mm) back along both: the open quarter's middle
+# then falls where the light was found. Laser 1 reaches 5.0 mm past it
+# along A with X to 103 and A to 39.5.
+corner_ab_mm = [58.44, 21.26]
+# The open quarter is towards A- and B- of the corner as it sits on the
+# carriage (as built): the way the carriage goes when A or B decreases.
+# In the carriage frame that is larger A and B (`Photodiode.open_signs`).
 open_a = "-"
 open_b = "-"
 chip_mm = 3.6
 # The blade along B is at the sample's height; the blade along A sits
 # on it, 0.4 mm higher (the blades' measured thickness).
 blade_a_above_mm = 0.4
-measured = true  # commission 2026-10-30
+measured = false
 
 [laser_board]
 # Wait after the servo turns, before the laser comes on. On the worst

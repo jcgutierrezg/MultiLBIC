@@ -665,9 +665,12 @@ listing, which change.
     middle. So **`machine.toml`'s laser positions hold, and the CAD's
     (X 67 for laser 1) is the one that is off**. Laser 1 has the least
     room: X at its end and A 1.8 mm short of its 35 mm safe limit.
-  - **The blades' corner, and laser 1's margin past it.** The open
-    quarter lies towards A- and B- of the corner, so the corner is
-    further along A than where the lasers met the quarter.
+  - **The blades' corner, and laser 1's margin past it.** *Wrong way
+    round, corrected 2026-10-30 (0.6.21, below):* the open quarter lies
+    towards A- and B- of the corner on the carriage, which is larger A
+    and B in the carriage frame, so the corner is at *smaller* A than
+    where the lasers met the quarter. What follows was the reasoning
+    then.
     `[photodiode] corner_ab_mm` estimates it 0.9 mm further (half the
     open quarter): (54.7, 18.6) on the carriage. Laser 1 then reaches
     only **0.7 mm past the A edge** (X 100, A 35), against 4.7 and
@@ -768,8 +771,29 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
   the laser, which also removes such an offset, and look at the voltage
   `read` reports: a channel at 0 V that reports more than a few mV off
   is in that state again. `commission` should check the same.
+- **The open side was read the wrong way round (found 2026-10-30,
+  fixed in 0.6.21).** Watching a run, the builder saw the spot cross
+  the can's metal case, not a blade: every pass ran *away* from the
+  blades, in A and in B. The carriage frame counts a point by the stage
+  position that puts it under the beam, and a point further towards
+  the stage's A- on the carriage has to travel further towards A+ to
+  reach the beam: a quarter open towards A- as built is at larger A in
+  that frame. `open_a`/`open_b` stay as the builder sees them ("-");
+  `Photodiode.open_signs` turns them into the frame. The simulator took
+  the same wrong convention, so it agreed and couldn't catch it.
+  - So the run below crossed **the can window's far edges**, not the
+    blades: its corner (60.239, 23.062) is that window corner, and its
+    widths are that edge's, below the sample's height. The lasers'
+    positions are each laser's view of the same window corner, so they
+    hold against each other if the beams are near vertical; they stand
+    until commissioning runs again.
+  - The corner is an estimate again (`measured = false`): 1.8 mm back
+    from the window corner along both, (58.44, 21.26), which puts the
+    open quarter's middle where the light was found. Laser 1 then
+    reaches 5.0 mm past it along A.
 - **Commissioned (2026-10-30, `20261030T140929Z_commission`)**, lasers
-  1-3 at 0 V, X to 103, written to `machine.toml` (0.6.19):
+  1-3 at 0 V, X to 103, written to `machine.toml` (0.6.19). **The can
+  window's edges, not the blades (above):**
 
   | Laser | Power | 10-90 % along A / B | Corner seen (A, B) | `xy_centre_mm` moved |
   |---|---|---|---|---|

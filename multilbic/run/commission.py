@@ -516,7 +516,12 @@ class Commissioner:
         d = self.devices
         middle = open_quarter_middle(self.machine)
         self.say(f"laser {n}: to the open quarter")
-        self._go(n, middle)
+        try:
+            self._go(n, middle)
+        except OutOfReach as exc:
+            raise CommissionError(
+                f"laser {n}: the open quarter is beyond its reach ({exc})"
+            ) from None
         self._set_range(FIRST_RANGE_A)
         r.first_dark = self._read(0, request.read_s)
         self._check_voltage(r, r.first_dark, "dark")
@@ -743,8 +748,13 @@ class Commissioner:
         mid = (start + end) / 2
         point = (mid, other) if axis == 0 else (other, mid)
         half = abs(end - start) / 2
-        place = reach(self.machine, laser, point,
-                      room_mm=(half, 0.0) if axis == 0 else (0.0, half))
+        try:
+            place = reach(self.machine, laser, point,
+                          room_mm=(half, 0.0) if axis == 0 else (0.0, half))
+        except OutOfReach as exc:
+            raise CommissionError(
+                f"laser {laser}: a pass along {AXES[axis]} is beyond its "
+                f"reach ({exc})") from None
         x, y, a, b = place.xyab
         stage_mid = (a, b)[axis]
         offset = mid - stage_mid  # carriage minus stage, along `axis`

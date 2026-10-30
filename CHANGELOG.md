@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.21 - The open quarter's side, the right way round
+
+- Commissioning and focus assist passed away from the blades, into the
+  can's window edge, in A and in B: `open_a`/`open_b` say where the
+  open quarter is on the carriage as built, and in the carriage frame
+  that is the other way round. `Photodiode.open_signs` turns them now.
+  The simulator had the same convention, so it agreed.
+- `[photodiode] corner_ab_mm` is an estimate again, (58.44, 21.26),
+  `measured = false`: what 0.6.19 wrote was the window's corner. The
+  spots written then are that edge's. Commission lasers 1-3 again.
+- A pass or an open quarter beyond a laser's reach is a commissioning
+  error that says so, not a crash.
+
 ## 0.6.20 - Focus assist, from a button in the window
 
 - **Focus...** in the Lasers panel opens focus assist (Phase 6 step 6):

@@ -112,10 +112,11 @@ def test_a_corner_beyond_reach_says_so(machine):
     from dataclasses import replace
 
     # X stopping at 100, as Marlin's compiled limit did: laser 1 reaches
-    # A 60.43 on the carriage, short of a corner 0.8 mm past its 60.24.
+    # A 60.43 on the carriage, short of the open quarter's middle with
+    # the corner 1.5 mm past its 58.44 (59.94 + 0.9).
     short = replace(machine, xy=replace(machine.xy, travel_mm=(100.0, 120.0)))
     with pytest.raises(CommissionError, match="beyond its reach"):
-        commission(short, (1,), corner_shift=(0.8, 0.0))
+        commission(short, (1,), corner_shift=(1.5, 0.0))
 
 
 def test_no_light_anywhere_near_fails_clearly(machine):
@@ -131,9 +132,18 @@ def estimated(machine):
                                                measured=False))
 
 
+def measured(machine):
+    """`machine` with its photodiode corner measured."""
+    from dataclasses import replace
+
+    return replace(machine, photodiode=replace(machine.photodiode,
+                                               measured=True))
+
+
 def test_a_measured_corner_stays_and_the_reference_laser_moves(machine):
     # Laser 2's beam moved (refocused): the photodiode did not, so laser
     # 2's position follows, against a run before it moved.
+    machine = measured(machine)
     _, before = commission(machine, (2, 3))
     _, after = commission(machine, (2, 3), offsets={2: (0.3, -0.2)})
     p0, p1 = before.proposal, after.proposal
@@ -192,7 +202,7 @@ def test_each_laser_moves_by_its_view_of_the_corner(machine):
 
 
 def test_a_measured_corner_needs_no_reference(machine):
-    assert machine.photodiode.measured
+    machine = measured(machine)
     corner = machine.photodiode.corner_ab_mm
     p = propose(machine, {3: result_with(3, (corner[0] + 0.1, corner[1]))})
     assert p.reference == 0

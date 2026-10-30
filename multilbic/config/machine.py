@@ -156,8 +156,11 @@ class Photodiode:
     #: rows along A) is at A = corner_ab_mm[0], the edge along A at
     #: B = corner_ab_mm[1].
     corner_ab_mm: tuple[float, float]
-    #: The side of each edge the chip is open on: "-" means the open
-    #: quarter lies at lower A (`open_a`) or lower B (`open_b`).
+    #: The side of each edge the chip is open on, as it sits on the
+    #: carriage: "-" means the open quarter lies towards the stage's A-
+    #: (`open_a`) or B- (`open_b`) of the corner, the way the carriage
+    #: goes when A or B decreases. `open_signs` turns that into the
+    #: carriage frame, where it is the other way round.
     open_a: str
     open_b: str
     #: The chip's active area is a square this wide.
@@ -170,9 +173,19 @@ class Photodiode:
 
     @property
     def open_signs(self) -> tuple[int, int]:
-        """+1 or -1 per axis: the open side of each edge."""
-        return (1 if self.open_a == "+" else -1,
-                1 if self.open_b == "+" else -1)
+        """+1 or -1 per axis: the open side of each edge in the carriage
+        frame, +1 where the open quarter is at larger A (B) than the
+        corner.
+
+        The carriage frame counts a point by the stage position that
+        puts it under the beam. A point lying further towards the
+        stage's A- on the carriage has to travel further towards A+ to
+        reach the fixed beam, so it is at *larger* A in this frame: a
+        quarter open towards A- as built (`open_a = "-"`) is +1. Read
+        the other way round until 0.6.21, every pass ran away from the
+        blades, into the can's window edge (bench, 2026-10-30)."""
+        return (-1 if self.open_a == "+" else 1,
+                -1 if self.open_b == "+" else 1)
 
 
 @dataclass(frozen=True)
