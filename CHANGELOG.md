@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.26 - Lasers 5 and 6 placed by eye
+
+- `xy_centre_mm` for lasers 5 (48.4, 42.0) and 6 (49.4, 38.0) from
+  where an IR card showed them on the photodiode's open quarter
+  (2026-10-30); still `measured = false`. Laser 6 was 12 mm from its
+  placeholder, beyond the 8 mm search. Laser 4 lit the open quarter at
+  its own, which stays.
+
 ## 0.6.25 - A failed commissioning run keeps its readings
 
 - `commission` writes `commission.json` when it fails too: the darks,
