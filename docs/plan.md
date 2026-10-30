@@ -378,6 +378,11 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.23): lasers 1-3 commissioned across the blades** and
+written: the corner measured, spots 59, 39 and 31 um at the sample's
+height, narrower on the upper blade. Next: a look with focus assist
+(height or astigmatism), then lasers 4-6 ([hardware](hardware.md)).
+
 **State (0.6.21): the open side fixed.** Commissioning ran every pass
 away from the blades, into the can window's edge (the builder saw it):
 "open towards A-" on the carriage is larger A in the carriage frame.

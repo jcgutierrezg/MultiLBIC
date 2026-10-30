@@ -41,8 +41,8 @@ def test_the_table_loads(machine):
     assert (pd.open_a, pd.open_b) == ("-", "-")
     assert pd.open_signs == (1, 1)
     assert pd.chip_mm == pytest.approx(3.6)
-    # The corner 2026-10-30 found was the can window's: an estimate again.
-    assert not pd.measured
+    # Measured across the blades, 2026-10-30 (0.6.22).
+    assert pd.measured
 
 
 def test_the_open_quarter_is_where_the_light_was_found(machine):
@@ -78,12 +78,16 @@ def test_bad_values_are_refused(key, value, message):
 # ---- reaching it ----
 
 
-def test_the_bench_positions_land_near_the_open_quarter(machine):
-    middle = open_quarter_middle(machine)
+def test_the_bench_positions_land_on_the_open_quarter(machine):
+    # Placed by eye on the open quarter: inside it, by the measured
+    # corner, its 1.8 mm side and the lasers' commissioned positions.
+    pd = machine.photodiode
+    side = pd.chip_mm / 2
     for n, xyab in BENCH.items():
-        a, b = carriage_point(machine, n, xyab)
-        assert a == pytest.approx(middle[0], abs=0.5)
-        assert b == pytest.approx(middle[1], abs=0.5)
+        point = carriage_point(machine, n, xyab)
+        for k in (0, 1):
+            low = pd.corner_ab_mm[k]
+            assert low < point[k] < low + side, (n, k, point)
 
 
 def test_reach_keeps_ab_central_and_x_at_its_end(machine):
@@ -93,8 +97,8 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
     assert x == pytest.approx(machine.xy.travel_mm[0])
     assert b == pytest.approx(machine.ab.centre_mm[1])
     assert carriage_point(machine, 1, r.xyab) == pytest.approx(corner)
-    # Laser 1 has 5.0 mm left above the corner along A.
-    assert r.room_mm[1] == pytest.approx(4.988, abs=1e-3)
+    # Laser 1 has 4.9 mm left above the corner along A.
+    assert r.room_mm[1] == pytest.approx(4.930, abs=1e-3)
     for n in (2, 3, 4, 5, 6):
         r = reach(machine, n, corner)
         assert carriage_point(machine, n, r.xyab) == pytest.approx(corner)
@@ -102,7 +106,7 @@ def test_reach_keeps_ab_central_and_x_at_its_end(machine):
 
 def test_out_of_reach_says_by_how_much(machine):
     corner = machine.photodiode.corner_ab_mm
-    with pytest.raises(OutOfReach, match="short by 0.312"):
+    with pytest.raises(OutOfReach, match="short by 0.370"):
         reach(machine, 1, corner, room_mm=5.3)
 
 

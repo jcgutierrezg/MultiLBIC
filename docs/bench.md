@@ -447,9 +447,12 @@ before a run.
 
 The first run crossed the can's window edge, not the blades (the open
 side was read the wrong way round). Before focusing:
-`multilbic commission --lasers 1,2,3`, box closed, and watch that the
-spot now crosses the blades. Laser 2's view gives the corner again;
-write it, then focus.
+`multilbic commission --lasers 1,2,3`, box closed. Laser 2's view
+gives the corner again; write it, then focus. **Done 2026-10-30**
+(0.6.23): the corner 0.25 mm from the estimate, spots 59, 39 and 31 um
+([hardware](hardware.md)). With the box closed the spot can't be seen:
+a corner near the estimate and widths that differ between the two
+blades say it crossed the blades, not the window's edge.
 
 ## Phase 6: focusing lasers 1 and 2 (0.6.20)
 

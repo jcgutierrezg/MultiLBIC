@@ -791,9 +791,33 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     from the window corner along both, (58.44, 21.26), which puts the
     open quarter's middle where the light was found. Laser 1 then
     reaches 5.0 mm past it along A.
+- **Commissioned across the blades (2026-10-30,
+  `20261030T164634Z_commission`, 0.6.22)**, lasers 1-3 at 0 V, box
+  closed, written to `machine.toml` (0.6.23):
+
+  | Laser | Power (first -> end) | 10-90 % lower / upper blade | Corner seen (A, B) | `xy_centre_mm` moved |
+  |---|---|---|---|---|
+  | 1 | -777 -> -703 uA, 15 mA | **59.4** / 48.4 um | 58.498, 21.021 | -70, +6 um |
+  | 2 | -47.7 -> -33.4 uA, 650 uA | **39.3** / 21.8 um | 58.569, 21.016 | reference |
+  | 3 | -1.215 -> -1.213 mA, 15 mA | **30.9** / 19.7 um | 58.563, 21.053 | -5, +37 um |
+
+  - The corner is 0.25 mm from the estimate, and the three lasers see it
+    within 0.07 mm. Up minus down on each edge: 6-13 um, the backlash.
+  - **The refocusing by eye held**: lasers 1 and 2 are near their old
+    65 and 41 um, laser 3 much sharper than its 244 um.
+  - **Every spot is narrower on the upper blade**, 0.4 mm above the
+    sample's plane: the waist is above the plane, or the spot is
+    astigmatic. Focus assist tells which: turning the focus moves the
+    narrowest point between the blades if it is height.
+  - The positions moved at most 70 um from the window-corner run, so
+    the beams are near vertical, and laser 1's 1.3 mm from yesterday's
+    `machine.toml` stands.
+  - **Laser 2 fell 30 % within its run**, as in the run before (laser 1
+    10 %, laser 3 steady): its power cable or connector is suspect.
+  - No channel-2 offset this time.
 - **Commissioned (2026-10-30, `20261030T140929Z_commission`)**, lasers
-  1-3 at 0 V, X to 103, written to `machine.toml` (0.6.19). **The can
-  window's edges, not the blades (above):**
+  1-3 at 0 V, X to 103, written to `machine.toml` (0.6.19), replaced by
+  the run above. **The can window's edges, not the blades (above):**
 
   | Laser | Power | 10-90 % along A / B | Corner seen (A, B) | `xy_centre_mm` moved |
   |---|---|---|---|---|

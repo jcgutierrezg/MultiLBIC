@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.23 - Lasers 1-3 commissioned across the blades
+
+- `multilbic commission --lasers 1,2,3` with the open side fixed
+  (2026-10-30), written to `machine.toml`: the photodiode's corner
+  (58.568, 21.016), measured; laser 1 and 3 positions within 70 um of
+  the run before; spots 59.4, 39.3 and 30.9 um at the sample's height.
+- Tests that read those values follow them.
+
 ## 0.6.22 - A steadier focus test
 
 - The test that focus assist follows a moving beam compares as many
