@@ -852,6 +852,16 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
   - The fix for lasers 1 and 2 is hardware: a laser supply above 5 V, or
     a low-dropout constant-current driver for those two. The setting
     stays where it is meanwhile.
+  - **Laser 2 over 3 minutes from lighting** (box closed, on the open
+    quarter, `~/cal/reads/pd-l2-3min-20261103.json`): it **rises**,
+    -27.6 uA in the first 10 s, -38.0 at 1 min, -42.1 at 2 min, -44.5 at
+    3 min and still climbing about 0.4 uA per 10 s. Readings scatter
+    1-3 uA with spikes of up to 10 uA. So the 60 s warm-up leaves it at
+    about 85 % of its 3-minute level, and a laser 2 map gets brighter
+    down its rows. The falls within the commissioning runs of 2026-10-30
+    (-47.7 to -33.4 uA) are not this: *unexplained*, maybe where on the
+    open quarter each was read, since the first and last readings are at
+    different places.
 - **The patch again, after commissioning (2026-11-03,
   `20261103T182248Z_std_test_v2-corner`, 0.6.30).** Edge positions in
   the patch (mm):

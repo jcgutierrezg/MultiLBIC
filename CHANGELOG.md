@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.34 - Laser 2 warms up, recorded
+
+- Hardware notes: laser 2 read for 3 minutes on the photodiode rises
+  from -27.6 to -44.5 uA and is still climbing; the 60 s warm-up leaves
+  it at about 85 %.
+
 ## 0.6.33 - The laser supply, recorded
 
 - Hardware notes: all six lasers share one LM317 off the SKR's 5 V,
