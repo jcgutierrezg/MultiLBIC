@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.29 - Test windows off the screen
+
+- The window tests build their windows transparent and far off the
+  desktop, as SMUniversal's suite does, so they no longer cover what the
+  person running them is working on. `MULTILBIC_TEST_SHOW_WINDOWS=1`
+  shows them.
+- The last tests that expected laser 4 or 5 to be a placeholder make
+  one of their own.
+
 ## 0.6.28 - Lasers 4-6 commissioned
 
 - `multilbic commission --lasers 4,5,6` (2026-10-30), written to

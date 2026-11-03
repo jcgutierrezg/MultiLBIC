@@ -95,6 +95,11 @@ def test_sync_plan_passes_share_the_patch_and_its_rows(machine):
     ({"speeds_mm_s": (1.0, 0.0)}, "> 0"),
 ])
 def test_sync_plan_refuses_before_anything_moves(machine, change, message):
+    if change.get("laser") == 4:
+        # Laser 4 a placeholder again (all six commissioned 2026-10-30).
+        machine = replace(machine, lasers=tuple(
+            replace(laser, measured=False) if laser.number == 4 else laser
+            for laser in machine.lasers))
     rig, machine, _ = _rig(machine)
     request = replace(SyncRequest(rig.perfect_calibration("edge"), 2),
                       **change)
