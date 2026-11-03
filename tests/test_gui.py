@@ -643,3 +643,13 @@ def test_focus_assist_from_its_button(window, tmp_path):
     assert "disabled" in fw.save_btn.state()
     fw.close()
     assert app.focus_window is None
+
+
+def test_the_smu_line_is_short():
+    from multilbic.gui.machine_panels import device_text
+
+    real = "Undalogic Ltd,miniSMU MS01 v1.1,lunar-tuvok-7966,v1.4.6(6b82396)"
+    assert device_text("smu", real) == "MS01 v1.1, lunar-tuvok-7966, v1.4.6"
+    assert device_text("smu", "something else") == "something else"
+    assert device_text("laser", "MultiLBIC-Laser,2.0.0") == \
+        "MultiLBIC-Laser,2.0.0"

@@ -229,6 +229,11 @@ channel 2 is set up as channel 1 is, but not read. The two readings
 sit one above the other at a fixed width, so a digit more doesn't move
 the column (0.6.20).
 
+Pictures fill short gaps along a row (up to 4 pixels) from their
+neighbours: the miniSMU's stream skips a few ms about every 100 ms
+([hardware](hardware.md)). The run file keeps the gaps. The Plan tab's
+close-ups go onto a second row when they don't fit side by side.
+
 ### Focus assist
 
 **Focus...** beside the readings opens a small window of its own

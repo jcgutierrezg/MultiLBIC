@@ -92,7 +92,8 @@ class ConnectionPanel:
                 ident = event.firmware.get(key)
                 look.set_lamp(self.lamps[key], self.app.theme,
                               "good" if ident else "bad")
-                self.ids[key].configure(text=ident or "no answer")
+                self.ids[key].configure(
+                    text=device_text(key, ident) if ident else "no answer")
         elif isinstance(event, StateChanged) and \
                 event.state is State.DISCONNECTED:
             for key, _ in DEVICES:
@@ -400,6 +401,22 @@ class LaserPanel:
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
         _enable(self.focus_btn, self.app.connected)
+
+
+def device_text(key: str, ident: str) -> str:
+    """A device's identity, short enough for the machine column. The
+    miniSMU's reads "Undalogic Ltd,miniSMU MS01 v1.1,lunar-tuvok-7966,
+    v1.4.6(6b82396)": the maker is the row's label already, and the
+    bracket is the firmware's build hash. What stays: model, serial and
+    firmware version."""
+    if key != "smu":
+        return ident
+    parts = [p.strip() for p in ident.split(",")]
+    if len(parts) >= 4:
+        model = parts[1].removeprefix("miniSMU ").strip()
+        firmware = parts[3].split("(")[0].strip()
+        return ", ".join(p for p in (model, parts[2], firmware) if p)
+    return ident
 
 
 def reading_text(amps: float | None) -> str:

@@ -27,6 +27,38 @@ if TYPE_CHECKING:
 DEFAULT_VIEW = ("right", "up")
 _HORIZONTAL = ("left", "right")
 CMAP = "inferno"
+#: Empty pixels along a row, up to this many in a run, are drawn filled
+#: in from their neighbours. The miniSMU's stream skips 5-8 ms of stamps
+#: about every 100 ms (docs/hardware.md): at 4 mm/s and 10 um pixels
+#: that is 2-3 empty pixels, six times a row, narrower than any spot.
+#: Only the picture is filled; the data keeps its gaps. A longer run
+#: stays blank, so a real dropout still shows.
+FILL_GAP_PX = 4
+
+
+def fill_short_gaps(values: np.ndarray, limit: int = FILL_GAP_PX) -> np.ndarray:
+    """`values[v, u]` with each run of up to `limit` NaNs along a row
+    replaced by the straight line between its neighbours. Runs at a
+    row's ends, or longer, stay NaN."""
+    out = np.array(values, dtype=float, copy=True)
+    for row in out:
+        bad = ~np.isfinite(row)
+        if not bad.any() or bad.all():
+            continue
+        i, n = 0, len(row)
+        while i < n:
+            if not bad[i]:
+                i += 1
+                continue
+            j = i
+            while j < n and bad[j]:
+                j += 1
+            if 0 < i and j < n and j - i <= limit:
+                left, right = row[i - 1], row[j]
+                steps = np.arange(1, j - i + 1) / (j - i + 1)
+                row[i:j] = left + (right - left) * steps
+            i = j
+    return out
 
 
 def draw_map(
@@ -81,8 +113,9 @@ def draw_map(
 
 
 def image_data(values_a: np.ndarray, view: tuple[str, str]) -> np.ndarray:
-    """`values_a[v, u]` in nA, transposed when u runs up or down."""
-    values = np.asarray(values_a) * 1e9
+    """`values_a[v, u]` in nA, short gaps along the rows filled
+    (`fill_short_gaps`), transposed when u runs up or down."""
+    values = fill_short_gaps(np.asarray(values_a)) * 1e9
     return values if view[0] in _HORIZONTAL else values.T
 
 

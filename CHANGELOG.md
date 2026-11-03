@@ -3,6 +3,17 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.31 - Maps without the stream's gaps, six lasers in the plan
+
+- Map pictures (PNGs, the window's live and finished maps) fill runs of
+  up to 4 empty pixels along a row from their neighbours: the miniSMU's
+  stream skips 7 ms about every 100 ms, 2-3 empty 10 um pixels at
+  4 mm/s, six times a row. The data keeps its gaps.
+- The Plan tab's close-ups go onto more rows, evenly, when they don't
+  fit side by side: six lasers were cut off.
+- The miniSMU's line in the Machine panel drops the maker and the
+  firmware's build hash: "MS01 v1.1, lunar-tuvok-7966, v1.4.6".
+
 ## 0.6.30 - All six commissioned again
 
 - A six-laser map of the cell's corner (2026-11-03) had lasers 4-6

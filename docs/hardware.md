@@ -825,6 +825,30 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     calibrated with laser 2 on 2026-10-30: most of that is laser 2
     having moved (+0.46, +0.90 mm), which `machine.toml` now carries;
     calibrations record laser 2's position, so they follow.
+- **The patch again, after commissioning (2026-11-03,
+  `20261103T182248Z_std_test_v2-corner`, 0.6.30).** Edge positions in
+  the patch (mm):
+
+  | Laser | Edge along B (u, along the rows) | Edge along A (v, across) |
+  |---|---|---|
+  | 1 | 0.56 | about 0-0.05 (faint) |
+  | 2 | 0.45 | too weak to fit |
+  | 3 | 0.43 | 0.115 |
+  | 4 | 0.33 | 0.122 |
+  | 5 | 0.39 | 0.135 |
+  | 6 | 0.36 | 0.112 |
+
+  - Across the rows lasers 3-6 now agree to 0.02 mm (were up to 1 mm
+    apart). Along the rows to 0.1 mm: that direction rests on the
+    scan's timing correction at 4 mm/s, which the sync check (step 3)
+    measures.
+  - Laser 1 is still about 0.17 mm off along the rows. Laser 2 gives
+    about 10 uA on the cell now, too little for its edge across rows.
+  - **The gaps** (4.6 % of the pixels empty) are the stream's skips:
+    every row had six 7 ms jumps in the device stamps, about every
+    100 ms, as on 2026-10-19 (below). At 4 mm/s that is 28 um, 2-3 empty
+    10 um pixels. Pictures now fill runs of up to 4 empty pixels along a
+    row (0.6.31); the data keeps them.
 - **Lasers 4-6 commissioned (2026-10-30, `20261030T181328Z_commission`,
   0.6.27)**, box closed, against the measured corner, written to
   `machine.toml` (0.6.28):

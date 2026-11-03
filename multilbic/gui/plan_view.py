@@ -35,6 +35,8 @@ VECTORS = {"left": (-1, 0), "right": (1, 0), "up": (0, -1), "down": (0, 1)}
 #: Drawn rows are at least this far apart; more rows, and every n-th.
 MIN_ROW_PX = 7
 CLOSEUP_PX = (170, 100)
+#: No close-up narrower than this: more go onto another row instead.
+MIN_CLOSEUP_W = 80
 #: The drawing's height when space is short; it grows into the rest.
 MIN_SWEEP_PX = 150
 CLOCK_MS = 30_000
@@ -218,22 +220,32 @@ class PlanView:
                  for p in plan.plans]
         # One window, and so one scale, for all: spots compare at a glance.
         window_um = max(3.5 * pitch, 2.5 * max(spots), 8 * pixel)
-        # As wide as they can be, sharing the tab's width between them.
-        room = self.frame.winfo_width() - 110
-        w = int(min(CLOSEUP_PX[0], max(80, room / len(plan.plans) - 10)))
+        bar = _round_length(window_um / 4000) * 1000
+        legend = ttk.Label(self.closeups, style="Hint.TLabel",
+                           justify="left",
+                           text=f"Close-up,\ntrue scale:\nbar {bar:g} µm\n"
+                           f"rows {pitch:g} µm")
+        legend.pack(side="left", anchor="n", padx=(0, 8))
+        # As wide as they can be, sharing the tab's width between them;
+        # on more rows, evenly, when they don't fit side by side (six
+        # lasers in a narrow tab were cut off, 2026-11-03).
+        room = self.frame.winfo_width() - legend.winfo_reqwidth() - 12
+        count = len(plan.plans)
+        fits = max(1, int(room // (MIN_CLOSEUP_W + 10)))
+        rows = math.ceil(count / fits)
+        per_row = math.ceil(count / rows)
+        w = int(min(CLOSEUP_PX[0], max(MIN_CLOSEUP_W, room / per_row - 10)))
         h = CLOSEUP_PX[1]
         k = min(w, h) / window_um
-        bar = _round_length(window_um / 4000) * 1000
-        ttk.Label(self.closeups, style="Hint.TLabel", justify="left",
-                  text=f"Close-up,\ntrue scale:\nbar {bar:g} µm\n"
-                  f"rows {pitch:g} µm") \
-            .pack(side="left", anchor="n", padx=(0, 8))
-        for p in plan.plans:
+        boxes = ttk.Frame(self.closeups)
+        boxes.pack(side="left", anchor="n")
+        for i, p in enumerate(plan.plans):
             laser = self.app.machine.laser(p.laser)
             colour = self.app.laser_colour(p.laser)
             spot = laser.spot_um
-            box = ttk.Frame(self.closeups)
-            box.pack(side="left", padx=(0, 10))
+            box = ttk.Frame(boxes)
+            box.grid(row=i // per_row, column=i % per_row, padx=(0, 10),
+                     pady=(0, 4), sticky="nw")
             c = tk.Canvas(box, width=w, height=h, highlightthickness=0,
                           borderwidth=0, background=pal.field)
             c.pack()

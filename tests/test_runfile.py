@@ -126,3 +126,26 @@ def test_map_draws_in_any_view(tmp_path, view):
     )
     png = save_png(result, tmp_path / "map.png", view=view)
     assert png.stat().st_size > 1000
+
+
+def test_short_gaps_along_a_row_are_drawn_filled():
+    import numpy as np
+
+    from multilbic.store.image import fill_short_gaps, image_data
+
+    nan = np.nan
+    values = np.array([
+        [1.0, nan, nan, 4.0, 5.0],    # a stream skip: filled
+        [nan, 2.0, 3.0, nan, nan],    # at the row's ends: left
+        [1.0, nan, nan, nan, nan],    # longer than the limit: left
+        [1.0, nan, nan, nan, 5.0],
+    ])
+    out = fill_short_gaps(values, limit=3)
+    assert np.allclose(out[0], [1, 2, 3, 4, 5])
+    assert np.isnan(out[1, 0]) and np.isnan(out[1, 3:]).all()
+    assert np.isnan(out[2, 1:]).all()
+    assert np.allclose(out[3], [1, 2, 3, 4, 5])
+    # Only the picture: the data keeps its gaps.
+    assert np.isnan(values[0, 1])
+    drawn = image_data(values * 1e-9, ("right", "up"))
+    assert np.allclose(drawn[0], [1, 2, 3, 4, 5])
