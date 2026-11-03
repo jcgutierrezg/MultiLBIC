@@ -3,6 +3,15 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.30 - All six commissioned again
+
+- A six-laser map of the cell's corner (2026-11-03) had lasers 4-6
+  lined up and 1-3 off by up to 1 mm; commissioning all six again found
+  1-3 moved since 2026-10-30 by the same amounts. Written to
+  `machine.toml`, laser 2 included (the measured corner stays).
+- Bench notes: commission all six after any work in the box.
+- The window's focus test waits for a good pass.
+
 ## 0.6.29 - Test windows off the screen
 
 - The window tests build their windows transparent and far off the

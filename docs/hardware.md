@@ -791,6 +791,40 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     from the window corner along both, (58.44, 21.26), which puts the
     open quarter's middle where the light was found. Laser 1 then
     reaches 5.0 mm past it along A.
+- **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
+  1.5 x 1.5 mm patch at the cell's corner with all six lasers
+  (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up
+  to 0.1 mm, lasers 1-3 did not, by up to 1 mm. Commissioning all six
+  again (`20261103T175926Z_commission`) found lasers 1-3 moved since
+  2026-10-30 by what the map showed, and 4-6 not:
+
+  | Laser | Moved since 2026-10-30 (photodiode) | Map shift against laser 5 |
+  |---|---|---|
+  | 1 | -0.04, -0.49 mm | +0.04, -0.46 mm |
+  | 2 | +0.46, +0.90 mm | +0.49, +0.88 mm |
+  | 3 | +0.25, +0.31 mm | +0.25, +0.25 mm |
+  | 4 | +0.06, -0.06 mm | +0.06, -0.10 mm |
+  | 5 | -0.03, 0.00 mm | (reference) |
+  | 6 | +0.03, -0.03 mm | +0.01, -0.06 mm |
+
+  - **The photodiode and the cell agree** to a few tens of um: the
+    positions it measures are the maps' positions. The A travel (lasers
+    1-3 reach the photodiode with A 12-17 mm from where they map) and
+    the height don't show.
+  - **Lasers 1-3 moved, each its own way**: not one shift of the
+    revolver, so their mounts. They were commissioned at 16:46 on
+    2026-10-30; lasers 4-6 were refocused by hand after it and
+    commissioned at 18:13, and those are the ones that held. Handling
+    in the box can move a laser by half a millimetre: **commission all
+    six after any work in it** (18 min).
+  - **Laser 2 is fading**: -47, -33, now -17.5 uA on the photodiode
+    (2026-10-30 twice, 2026-11-03). On the cell its map had a 33 uA
+    step against 600-700 uA for the others. Its power cable or
+    connector, or the laser.
+  - Laser 2 also saw the cell's corner about 0.5 mm from where it was
+    calibrated with laser 2 on 2026-10-30: most of that is laser 2
+    having moved (+0.46, +0.90 mm), which `machine.toml` now carries;
+    calibrations record laser 2's position, so they follow.
 - **Lasers 4-6 commissioned (2026-10-30, `20261030T181328Z_commission`,
   0.6.27)**, box closed, against the measured corner, written to
   `machine.toml` (0.6.28):

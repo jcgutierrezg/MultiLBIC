@@ -33,7 +33,8 @@ def test_values_match_hardware_notes():
     # Laser 2 is the alignment laser; its position was measured.
     laser2 = config.laser(2)
     assert laser2.wavelength_nm == 519
-    assert laser2.xy_centre_mm == (75.6, 71.7)
+    # Commissioned again 2026-11-03: it had moved 1 mm since 2026-10-30.
+    assert laser2.xy_centre_mm == (76.058, 72.604)
     assert laser2.measured
     # Two groups of three share servo angles.
     for a, b in [(1, 4), (2, 5), (3, 6)]:

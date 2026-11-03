@@ -51,10 +51,12 @@ max_accel_mm_s2 = 100.0
 # 3/6 share an angle, and XY picks the group. xy_centre_mm is where XY
 # puts the AB centre under that beam.
 # spot_um: the spot's size, the 10-90 % width of an edge scanned through
-# it, along A on the blade at the sample's height. Lasers 1-3 and
-# their positions against laser 2 from `multilbic commission` across
-# the blades (2026-10-30, 0.6.22), after the stage was lowered 1 cm and
-# refocused by eye: lasers 1 and 2 were 65 and 41 um on the old stage
+# it, along A on the blade at the sample's height. All six from
+# `multilbic commission` again on 2026-11-03: lasers 1-3 had moved by up
+# to 1 mm since 2026-10-30 (a six-laser map showed it, the photodiode
+# agreed), 4-6 by under 0.07 mm. Commission all six after any work in
+# the box. Before that, from the run across the blades on 2026-10-30
+# (0.6.22), after the stage was lowered 1 cm and refocused by eye: lasers 1 and 2 were 65 and 41 um on the old stage
 # (the test cell's edge, 2026-10-23), laser 3 244 um. Each is narrower
 # on the upper blade, 0.4 mm higher (48, 22, 20 um): the waist is above
 # the sample's plane, or the spot is astigmatic. Left out where unknown.
@@ -64,25 +66,25 @@ max_accel_mm_s2 = 100.0
 number = 1
 wavelength_nm = 444
 servo_angle_deg = 150
-xy_centre_mm = [79.002, 72.586]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 59.4  # commission 2026-10-30
+xy_centre_mm = [78.965, 72.094]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 67.5  # commission 2026-11-03
 
 [[lasers]]
 number = 2
 wavelength_nm = 519
 servo_angle_deg = 90
-xy_centre_mm = [75.600, 71.700]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 39.3  # commission 2026-10-30
+xy_centre_mm = [76.058, 72.604]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 41.7  # commission 2026-11-03
 
 [[lasers]]
 number = 3
 wavelength_nm = 652
 servo_angle_deg = 30
-xy_centre_mm = [74.600, 70.072]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 30.9  # commission 2026-10-30
+xy_centre_mm = [74.854, 70.383]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 35.1  # commission 2026-11-03
 
 [[lasers]]
 number = 4
@@ -93,25 +95,25 @@ servo_angle_deg = 150
 # placeholder), then commissioned across the blades (2026-10-30,
 # 0.6.27): moved by up to 0.9 mm from there. All three give 1.3-2.0 mA
 # on the photodiode, bright enough that its response may bend.
-xy_centre_mm = [48.857, 43.924]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 98.4  # commission 2026-10-30
+xy_centre_mm = [48.921, 43.868]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 99.5  # commission 2026-11-03
 
 [[lasers]]
 number = 5
 wavelength_nm = 785
 servo_angle_deg = 90
-xy_centre_mm = [48.039, 42.218]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 71.3  # commission 2026-10-30
+xy_centre_mm = [48.007, 42.217]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 71.7  # commission 2026-11-03
 
 [[lasers]]
 number = 6
 wavelength_nm = 848
 servo_angle_deg = 30
-xy_centre_mm = [49.473, 38.295]  # commission 2026-10-30
-measured = true  # commission 2026-10-30
-spot_um = 74.9  # commission 2026-10-30
+xy_centre_mm = [49.501, 38.264]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 72.9  # commission 2026-11-03
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's

@@ -625,7 +625,9 @@ def test_focus_assist_from_its_button(window, tmp_path):
     assert "disabled" in fw.done_btn.state()
     fw.laser.set(2)
     fw.start_btn.invoke()
-    window.pump(lambda: len(fw.passes) >= 2)
+    # A good pass last: the first may be short of readings at the
+    # simulator's coarse timing, before the feed has followed it.
+    window.pump(lambda: len(fw.passes) >= 2 and fw.passes[-1].good)
     assert app.state is State.FOCUSING
     assert "µm" in fw.width.cget("text")
     assert "best" in fw.detail.cget("text")

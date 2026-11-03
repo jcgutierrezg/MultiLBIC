@@ -454,6 +454,13 @@ gives the corner again; write it, then focus. **Done 2026-10-30**
 a corner near the estimate and widths that differ between the two
 blades say it crossed the blades, not the window's edge.
 
+## Phase 6: after any work in the box
+
+Handling in the box moved lasers 1-3 by up to 1 mm (2026-10-30 to
+2026-11-03, [hardware](hardware.md)). After refocusing, replugging or
+anything else inside: `multilbic commission --lasers 1,2,3,4,5,6`, box
+closed (about 18 min), then `--write` (or copy the proposal back).
+
 ## Phase 6: focusing lasers 1 and 2 (0.6.20)
 
 Both are about 250 um on the photodiode after the stage was lowered

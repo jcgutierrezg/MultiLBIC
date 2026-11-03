@@ -378,6 +378,11 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.30): the six-laser map** found lasers 1-3 moved by up
+to 1 mm since 2026-10-30 and 4-6 lined up; commissioning again agreed,
+and is written. Next: the same patch again, to see all six line up
+([hardware](hardware.md)).
+
 **State (0.6.28): all six lasers commissioned** and written: lasers
 4-6 placed first by eye (an IR card for 5 and 6), then swept coarse,
 medium and fine (0.6.27); spots 98, 71 and 75 um. Next: a map of the
