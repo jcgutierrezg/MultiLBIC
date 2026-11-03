@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.32 - Commissioning and focus tests are timing tests
+
+- They run the simulated machine at 50x, and on the Pi, loaded by the
+  whole suite, one missed a reply deadline now and then (passing alone).
+  Marked `sim_timing`, so the Pi skips them as it skips the other
+  simulator-timing tests; they still run on every change elsewhere.
+
 ## 0.6.31 - Maps without the stream's gaps, six lasers in the plan
 
 - Map pictures (PNGs, the window's live and finished maps) fill runs of

@@ -19,6 +19,13 @@ from multilbic.sim.sample import SyntheticSample
 SHARP_SIGMA = 0.016  # a 41 um spot at its waist
 BLURRED_MM = 2.0  # the waist this far off the blade: about 260 um
 
+# Runs of the simulated machine at 50x: on the Pi, loaded by the whole
+# suite, the simulated stage now and then missed a reply deadline
+# (2026-11-03, one test each time, passing when run alone). Skipped
+# there as the other simulator-timing tests are (`sim_timing`); here
+# they run on every change.
+pytestmark = pytest.mark.sim_timing
+
 
 def measured(machine):
     """Focus assist moves the focused laser, the corner staying: as

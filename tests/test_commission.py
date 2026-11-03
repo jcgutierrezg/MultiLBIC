@@ -28,6 +28,13 @@ from multilbic.sim.sample import SyntheticSample
 
 QUICK = dict(warmup_s=0.0, read_s=0.3)
 
+# Runs of the simulated machine at 50x: on the Pi, loaded by the whole
+# suite, the simulated stage now and then missed a reply deadline
+# (2026-11-03, one test each time, passing when run alone). Skipped
+# there as the other simulator-timing tests are (`sim_timing`); here
+# they run on every change.
+pytestmark = pytest.mark.sim_timing
+
 
 def machine_text():
     return resources.files("multilbic.config").joinpath(
