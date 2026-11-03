@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.33 - The laser supply, recorded
+
+- Hardware notes: all six lasers share one LM317 off the SKR's 5 V,
+  too little headroom for green (laser 2) and blue (laser 1); turning
+  its trimmer up raised those two and left the red and infrared ones
+  within 5 % (a read of all six on the photodiode).
+
 ## 0.6.32 - Commissioning and focus tests are timing tests
 
 - They run the simulated machine at 50x, and on the Pi, loaded by the

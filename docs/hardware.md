@@ -825,6 +825,33 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     calibrated with laser 2 on 2026-10-30: most of that is laser 2
     having moved (+0.46, +0.90 mm), which `machine.toml` now carries;
     calibrations record laser 2's position, so they follow.
+- **The laser supply's trimmer (2026-11-03).** All six lasers hang on
+  one LM317 with one trimmer, fed from the SKR's 5 V, which also feeds
+  the servo. An LM317 needs about 3 V between input and output to
+  regulate, which leaves about 2 V: enough for the red and infrared
+  diodes, not for green (laser 2) or blue (laser 1), which need about
+  3.5-5 V. Turning the trimmer up took laser 2 from 7.5 to 11 uA on the
+  photodiode, live with the box open, and no further: the ceiling. Read
+  after it, box closed (`~/cal/reads/pd-all-20261103-trimmer.json`,
+  2 s each, no warm-up), against the commissioning that afternoon (after
+  warm-up and passes):
+
+  | Laser | Commissioning | After the trimmer | Change |
+  |---|---|---|---|
+  | 1 (444 nm) | -0.678 mA | -0.774 mA | +14 % |
+  | 2 (519 nm) | -17.5 uA | -29.3 uA | +68 % |
+  | 3 (652 nm) | -1.207 mA | -1.222 mA | +1 % |
+  | 4 (676 nm) | -1.493 mA | -1.563 mA | +5 % |
+  | 5 (785 nm) | -1.309 mA | -1.324 mA | +1 % |
+  | 6 (848 nm) | -1.997 mA | -2.013 mA | +1 % |
+
+  - The red and infrared lasers didn't follow the trimmer: their
+    modules hold their own current. Blue and green did: they are
+    starved by the 5 V. Laser 2's figure is early in its lighting, and
+    it fades within a run, so part of its +68 % is that.
+  - The fix for lasers 1 and 2 is hardware: a laser supply above 5 V, or
+    a low-dropout constant-current driver for those two. The setting
+    stays where it is meanwhile.
 - **The patch again, after commissioning (2026-11-03,
   `20261103T182248Z_std_test_v2-corner`, 0.6.30).** Edge positions in
   the patch (mm):
