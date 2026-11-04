@@ -1060,6 +1060,35 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
     which catches the saw-tooth's phase): L 15.9 ms, backlash +4 um,
     8.0 um RMS, the spreads mixed. Not conclusive; the next check, with
     the stream kept between rows, dates by count over whole passes.
+- **The sync check again, the stream kept whole (2026-11-04,
+  `20261104T135122Z_sync_std_test_v2-corner`, 0.6.36)**, the same edge,
+  window and laser:
+
+  | | Dated by count | Stamps as recorded |
+  |---|---|---|
+  | L | **14.9 ms** | 19.9 ms |
+  | A backlash | **+4.0 um** | -8.2 um |
+  | Lines leave | 4.0 um RMS | 4.8 um RMS |
+  | Alignment / edges, 4 mm/s | 118.3 / 114.9 um | 133.5 / 132.8 um |
+  | Alignment / edges, 5 mm/s | 141.8 / 140.2 um | 204.8 / 197.4 um |
+  | Row spread, 4 mm/s (fwd / rev) | 9.3 / 7.2 um | 2.9 / 9.8 um |
+  | Row spread, 5 mm/s (fwd / rev) | 21.3 / 14.5 um | 7.4 / 17.7 um |
+
+  - **Dated by count, the timing holds together**: a positive backlash,
+    one lag that fits better, and the maps' alignment within 2-3 um of
+    the edges at both speeds. Both sessions dated by count gave L of
+    15-16 ms and a backlash of +4 um; by stamps the backlash came out
+    negative both times. Count dating stays.
+  - **The row spreads didn't shrink**, but this session the reference
+    itself moved: step-and-measure before and after differ by -18.1 um
+    with a 13.6 um spread across rows (-8.7 and 2.9 um in the morning),
+    and the forward rows sit 22 um off at zero speed. With 5 rows a
+    direction that noise swamps the comparison. *Unverified*: what
+    moved (16 min with laser 3 on, the stage, the cell).
+  - **Decisions:** `ab_backlash_mm` stays 0 (4 um is within the noise).
+    The default speed stays 4 mm/s: at 5 mm/s the rows scatter more
+    this time. A hardware marker (option C) is not needed for now: the
+    alignment matches the edges to 2-3 um.
 - **Bunching, not loss.** At 500 Hz and above, about every 100 ms the
   stamps skip 5–8 ms, then catch up with a burst of repeated stamps. The
   average rate is kept, so samples are not lost. That suggests the

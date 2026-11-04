@@ -378,6 +378,11 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.37): step 3 done on the new cell.** Dated by count,
+L = 15 ms and the A backlash +4 um in both sessions, the maps' alignment
+within 2-3 um of the edges; `ab_backlash_mm` stays 0, the default speed
+stays 4 mm/s, no hardware marker for now ([hardware](hardware.md)).
+
 **State (0.6.35): samples dated by count.** The sync check on the
 new cell (2026-11-04) showed the stamps' saw-tooth in the timing (one
 lag doesn't fit all speeds, a negative backlash). Run files now keep

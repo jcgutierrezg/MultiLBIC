@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.37 - The sync check, dated by count
+
+- Hardware notes: the sync check with the stream kept whole
+  (2026-11-04): L 14.9 ms, backlash +4 um, the alignment within 2-3 um
+  of the edges; the stamps gave a negative backlash again. Count dating
+  stays; `ab_backlash_mm` 0 and 4 mm/s stay.
+
 ## 0.6.36 - The count-dating map tests are timing tests
 
 - The two that measure a simulated map to a few um are marked
