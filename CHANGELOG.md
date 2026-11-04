@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.36 - The count-dating map tests are timing tests
+
+- The two that measure a simulated map to a few um are marked
+  `sim_timing`: on the Pi the simulated scan's own timing jitters more
+  than that. The line-fitting tests still run there.
+
 ## 0.6.35 - Samples dated by count, not by the SMU's stamps
 
 - The miniSMU measures evenly but its stamps saw-tooth (6 ms every

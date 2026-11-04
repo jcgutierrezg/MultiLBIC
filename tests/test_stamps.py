@@ -4,6 +4,7 @@ the stream kept whole between rows, and maps built from it."""
 from dataclasses import replace
 
 import numpy as np
+import pytest
 
 from multilbic.scan.mapping import GAP_ROW, build_map
 from multilbic.scan.stamps import BREAK_MS, date_by_count
@@ -90,6 +91,9 @@ def test_the_file_keeps_the_stream_between_rows(tmp_path):
     assert grid.values.shape[0] == run.header["n_rows"]
 
 
+# Measured to a few um: on the Pi's slower cores the simulated scan's
+# own timing jitters more than that (2026-11-04).
+@pytest.mark.sim_timing
 def test_dating_by_count_takes_the_sawtooth_out_of_a_map(tmp_path):
     s = scan(tmp_path, smu_stamp_saw_ms=6.0)
     run = read_run(s.run_path)
@@ -116,6 +120,7 @@ def test_an_old_file_keeps_its_stamps(tmp_path):
                           run.columns["device_ms"])
 
 
+@pytest.mark.sim_timing
 def test_steady_stamps_give_the_same_map_either_way(tmp_path):
     # With no saw-tooth, the count and the stamps agree to the rounding.
     s = scan(tmp_path)
