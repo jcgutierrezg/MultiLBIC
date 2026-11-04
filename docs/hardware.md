@@ -345,8 +345,8 @@ three times there and back at each speed (`bench.marlin --speeds
   axes at every connect, and both then "found" a stop at once (homing in
   15.5 s, from wherever they were: positions meaningless until homed
   again). Since 0.6.41 each axis has its own key: `stall_threshold_a =
-  135`, and B is left at the board's 130 (no `stall_threshold_b`), to
-  be tried over a few homings. Homing first moves every axis about 5 mm
+  135`, and B is left at the board's 130 (no `stall_threshold_b`):
+  A homed cleanly at 135 (24.5 s, the builder listening). Homing first moves every axis about 5 mm
   away, then comes back to find the stop (the builder). *Later*: once settled, save it (and the 5 mm/s ceiling) to
   the board's EEPROM with `M500`, in a session with the home offset put
   back to 0 first, since `M500` saves every setting as it stands.
@@ -823,6 +823,32 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     from the window corner along both, (58.44, 21.26), which puts the
     open quarter's middle where the light was found. Laser 1 then
     reaches 5.0 mm past it along A.
+- **The servo doesn't put a laser back where it was (2026-11-04).**
+  After the revolver screw was tightened, lasers 1, 3 and 5 commissioned
+  in one run had moved 0.1-0.3 mm against each other since 2026-11-03,
+  and an all-six run half an hour later, nothing touched, moved them
+  again by up to 0.12 mm, each its own way (not homing, which would
+  move them all alike). A direct test (`servo_position.py`, homed once):
+  laser 3's spot half over a blade edge, where the current changes by
+  25-70 uA per um, then the servo to laser 1 (120 deg) or laser 2
+  (60 deg) and back, ten times, the edge scanned again after each:
+
+  | Along | Laser 3 held, servo still | After each servo return |
+  |---|---|---|
+  | A | spread 0.1 um | **spread 44 um**, 20-185 um from the first landing |
+  | B | spread 0.0 um | **spread 20 um**, 3-68 um from it |
+
+  - The stage, the laser and the photodiode hold to a tenth of a um; the
+    revolver lands each laser within about +-0.1 mm, differently each
+    time, from either side. That is the run-to-run scatter of every
+    laser position, and it limits how well maps from different lasers
+    line up, whatever `machine.toml` says.
+  - *Not decided*: a better servo or a mechanical stop for each position
+    (hardware), or measuring each laser on the photodiode every time it
+    is selected and placing from that (software: a fine pass on each
+    edge is about 30 s per laser).
+  - Laser 2's output swung from -11 to -48 uA between runs the same
+    afternoon (one commissioning failed on it), the 5 V supply again.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

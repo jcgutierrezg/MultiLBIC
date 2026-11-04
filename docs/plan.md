@@ -378,6 +378,14 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.42): the servo limits alignment.** The revolver's servo
+lands each laser within about +-0.1 mm, differently every selection
+(laser 3 held still: 0.1 um; after each servo return: 44 um spread
+along A, 20 um along B). Laser positions don't repeat better than that
+between runs. A fix (hardware stops, or placing each laser from the
+photodiode at every selection) is still to be chosen
+([hardware](hardware.md)). A homes cleanly at a threshold of 135.
+
 **State (0.6.39): the A/B speed test repeated** over the whole travel
 after the flat and the grease: 5 mm/s is the ceiling (6 vibrates on A,
 struggles on B). A's homing grinds: A's StallGuard threshold is 135

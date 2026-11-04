@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.42 - The servo's repeatability, recorded
+
+- Hardware notes: the revolver's servo lands a laser within about
+  +-0.1 mm, differently each selection (laser 3 on a blade edge: 0.1 um
+  held still, 44 um spread along A and 20 um along B after each servo
+  return), which is the run-to-run scatter of every laser position.
+  A homes cleanly with a threshold of 135.
+
 ## 0.6.41 - A homing threshold per axis
 
 - `[ab] stall_threshold` becomes `stall_threshold_a` and
