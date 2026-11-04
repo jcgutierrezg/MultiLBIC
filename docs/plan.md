@@ -378,6 +378,12 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.43): maps placed from the photodiode.** Runs locate each
+laser on the photodiode after selecting it (about 40 s a laser) and
+place its map from that, so the servo's landing scatter no longer
+reaches the maps. On by default where the photodiode is measured. Next:
+a six-laser map on the bench to see them line up.
+
 **State (0.6.42): the servo limits alignment.** The revolver's servo
 lands each laser within about +-0.1 mm, differently every selection
 (laser 3 held still: 0.1 um; after each servo return: 44 um spread

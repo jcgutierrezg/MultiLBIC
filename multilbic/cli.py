@@ -193,6 +193,10 @@ def run(args: argparse.Namespace) -> int:
         note=args.note, warmup_s=args.warmup,
         current_range_a=default_range, laser_ranges_a=laser_ranges,
         step_up=not args.no_step_up,
+        # Each laser placed from the photodiode, where there is a
+        # measured one (the servo lands each within +-0.1 mm).
+        locate=(not args.no_locate and machine.photodiode is not None
+                and machine.photodiode.measured),
     )
     try:
         plans = plan_run(request, machine)
@@ -215,6 +219,9 @@ def run(args: argparse.Namespace) -> int:
             f"{_range_source(p.laser, args.current_range, checked)}, XY "
             f"{p.placement.xy_mm[0]:.3f} {p.placement.xy_mm[1]:.3f}, about "
             f"{duration(e.total_s)}")
+    if request.locate:
+        say("each laser located on the photodiode first, its map placed "
+            "from that (--no-locate: from machine.toml)")
     say(f"about {duration(estimate.total_s)} in all, homing included")
     if not args.yes:
         if not sys.stdin.isatty():
@@ -226,6 +233,10 @@ def run(args: argparse.Namespace) -> int:
 
     from multilbic.bench.report import provenance
 
+    channels: tuple[int, ...] = (1,)
+    if request.locate:
+        assert machine.photodiode is not None
+        channels = (1, machine.photodiode.channel)
     if args.sim:
         from multilbic.sim.rig import Faults
 
@@ -235,9 +246,10 @@ def run(args: argparse.Namespace) -> int:
             machine, speed=args.speedup,
             corner_carriage_mm=sim_corner(calibration, machine, Faults()),
             size_mm=(calibration.width_mm, calibration.height_mm),
+            smu_channels=channels,
         )
     else:
-        conn = connect_real(machine)
+        conn = connect_real(machine, channels)
     out = Path(args.out) if args.out else (SIM_RUNS if args.sim else REAL_RUNS)
     session = Session(
         conn.devices, machine, conn.clock, request, out,
@@ -765,6 +777,9 @@ def main(argv: list[str] | None = None) -> int:
                     "samples at every range switch). Default: the ranges "
                     "checked at calibration ('ranges' in calibrate), 25u "
                     "for a laser not checked")
+    go.add_argument("--no-locate", action="store_true",
+                    help="place each laser from machine.toml, without "
+                    "locating it on the photodiode first")
     go.add_argument("--no-step-up", action="store_true",
                     help="a laser whose range clips fails the run, instead "
                     "of starting again one range up (D26)")

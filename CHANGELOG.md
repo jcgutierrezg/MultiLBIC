@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.43 - Each laser placed from the photodiode
+
+- Runs locate each laser on the photodiode right after selecting it
+  (`run/locate.py`: its open quarter, the dark, a +-0.4 mm sweep and a
+  pass up and down across each blade edge, about 40 s) and place its
+  map from where it is, not from `xy_centre_mm`: the servo lands a laser
+  within about +-0.1 mm, differently every time. On by default where
+  `machine.toml` has a measured photodiode; `run --no-locate`, or the
+  window's "place from photodiode", to switch it off. The offset of
+  each laser is in its run file's header and `run.json`.
+- The simulator's servo can land lasers off at random
+  (`servo_scatter_mm`); three lasers 34-139 um off spread about 100 um
+  placed from `machine.toml` and under 25 um located.
+
 ## 0.6.42 - The servo's repeatability, recorded
 
 - Hardware notes: the revolver's servo lands a laser within about

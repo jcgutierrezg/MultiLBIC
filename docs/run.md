@@ -154,6 +154,26 @@ is in use by another MultiLBIC process" instead of fighting over the
 ports. The operating system drops the lock when the process ends, even
 by a crash. Simulated machines take no lock.
 
+### Placing each laser from the photodiode
+
+Where `machine.toml` has a measured `[photodiode]`, a run locates each
+laser on it right after selecting it, and places that laser's map from
+where it is, not from its `xy_centre_mm` (since 0.6.43; `--no-locate`,
+or untick "place from photodiode" in the window, to place from
+`machine.toml`). The revolver's servo lands a laser within about
++-0.1 mm, differently every time it turns (bench, 2026-11-04), and it
+doesn't turn again until the next laser, so the map uses the landing
+just measured.
+
+The locate (`run/locate.py`, about 40 s a laser): the photodiode's open
+quarter under the laser, the dark and its light, then each blade edge
+swept +-0.4 mm round where it should be and crossed once up and once
+down; the corner as the laser sees it, against the measured corner, is
+how far it is off. A laser further off than that gets the full
+commissioning sweeps. The run file's header and `run.json` record each
+laser's offset (`located`), and its XY as used (`xy_mm`). Nothing is
+written to `machine.toml`.
+
 ## The run folder
 
 ```text

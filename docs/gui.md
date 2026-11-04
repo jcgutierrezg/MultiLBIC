@@ -234,6 +234,10 @@ neighbours: the miniSMU's stream skips a few ms about every 100 ms
 ([hardware](hardware.md)). The run file keeps the gaps. The Plan tab's
 close-ups go onto a second row when they don't fit side by side.
 
+**place from photodiode** (on by default, where `machine.toml` has a
+photodiode): each laser is located on the photodiode before its map and
+its map placed from that, about 40 s a laser ([run](run.md)).
+
 ### Focus assist
 
 **Focus...** beside the readings opens a small window of its own

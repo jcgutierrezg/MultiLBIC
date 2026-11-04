@@ -105,8 +105,13 @@ def test_the_estimate_matches_the_bench_run(machine):
     from multilbic.scan.geometry import Calibration
 
     cal = Calibration.from_dict(BENCH_CALIBRATION)
-    plan = plan_form(RunForm(speed_mm_s="1"), cal, machine, simulated=False)
+    # That run (2026-10-26) placed from machine.toml.
+    plan = plan_form(RunForm(speed_mm_s="1", locate=False), cal, machine,
+                     simulated=False)
     assert plan.estimate_s == pytest.approx(221, rel=0.05)
+    located = plan_form(RunForm(speed_mm_s="1"), cal, machine,
+                        simulated=False)
+    assert located.estimate_s == pytest.approx(plan.estimate_s + 40, abs=1)
 
 
 def test_the_estimate_follows_the_sample(machine):

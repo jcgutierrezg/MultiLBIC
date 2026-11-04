@@ -22,6 +22,7 @@ moves have to take it up.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass, field, fields
 
 from multilbic.clock import Clock
@@ -59,6 +60,10 @@ class Faults:
     #: while it measures evenly (bench, 2026-11-03). 0: steady stamps.
     smu_stamp_saw_ms: float = 0.0
     smu_stamp_saw_period_s: float = 0.1
+    #: Each servo move lands the lasers at that angle this far off, at
+    #: random (standard deviation, each axis): the real revolver's
+    #: 44 and 20 um (bench, 2026-11-04). 0: exactly back every time.
+    servo_scatter_mm: float = 0.0
 
     @classmethod
     def none(cls) -> Faults:
@@ -106,6 +111,11 @@ class SimRig:
         self.fake_laser = FakeLaserBoard(
             settle_ms=self.machine.laser_board.settle_ms
         )
+        #: Where the servo landed each angle the last time, off true.
+        self.servo_offset_mm: dict[int, tuple[float, float]] = {}
+        self._servo_random = random.Random(7)
+        if f.servo_scatter_mm:
+            self.fake_laser.on_servo_move = self._servo_moved
         self.fake_smu = FakeMiniSMU(
             self.clock,
             signal=self._signal,
@@ -143,6 +153,10 @@ class SimRig:
         """Which carriage point (calibration's frame) laser `laser`'s
         spot is on, with the stage at `position`."""
         laser_x, laser_y = self.laser_xy_mm[laser]
+        off = self.servo_offset_mm.get(
+            self.machine.laser(laser).servo_angle_deg)
+        if off is not None:
+            laser_x, laser_y = laser_x + off[0], laser_y + off[1]
         assert self.x_along is not None and self.y_along is not None
         da, db = xy_to_ab(
             self.x_along, self.y_along,
@@ -162,6 +176,13 @@ class SimRig:
     def true_uv(self, t: float, laser: int) -> tuple[float, float]:
         """Where the spot was on the sample at time `t`."""
         return self.spot_uv(self.fake_marlin.past_stage_position(t), laser)
+
+    def _servo_moved(self, angle: int) -> None:
+        """The servo turned to `angle`: the lasers there land a little off,
+        anew each time."""
+        sigma = self.faults.servo_scatter_mm
+        self.servo_offset_mm[angle] = (self._servo_random.gauss(0.0, sigma),
+                                       self._servo_random.gauss(0.0, sigma))
 
     def _signal(self, channel: int, t: float) -> float:
         lit = self.fake_laser.active

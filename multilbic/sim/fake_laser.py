@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import queue
 import threading
+from collections.abc import Callable
 
 from multilbic.clock import Clock
 
@@ -38,6 +39,9 @@ class FakeLaserBoard:
         self.silent = False
         #: Every command line from the host, in order.
         self.received: list[str] = []
+        #: Called with the new angle whenever the servo turns (the rig
+        #: uses it to land the lasers a little off, as the real one does).
+        self.on_servo_move: Callable[[int], None] | None = None
         self._inbox: queue.Queue[str | None] = queue.Queue()
         self._emit = None
         self._clock: Clock | None = None
@@ -100,6 +104,8 @@ class FakeLaserBoard:
             target = self.angles[laser - 1]
             if target != self.servo_angle:
                 self.servo_angle = target
+                if self.on_servo_move is not None:
+                    self.on_servo_move(target)
                 assert self._clock is not None
                 self._clock.sleep(self.settle_ms / 1000.0)
             self._set_active(laser)

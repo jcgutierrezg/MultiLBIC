@@ -62,6 +62,9 @@ class RunForm:
     #: Where each laser's range came from: "checked" on this sample at
     #: calibration (D25), "set" by hand, or "guess" (the default).
     range_sources: dict[int, str] = field(default_factory=dict)
+    #: Locate each laser on the photodiode first and place its map from
+    #: that (where machine.toml has a measured photodiode).
+    locate: bool = True
 
 
 @dataclass(frozen=True)
@@ -161,6 +164,8 @@ def plan_form(
                         for n, name in form.laser_ranges.items()
                         if n in form.lasers},
         step_up=form.step_up,
+        locate=(form.locate and machine.photodiode is not None
+                and machine.photodiode.measured),
     )
     try:
         plans = plan_run(request, machine)

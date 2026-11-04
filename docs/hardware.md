@@ -843,10 +843,12 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     time, from either side. That is the run-to-run scatter of every
     laser position, and it limits how well maps from different lasers
     line up, whatever `machine.toml` says.
-  - *Not decided*: a better servo or a mechanical stop for each position
-    (hardware), or measuring each laser on the photodiode every time it
-    is selected and placing from that (software: a fine pass on each
-    edge is about 30 s per laser).
+  - **Decided: placing from the photodiode** (0.6.43): every run
+    locates each laser right after selecting it and places its map from
+    that ([run](run.md)). In the simulator, with the servo landing three
+    lasers 34-139 um off, their maps spread about 100 um placed from
+    `machine.toml` and under 25 um located (the measure's own scatter is
+    about 10 um a laser).
   - Laser 2's output swung from -11 to -48 uA between runs the same
     afternoon (one commissioning failed on it), the 5 V supply again.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A

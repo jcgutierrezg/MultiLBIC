@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.6.42"
+version = "0.6.43"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -129,6 +129,7 @@ files = [
     "multilbic/sim/photodiode.py",
     "multilbic/run/commission.py",
     "multilbic/run/focus.py",
+    "multilbic/run/locate.py",
     "multilbic/scan/stamps.py",
     "multilbic/gui/runform.py",
     "multilbic/gui/jogkeys.py",
