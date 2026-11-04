@@ -220,8 +220,10 @@ class Marlin:
         # threshold, if machine.toml sets one. Neither is saved: the
         # board keeps its EEPROM values for the touchscreen.
         self.send(f"M203 A{ab.max_feed_mm_s:g} B{ab.max_feed_mm_s:g}")
-        if ab.stall_threshold is not None:
-            self.send(f"M914 A{ab.stall_threshold} B{ab.stall_threshold}")
+        for axis, value in (("A", ab.stall_threshold_a),
+                            ("B", ab.stall_threshold_b)):
+            if value is not None:
+                self.send(f"M914 {axis}{value}")
         self.position()
         return info
 

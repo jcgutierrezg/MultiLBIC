@@ -23,12 +23,14 @@ travel_mm = 40.0
 # A and B read 5, and 0 is the hard stop (checked after every home). All
 # A/B coordinates moved by +5 mm with it (2026-10-29, 0.6.17).
 home_offset_mm = 5.0
-# Sensorless homing's StallGuard threshold on the TMC2209s, sent as M914
-# at every connect (the EEPROM still has 130): 0-255, higher notices the
-# stop sooner. A ground against the stop before giving up (2026-11-04),
-# so up from 130; to be settled over a few homings, then saved to the
+# Sensorless homing's StallGuard threshold for A on its TMC2209, sent
+# as M914 A at every connect (the EEPROM has 130 for both): 0-255,
+# higher notices the stop sooner. A ground against the stop before
+# giving up; 150 then "found" a stop at once, on both axes, when it was
+# sent to both (2026-11-04). B keeps the board's 130: no
+# stall_threshold_b. To be settled over a few homings, then saved to the
 # board's EEPROM.
-stall_threshold = 150
+stall_threshold_a = 135
 centre_mm = [20.0, 20.0]
 # 40 mm between the hard stops (the builder, 2026-10-29); 0.5 mm kept
 # clear of each. Marlin's software endstops are off (M211 S0 at every

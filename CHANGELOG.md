@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.41 - A homing threshold per axis
+
+- `[ab] stall_threshold` becomes `stall_threshold_a` and
+  `stall_threshold_b`, each optional: only the ones set are sent. A is
+  135; B is left at the board's 130. 150 on both (0.6.39) made both
+  axes find a stop at once.
+
 ## 0.6.40 - The stream's last samples kept too
 
 - A run file now also keeps the samples that arrive after the last row

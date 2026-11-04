@@ -341,9 +341,13 @@ three times there and back at each speed (`bench.marlin --speeds
   4 mm/s (D27).
 - **A's homing grinds against the stop before stopping** (the builder):
   StallGuard is slow to see the stall. On the TMC2209 a *higher* `M914`
-  notices sooner (0-255); the EEPROM has 130. `[ab] stall_threshold =
-  150` is sent at every connect from 0.6.39, to be tried over a few
-  homings. *Later*: once settled, save it (and the 5 mm/s ceiling) to
+  notices sooner (0-255); the EEPROM has 130. 0.6.39 sent 150 to both
+  axes at every connect, and both then "found" a stop at once (homing in
+  15.5 s, from wherever they were: positions meaningless until homed
+  again). Since 0.6.41 each axis has its own key: `stall_threshold_a =
+  135`, and B is left at the board's 130 (no `stall_threshold_b`), to
+  be tried over a few homings. Homing first moves every axis about 5 mm
+  away, then comes back to find the stop (the builder). *Later*: once settled, save it (and the 5 mm/s ceiling) to
   the board's EEPROM with `M500`, in a session with the home offset put
   back to 0 first, since `M500` saves every setting as it stands.
 - Homing took 40.6 s once and about 20 s the other three times.

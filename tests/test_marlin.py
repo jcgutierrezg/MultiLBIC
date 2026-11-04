@@ -137,8 +137,8 @@ def test_open_turns_soft_endstops_off_and_sets_the_home_offset(rig):
 def test_open_sets_the_ab_ceiling_and_the_homing_threshold(rig, machine):
     # machine.toml's, at every connect, unsaved (2026-11-04).
     client, fake, _ = rig
-    assert fake.stall_threshold == {"A": machine.ab.stall_threshold,
-                                    "B": machine.ab.stall_threshold}
+    # Only A's is sent: B keeps the board's.
+    assert fake.stall_threshold == {"A": machine.ab.stall_threshold_a}
     lines = client.settings()
     assert any("M203" in line and f"A{machine.ab.max_feed_mm_s:.2f}" in line
                for line in lines)

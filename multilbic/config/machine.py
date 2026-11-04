@@ -58,10 +58,12 @@ class AbStage:
     #: read once homed, so that 0 is the hard stop (homing stops this
     #: far from it). 0 leaves Marlin's own zero.
     home_offset_mm: float = 0.0
-    #: Sent as `M914 A.. B..` at every connect: the TMC2209s' StallGuard
-    #: threshold for sensorless homing, 0-255, *higher is more
-    #: sensitive* (notices the stop sooner). None leaves the board's.
-    stall_threshold: int | None = None
+    #: Sent as `M914 A..` / `M914 B..` at every connect: each axis's
+    #: TMC2209 StallGuard threshold for sensorless homing, 0-255, *higher
+    #: is more sensitive* (notices the stop sooner). None leaves the
+    #: board's own for that axis.
+    stall_threshold_a: int | None = None
+    stall_threshold_b: int | None = None
 
     @property
     def microstep_mm(self) -> float:
@@ -294,13 +296,16 @@ def _parse_ab(t: _Table) -> AbStage:
         max_accel_mm_s2=t.read_positive_float("max_accel_mm_s2"),
         home_offset_mm=(t.read_float("home_offset_mm")
                         if t.has("home_offset_mm") else 0.0),
-        stall_threshold=(int(t.read_float("stall_threshold"))
-                         if t.has("stall_threshold") else None),
+        stall_threshold_a=(int(t.read_float("stall_threshold_a"))
+                           if t.has("stall_threshold_a") else None),
+        stall_threshold_b=(int(t.read_float("stall_threshold_b"))
+                           if t.has("stall_threshold_b") else None),
     )
     t.done()
-    if ab.stall_threshold is not None and not 0 <= ab.stall_threshold <= 255:
-        raise t.error(f"stall_threshold {ab.stall_threshold} must be 0-255 "
-                      "(TMC2209)")
+    for key in ("stall_threshold_a", "stall_threshold_b"):
+        value = getattr(ab, key)
+        if value is not None and not 0 <= value <= 255:
+            raise t.error(f"{key} {value} must be 0-255 (TMC2209)")
     if not 0.0 <= ab.home_offset_mm < ab.travel_mm:
         raise t.error(
             f"home_offset_mm {ab.home_offset_mm} must be >= 0 and below "

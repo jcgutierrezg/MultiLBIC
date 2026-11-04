@@ -144,12 +144,14 @@ def test_home_offset_is_optional(raw):
     assert parse(raw).ab.home_offset_mm == 0.0
 
 
-def test_the_homing_threshold(raw):
-    assert parse(raw).ab.stall_threshold == 150
-    raw["ab"].pop("stall_threshold")
-    assert parse(raw).ab.stall_threshold is None
-    _breaks(raw, lambda d: d["ab"].update(stall_threshold=300),
-            "stall_threshold")
+def test_the_homing_thresholds(raw):
+    ab = parse(raw).ab
+    # A's own; B left as the board has it (2026-11-04).
+    assert (ab.stall_threshold_a, ab.stall_threshold_b) == (135, None)
+    raw["ab"].pop("stall_threshold_a")
+    assert parse(raw).ab.stall_threshold_a is None
+    _breaks(raw, lambda d: d["ab"].update(stall_threshold_b=300),
+            "stall_threshold_b")
 
 
 def test_duplicate_laser(raw):

@@ -380,8 +380,9 @@ a new window on the new cell, or the blade over the photodiode.
 
 **State (0.6.39): the A/B speed test repeated** over the whole travel
 after the flat and the grease: 5 mm/s is the ceiling (6 vibrates on A,
-struggles on B). A's homing grinds: a StallGuard threshold of 150 (was
-130) is sent at every connect, to be tried, then saved to EEPROM later.
+struggles on B). A's homing grinds: A's StallGuard threshold is 135
+(was 130; 150 triggered at once), B stays at 130, sent at every
+connect, to be tried, then saved to EEPROM later.
 Laser 1 drifted 0.2 mm and was tightened ([hardware](hardware.md)).
 
 **State (0.6.37): step 3 done on the new cell.** Dated by count,
