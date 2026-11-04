@@ -134,6 +134,16 @@ def test_open_turns_soft_endstops_off_and_sets_the_home_offset(rig):
     assert position["X"] == 0.0
 
 
+def test_open_sets_the_ab_ceiling_and_the_homing_threshold(rig, machine):
+    # machine.toml's, at every connect, unsaved (2026-11-04).
+    client, fake, _ = rig
+    assert fake.stall_threshold == {"A": machine.ab.stall_threshold,
+                                    "B": machine.ab.stall_threshold}
+    lines = client.settings()
+    assert any("M203" in line and f"A{machine.ab.max_feed_mm_s:.2f}" in line
+               for line in lines)
+
+
 def test_a_home_offset_that_does_not_take_refuses_to_move(rig):
     client, fake, _ = rig
     fake.home_offset = {}  # as if M206 worked the other way
@@ -236,7 +246,7 @@ def test_releasing_motors_untrusts_position(rig):
 def test_settings_dump(rig):
     client, _, _ = rig
     lines = client.settings()
-    assert any("M203" in line and "A6.00" in line for line in lines)
+    assert any("M203" in line and "A5.00" in line for line in lines)
 
 
 def test_move_right_after_quickstop_is_not_lost(rig):

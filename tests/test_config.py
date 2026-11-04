@@ -52,7 +52,8 @@ def test_values_match_hardware_notes():
     assert (config.ab.safe_min_mm, config.ab.safe_max_mm) == (0.5, 39.5)
     # X stops short of a cable (2026-10-30).
     assert config.xy.travel_mm == (103.0, 120.0)
-    assert config.ab.max_feed_mm_s == 6.0
+    # 6 vibrated over the whole travel (2026-11-04).
+    assert config.ab.max_feed_mm_s == 5.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 
 
@@ -141,6 +142,14 @@ def test_home_offset_inside_the_travel(raw):
 def test_home_offset_is_optional(raw):
     raw["ab"].pop("home_offset_mm")
     assert parse(raw).ab.home_offset_mm == 0.0
+
+
+def test_the_homing_threshold(raw):
+    assert parse(raw).ab.stall_threshold == 150
+    raw["ab"].pop("stall_threshold")
+    assert parse(raw).ab.stall_threshold is None
+    _breaks(raw, lambda d: d["ab"].update(stall_threshold=300),
+            "stall_threshold")
 
 
 def test_duplicate_laser(raw):

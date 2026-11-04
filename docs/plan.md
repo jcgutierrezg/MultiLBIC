@@ -378,6 +378,12 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.39): the A/B speed test repeated** over the whole travel
+after the flat and the grease: 5 mm/s is the ceiling (6 vibrates on A,
+struggles on B). A's homing grinds: a StallGuard threshold of 150 (was
+130) is sent at every connect, to be tried, then saved to EEPROM later.
+Laser 1 drifted 0.2 mm and was tightened ([hardware](hardware.md)).
+
 **State (0.6.37): step 3 done on the new cell.** Dated by count,
 L = 15 ms and the A backlash +4 um in both sessions, the maps' alignment
 within 2-3 um of the edges; `ab_backlash_mm` stays 0, the default speed

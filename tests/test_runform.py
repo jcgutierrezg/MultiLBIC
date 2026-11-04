@@ -65,6 +65,8 @@ def test_the_real_machine_needs_its_directions_checked(machine, calibration):
 
 
 def test_warnings(machine, calibration):
+    # A ceiling above 5 mm/s, as before 2026-11-04, to reach the warning.
+    machine = replace(machine, ab=replace(machine.ab, max_feed_mm_s=6.0))
     plan = plan_form(RunForm(speed_mm_s="5.5", current_range="auto"),
                      calibration, machine, simulated=True)
     assert any("noisy" in w for w in plan.warnings)

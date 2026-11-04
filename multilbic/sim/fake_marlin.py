@@ -89,6 +89,8 @@ class FakeMarlin:
         }
         #: What `M206` set: where each axis reads once homed.
         self.home_offset: dict[str, float] = {}
+        #: StallGuard thresholds set by M914, by axis.
+        self.stall_threshold: dict[str, int] = {}
         self.travel = {
             "X": xy.travel_mm[0],
             "Y": xy.travel_mm[1],
@@ -503,6 +505,14 @@ class FakeMarlin:
         # Software endstops: the fake always keeps to `travel`, which is
         # machine.toml's, as the real machine keeps to its hard stops.
         pass
+
+    def _cmd_M914(self, command: str) -> None:
+        # StallGuard thresholds: kept, to be seen; homing here doesn't
+        # depend on them.
+        words = self._words(command)
+        for axis in ("A", "B"):
+            if axis in words:
+                self.stall_threshold[axis] = int(words[axis])
 
     def _cmd_M206(self, command: str) -> None:
         words = self._words(command)

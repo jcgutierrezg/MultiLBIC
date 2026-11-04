@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.39 - A 5 mm/s ceiling, a homing threshold
+
+- `[ab] max_feed_mm_s` is 5 mm/s (was 6): across the whole travel A
+  vibrated at 6 mm/s and B struggled (2026-11-04). It goes to Marlin as
+  `M203` at every connect too, unsaved.
+- `[ab] stall_threshold` (new, optional, 0-255): the TMC2209s'
+  StallGuard threshold for sensorless homing, sent as `M914` at every
+  connect, unsaved. 150, up from the EEPROM's 130: A ground against the
+  stop.
+
 ## 0.6.38 - Speed trials over the whole travel
 
 - `python -m multilbic.bench.marlin ... --speeds 3,4,5,6 --speed-span

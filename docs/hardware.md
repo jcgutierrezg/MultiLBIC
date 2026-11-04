@@ -323,6 +323,31 @@ was noticeably noisier and vibrated more than 3–5 mm/s.** Vibration
 moves the beam spot relative to the sample, so scans should stay at
 **5 mm/s or below** unless a map shows otherwise (D9).
 
+**Speed trials again, across the whole travel (2026-11-04)**, after
+the coupling's flat and the rods' grease: 38 mm moves (1 to 39 mm),
+three times there and back at each speed (`bench.marlin --speeds
+3,4,5,6 --speed-span 1,39`, reports `20261104T161837Z` A and
+`20261104T162549Z` B):
+
+| Speed | Per 38 mm move (A / B) | Model | Seen and heard (the builder) |
+|---|---|---|---|
+| 3 mm/s | 12.84 / 12.83 s | 12.73 s | fine |
+| 4 mm/s | 9.68 / 9.68 s | 9.58 s | fine |
+| 5 mm/s | 7.80 / 7.80 s | 7.70 s | fine, again on a second run of both |
+| 6 mm/s | 6.55 / 6.55 s | 6.45 s | A vibrated moving back (a hand on the motor stopped it: a resonance); B struggled both ways, even pressed |
+
+- **The A/B ceiling is 5 mm/s** (`max_feed_mm_s`), sent to Marlin as
+  `M203` at every connect; the EEPROM still has 6. Scans default to
+  4 mm/s (D27).
+- **A's homing grinds against the stop before stopping** (the builder):
+  StallGuard is slow to see the stall. On the TMC2209 a *higher* `M914`
+  notices sooner (0-255); the EEPROM has 130. `[ab] stall_threshold =
+  150` is sent at every connect from 0.6.39, to be tried over a few
+  homings. *Later*: once settled, save it (and the 5 mm/s ceiling) to
+  the board's EEPROM with `M500`, in a session with the home offset put
+  back to 0 first, since `M500` saves every setting as it stands.
+- Homing took 40.6 s once and about 20 s the other three times.
+
 ## First maps, 2026-10-21 to 2026-10-23
 
 Phase 4's bench session ([bench](bench.md#phase-4-first-maps)), on the

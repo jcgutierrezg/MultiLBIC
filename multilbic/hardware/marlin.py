@@ -213,8 +213,15 @@ class Marlin:
         # Every move is checked against machine.toml before it is sent
         # (`_check_bounds`). Marlin turns them on again at power-up.
         self.send("M211 S0")
-        offset = self._machine.ab.home_offset_mm
-        self.send(f"M206 A{offset:g} B{offset:g}")
+        ab = self._machine.ab
+        self.send(f"M206 A{ab.home_offset_mm:g} B{ab.home_offset_mm:g}")
+        # Marlin's own A/B ceiling is machine.toml's too (its EEPROM has
+        # 6 mm/s; 6 vibrates, bench 2026-11-04), and the homing
+        # threshold, if machine.toml sets one. Neither is saved: the
+        # board keeps its EEPROM values for the touchscreen.
+        self.send(f"M203 A{ab.max_feed_mm_s:g} B{ab.max_feed_mm_s:g}")
+        if ab.stall_threshold is not None:
+            self.send(f"M914 A{ab.stall_threshold} B{ab.stall_threshold}")
         self.position()
         return info
 

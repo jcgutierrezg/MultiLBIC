@@ -23,6 +23,12 @@ travel_mm = 40.0
 # A and B read 5, and 0 is the hard stop (checked after every home). All
 # A/B coordinates moved by +5 mm with it (2026-10-29, 0.6.17).
 home_offset_mm = 5.0
+# Sensorless homing's StallGuard threshold on the TMC2209s, sent as M914
+# at every connect (the EEPROM still has 130): 0-255, higher notices the
+# stop sooner. A ground against the stop before giving up (2026-11-04),
+# so up from 130; to be settled over a few homings, then saved to the
+# board's EEPROM.
+stall_threshold = 150
 centre_mm = [20.0, 20.0]
 # 40 mm between the hard stops (the builder, 2026-10-29); 0.5 mm kept
 # clear of each. Marlin's software endstops are off (M211 S0 at every
@@ -30,10 +36,12 @@ centre_mm = [20.0, 20.0]
 safe_min_mm = 0.5
 safe_max_mm = 39.5
 # The ceiling the software will ever command; the scan speed itself is
-# chosen per run. 6 mm/s matches the board's EEPROM, and A ran smoothly
-# at 3-6 mm/s on the bench (2026-10-20). A and B are mechanically
-# identical and share these limits. Compiled-in default: 2 mm/s.
-max_feed_mm_s = 6.0
+# chosen per run. 5 mm/s since 2026-11-04: across the whole travel, with
+# the rods greased and the coupling's flat done, A vibrated at 6 mm/s
+# moving back and B struggled both ways; 5 was fine on both. Sent to
+# Marlin as M203 at every connect (its EEPROM still has 6). A and B are
+# mechanically identical and share these limits.
+max_feed_mm_s = 5.0
 max_accel_mm_s2 = 50.0
 
 [xy]
