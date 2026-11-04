@@ -81,9 +81,8 @@ def test_the_file_keeps_the_stream_between_rows(tmp_path):
     assert run.continuous
     rows = run.columns["row"].astype(int)
     assert (rows == GAP_ROW).sum() > 0
-    # Every sample the stream gave is in the file but the last few still
-    # waiting when the run ended.
-    assert rows.size >= int(run.header["samples_received"]) - 50
+    # Every sample the stream gave is in the file, the last ones too.
+    assert rows.size == int(run.header["samples_received"])
     # The gaps' samples are in time order with the rest, and never mapped.
     stamps = run.columns["device_ms"]
     assert np.all(np.diff(stamps[run.columns["channel"] == 1]) > -10)

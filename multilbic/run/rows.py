@@ -193,6 +193,12 @@ class _Collector:
         self._pending = later
         return taken
 
+    def write_rest(self, writer: RunWriter) -> None:
+        """Everything still held, at the end: after the last block."""
+        self.between.extend(self._pending)
+        self._pending = []
+        self.write_between(writer)
+
     def write_between(self, writer: RunWriter) -> None:
         """The samples older than the last block taken, before it in
         the file: every sample stays in the stream's order (`GAP_ROW`,
@@ -360,6 +366,12 @@ def scan_laser(
         raise
     finally:
         _shut_down(devices, moving=status != "complete", say=say)
+        try:
+            # What came after the last block too, so the file holds
+            # every sample received.
+            collector.write_rest(writer)
+        except Exception as exc:
+            say(f"the stream's last samples weren't written: {exc}")
         if collector.received:
             trailer["clock_map"] = collector.tracker.fit().as_dict()
         trailer["samples_received"] = collector.received

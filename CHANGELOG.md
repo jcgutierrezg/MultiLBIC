@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.40 - The stream's last samples kept too
+
+- A run file now also keeps the samples that arrive after the last row
+  (as row -3), so it holds every sample the stream gave. On a busy Pi
+  more than 50 could be left out before.
+
 ## 0.6.39 - A 5 mm/s ceiling, a homing threshold
 
 - `[ab] max_feed_mm_s` is 5 mm/s (was 6): across the whole travel A
