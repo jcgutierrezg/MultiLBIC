@@ -55,6 +55,10 @@ class Faults:
     noise_a: float = 20e-9
     mains_a: float = 20e-9
     drift_a: float = 40e-9
+    #: The real miniSMU's stamps saw-tooth by about 6 ms every ~100 ms
+    #: while it measures evenly (bench, 2026-11-03). 0: steady stamps.
+    smu_stamp_saw_ms: float = 0.0
+    smu_stamp_saw_period_s: float = 0.1
 
     @classmethod
     def none(cls) -> Faults:
@@ -114,6 +118,8 @@ class SimRig:
             drift_a=f.drift_a,
             burst_s=f.smu_burst_s,
             stamp_lag_s=f.smu_stamp_lag_s,
+            stamp_saw_ms=f.smu_stamp_saw_ms,
+            stamp_saw_period_s=f.smu_stamp_saw_period_s,
         )
         self.marlin = Marlin(
             connect(

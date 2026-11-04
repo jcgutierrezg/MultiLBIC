@@ -62,6 +62,19 @@ convex hull that lies closest to them. A window where the host read
 late sits above the line and does not tilt it, as it would a
 least-squares fit. It is updated as samples arrive (`ClockTracker`).
 
+**Dating samples by count** (since 0.6.35, `scan.stamps`). The
+miniSMU measures at a steady rate, but its stamps saw-tooth: they fall
+about 6 % behind for ~100 ms, then jump 5-8 ms to catch up (bench,
+2026-11-03). A run file now keeps every sample the stream gave, those
+between rows too, so each channel's samples are dated by a straight
+line of stamp against sample number over the whole file, where the
+saw-tooth averages out. The line is split where the stamps step more
+than 12 ms off its pace (a lost stretch or a restart). In the simulator
+with the bench's saw-tooth, the edge's row-to-row spread at 4 mm/s
+falls from 7.2 to 1.7 um and the empty pixels from 5.9 % to none.
+Files from before keep their stamps; `RunFile.scan_data(stamps=True)`
+gives the stamps for comparison.
+
 **The serpentine shift.** Everything left is constant: the `ok`'s
 latency, the stream's smallest delay, backlash on A. Each puts forward
 rows one way and reverse rows the other. The shift is measured by
@@ -101,7 +114,10 @@ One CSV per laser map, in SMUniversal's `#`-header style, so that
 # sample: ...            one `# key: value` per line; values are JSON
 # status: incomplete
 row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
+-3,0,1,...                the stream before the baseline (no position)
 -1,0,1,...                the dark baseline
+-2,0,1,...                the warm-up, laser on, stage still
+-3,0,1,...                the stream through the turnaround
 #row: {"index": 0, "b_mm": ..., "end_s": ...}
 0,1,1,...                 that row's samples
 ...
@@ -119,6 +135,9 @@ row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
   before alignment, for a quick look.
 - **One line per packet**, with a channel column: the two channels
   stream separate packets, so they are not paired up.
+- **Every packet**, in the stream's order (since 0.6.35, header
+  `stream: continuous`): the ones between the blocks are row `-3`, with
+  no position, never mapped. They are what dating by count needs.
 - The header names the sample, laser and wavelength, frame, pixel,
   pitch, speed, stream rate, mains frequency, app version, commit and
   dirty state, and every device's firmware.

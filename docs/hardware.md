@@ -1028,6 +1028,38 @@ Report `bench-results/20261019T180307Z_smu_real.json` (commit
 
 - **Two channels** at 500 Hz each: 563 and 500 Hz, no parse errors, and
   both stopped cleanly.
+- **Confirmed 2026-11-03: the stamps saw-tooth, the samples are all
+  there.** Every row of a map at 800 Hz had 480 samples in 599 ms (the
+  rate kept exactly); between jumps the stamps advanced 1.177 ms a
+  sample instead of 1.25, then jumped about 6 ms, six times a row. Away
+  from a straight line through them, the stamps sit -1.7 to +4.7 ms off.
+  So the instrument measures evenly and its stamps lag and catch up:
+  dated by stamps, samples sit up to ~12 um off along a row at 4 mm/s
+  and leave 2-3 empty 10 um pixels at each jump. Since 0.6.35 samples
+  are dated by count ([scan](scan.md#position)).
+- **The sync check on the new cell (2026-11-04,
+  `20261104T115342Z_sync_std_test_v2-corner`, 0.6.32)**, laser 3, the
+  cell's edge along B, window 0.6 x 1.0 mm, dated by stamps (files from
+  before 0.6.35 can't be dated by count across rows: the stream between
+  rows wasn't kept):
+
+  | Pass | Forward (spread) | Reverse (spread) | Shift from edges / alignment |
+  |---|---|---|---|
+  | 1 mm/s | +17.4 um (0.8) | -18.3 um (3.1) | 32.1 / 36.1 um |
+  | 4 mm/s | +80.2 um (18.7) | -72.5 um (2.6) | 151.5 / 142.6 um |
+  | 5 mm/s | +112.2 um (10.0) | -111.4 um (6.0) | 215.5 / 223.2 um |
+
+  - L = 22.6 ms with an A backlash of -13 um, which can't be: one lag
+    doesn't fit all speeds (17, 20, 22 ms at 1, 4, 5 mm/s), as a
+    saw-tooth in the stamps would make it. 5.7 um RMS left.
+  - The maps' alignment agrees with the edges to about 9 um at 4 and
+    5 mm/s; 5 mm/s scatters no more than 4 mm/s.
+  - Step-and-measure: spot 21 um (10-90 %); drift over the 16 min
+    -8.7 um.
+  - Dated by count within each row only (one line per 0.3-0.6 s row,
+    which catches the saw-tooth's phase): L 15.9 ms, backlash +4 um,
+    8.0 um RMS, the spreads mixed. Not conclusive; the next check, with
+    the stream kept between rows, dates by count over whole passes.
 - **Bunching, not loss.** At 500 Hz and above, about every 100 ms the
   stamps skip 5–8 ms, then catch up with a burst of repeated stamps. The
   average rate is kept, so samples are not lost. That suggests the

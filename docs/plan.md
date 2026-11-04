@@ -378,6 +378,12 @@ checks the voltage the channel holds. The window shows both channels
 live. Step 3 needs
 a new window on the new cell, or the blade over the photodiode.
 
+**State (0.6.35): samples dated by count.** The sync check on the
+new cell (2026-11-04) showed the stamps' saw-tooth in the timing (one
+lag doesn't fit all speeds, a negative backlash). Run files now keep
+the whole stream and maps date samples by count; the sync check runs
+again to measure L and the backlash with it ([hardware](hardware.md)).
+
 **State (0.6.30): the six-laser map** found lasers 1-3 moved by up
 to 1 mm since 2026-10-30 and 4-6 lined up; commissioning again agreed,
 and is written. Next: the same patch again, to see all six line up

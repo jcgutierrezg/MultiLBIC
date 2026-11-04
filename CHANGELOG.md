@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.35 - Samples dated by count, not by the SMU's stamps
+
+- The miniSMU measures evenly but its stamps saw-tooth (6 ms every
+  ~100 ms, bench 2026-11-03): samples sat up to ~12 um off along a row
+  at 4 mm/s and left empty pixels. Run files now keep every sample the
+  stream gives, those between rows too (row -3, `stream: continuous`),
+  and maps, the sync check and `edges` date each channel's samples by a
+  straight line of stamp against count (`scan.stamps`), split where the
+  stream breaks. Older files keep their stamps.
+- The simulated SMU can saw-tooth its stamps (`smu_stamp_saw_ms`); with
+  the bench's, the edge spread at 4 mm/s falls from 7.2 to 1.7 um and
+  the empty pixels from 5.9 % to none.
+- Hardware notes: the sync check on the new cell (2026-11-04).
+
 ## 0.6.34 - Laser 2 warms up, recorded
 
 - Hardware notes: laser 2 read for 3 minutes on the photodiode rises

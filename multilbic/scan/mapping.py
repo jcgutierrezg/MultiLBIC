@@ -41,6 +41,11 @@ BASELINE_ROW = -1
 #: row: how the laser's output settles after switching on. Kept in the
 #: file, never mapped.
 WARMUP_ROW = -2
+#: The stream between the blocks above: before the baseline, while the
+#: laser switches on, and through each turnaround between rows. Kept so
+#: every sample the stream gave is in the file in order, which lets them
+#: be dated by their count (`scan.stamps`); never mapped. No position.
+GAP_ROW = -3
 
 
 @dataclass(frozen=True)

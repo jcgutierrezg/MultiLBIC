@@ -131,11 +131,25 @@ class RunFile:
     def complete(self) -> bool:
         return self.header.get("status") == "complete"
 
-    def scan_data(self) -> ScanData:
+    @property
+    def continuous(self) -> bool:
+        """Every sample the stream gave is in the file, in order (since
+        0.6.35): they can be dated by count (`scan.stamps`)."""
+        return self.header.get("stream") == "continuous"
+
+    def scan_data(self, *, stamps: bool = False) -> ScanData:
+        """The map's data. A continuous stream's samples are dated by
+        their count, not by the instrument's saw-toothing stamps
+        (`scan.stamps`); `stamps` keeps the stamps, to compare."""
         h = self.header
         origin = tuple(h["frame_origin_ab_mm"])
         width, height = h["frame_size_mm"]
         c = self.columns
+        device_ms = c["device_ms"]
+        if self.continuous and not stamps:
+            from multilbic.scan.stamps import date_by_count
+
+            device_ms = date_by_count(device_ms, c["channel"].astype(int))
         return ScanData(
             frame=SampleFrame((origin[0], origin[1]), width, height),
             pixel_mm=h["pixel_mm"],
@@ -145,7 +159,7 @@ class RunFile:
             anchors=tuple(self.anchors),
             row=c["row"].astype(int),
             channel=c["channel"].astype(int),
-            device_ms=c["device_ms"],
+            device_ms=device_ms,
             host_s=c["host_s"],
             current_a=c["current_a"],
             laser=h.get("laser", 0),
