@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.38 - Speed trials over the whole travel
+
+- `python -m multilbic.bench.marlin ... --speeds 3,4,5,6 --speed-span
+  1,39` runs the A/B speed trials across the whole travel instead of
+  10-30 mm, for the repeat after the coupling's flat and the grease.
+- Hardware notes: the flat is done, the rods are greased.
+
 ## 0.6.37 - The sync check, dated by count
 
 - Hardware notes: the sync check with the stream kept whole

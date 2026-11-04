@@ -58,7 +58,10 @@ replaced it, and nothing should still refer to it.
 - **The AB back edge is not usable.** Close to it the motor struggles or
   the grub screw slips. The safe range is about 0–35 mm. The grub screw
   sits on the shaft's thread. A flat ground into the shaft is the
-  planned fix (small hardware change, owed).
+  planned fix (small hardware change, owed). **Done** (the builder,
+  2026-11-04): the thread where the motor coupling sits is flat and
+  tight, and the A/B rods have lithium grease since the speed trials of
+  2026-10-20. The "back edge" itself was the far stop (below).
 - **XY and AB move the sample the same ways** (bench, 2026-10-21,
   laser 2 on a mark): +X moves it the same way as +A, +Y the same way as
   +B, and both stages home to the same corner. So `x_along = "+A"`,
