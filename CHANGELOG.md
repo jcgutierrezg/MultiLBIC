@@ -3,6 +3,23 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.47 - Late replies placed from the send
+
+- The serpentine shift's sign flips (3 of 12 maps on 2026-11-05, 4 of
+  24 in the day's four six-laser runs) were Marlin's `ok` to a row's
+  `M400` coming 20-40 ms late, for a stretch of rows or a whole map.
+  The rows were placed that much late: at 4 mm/s, a shift of +130 um
+  became -68 to -196 um. The samples' timing was clean.
+- Maps now place a row whose reply is late from when its `G1` was sent
+  instead (`scan.timing.settle_late_replies`): the send plus the usual
+  delay plus the move. The usual delay is the file's own, from its
+  quickest replies, or `[ab] row_reply_ms` (93.5 ms, new, optional)
+  if even those are late. All 24 maps of the day then give +110 to
+  +157 um, and their two directions meet on the cell's edge. Run files
+  record `row_reply_ms`; older ones are read with the bench's.
+- The simulator can answer `M400` late (`Faults.m400_late_s`); a test
+  shows the map unchanged by it.
+
 ## 0.6.46 - Six lasers within 60 um
 
 - Hardware notes: two six-laser maps located on the photodiode with the

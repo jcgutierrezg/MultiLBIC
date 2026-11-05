@@ -45,6 +45,12 @@ safe_max_mm = 39.5
 # mechanically identical and share these limits.
 max_feed_mm_s = 5.0
 max_accel_mm_s2 = 50.0
+# From a row's G1 being sent to the ok of the M400 after it, beyond the
+# modelled move, when that ok is on time: 93-94 ms at 4-5 mm/s, 95.5 at
+# 1 mm/s, steady to half a millisecond (72 run files, 2026-10-23 to
+# 11-05). For a stretch of rows, in about one map in six, the ok comes
+# 20-40 ms late; those rows are placed from the send instead.
+row_reply_ms = 93.5
 
 [xy]
 # Carries the whole AB gantry: 2 mm lead screws, 16 microsteps.

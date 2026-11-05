@@ -41,10 +41,21 @@ are in [plan](plan.md#decisions).
 ## Position
 
 **Row anchors.** A row ends when Marlin's `ok` to the `M400` after it
-arrives; the start is that time minus the modelled duration. The start
-of the move is not used: the first-move delay was 113–135 ms on the
-bench, a 40 µm spread at 2 mm/s. Marlin's `Reply` now carries `sent_s`
-and `received_s`, stamped on the reader thread.
+arrives; the start is that time minus the modelled duration. Marlin's
+`Reply` carries `sent_s` and `received_s`, stamped on the reader
+thread.
+
+**Late replies.** On time, the `ok` comes a steady time after the row's
+`G1` was sent, beyond the move: 93–96 ms, steady to half a millisecond
+in each file (`[ab] row_reply_ms`, 93.5). For a stretch of rows, in
+about one map in six, it comes 20–40 ms late, and the move does not:
+placed from the reply, those rows sat 20–40 ms late and the serpentine
+shift flipped sign (bench, 2026-11-05). So a row whose reply is more
+than 4 ms later than its file's usual delay is placed from its send
+plus that delay (`scan.timing.settle_late_replies`). The usual delay
+is the file's quickest replies', or `row_reply_ms` when even those are
+late. (The 113–135 ms "first-move delay" spread once given as the
+reason to anchor on the end was most likely these late replies.)
 
 Between rows, the B step gets its own `M400`, so each row starts from
 rest. Queued back to back, Marlin would carry speed through the corner

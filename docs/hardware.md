@@ -915,6 +915,33 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
       +117 to +156 um for the rest). Those maps' two directions still
       agree after it (their edges' spread is no wider), so the timing
       itself changed for those maps, by about 40 ms at 4 mm/s.
+- **Marlin's reply to a row's `M400` sometimes comes late
+  (2026-11-05).** The flipped maps above, fitted from the cell's edge
+  in each direction without the alignment, really had forward rows on
+  the far side of reverse ones. The samples' dating was clean (no lost
+  samples, no step in the stamps or the clock map). What changed was
+  the time from each row's `G1` being sent to the `ok` of its `M400`,
+  beyond the modelled move:
+
+  | Map | On time | Late rows | Late by | Flip that predicts | Flip from the edge |
+  |---|---|---|---|---|---|
+  | Laser 3, run 1 | rows 0-3 | 4-29 | 27 ms | 219 um | 211 um |
+  | Laser 1, run 2 | none | all (row 1 by 19 ms) | 39 ms | 315 um | 316 um |
+  | Laser 5, run 2 | rows 0-2 | 3-29 | 25 ms | 198 um | 203 um |
+
+  - On time it is 93-94 ms at 4-5 mm/s and 95.5 ms at 1 mm/s, steady to
+    half a millisecond in each file, in 72 run files since 2026-10-23.
+    About one map in six has a late stretch, back to 2026-10-28.
+  - The late replies all came about 90 ms after one of the miniSMU's
+    100 ms bursts of samples arrived, just before the next; on time
+    they came anywhere between. The rows are paced by those bursts
+    (each waits for its samples), so a map keeps the same phase and
+    stays late once it is. Whether Marlin or the Pi holds the reply
+    back is not known.
+  - **Decided: place late rows from the send** (0.6.47). The maps of all
+    four six-laser runs of the day then give shifts of +110 to +157 um,
+    none negative, and each map's two directions meet on the cell's
+    edge.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

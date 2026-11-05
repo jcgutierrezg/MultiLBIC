@@ -71,11 +71,19 @@ class FakeMarlin:
         home_duration_s: float = 2.0,
         reply_latency_s: float = 0.001,
         backlash_mm: dict[str, float] | None = None,
+        m400_late_s: float = 0.0,
+        m400_late_after: int = 0,
     ):
         self.machine = machine
         self.machine_type = machine_type or machine.name
         self.home_duration_s = home_duration_s
         self.reply_latency_s = reply_latency_s
+        #: The real board's `ok` to an `M400` sometimes comes 20-40 ms
+        #: late, for many rows in a row (bench, 2026-11-05): every M400
+        #: after the first `m400_late_after` is answered this late.
+        self.m400_late_s = m400_late_s
+        self.m400_late_after = m400_late_after
+        self.m400_count = 0
         #: Lost motion per axis on a reversal, in mm.
         self.backlash_mm = {axis: 0.0 for axis in AXES}
         self.backlash_mm.update(backlash_mm or {})
@@ -536,6 +544,10 @@ class FakeMarlin:
             lambda: self._busy_locked() or self._locked_out_locked(),
             until=self._queue_end_locked,
         )
+        self.m400_count += 1
+        if self.m400_late_s and self.m400_count > self.m400_late_after:
+            assert self._clock is not None
+            self._clock.sleep(self.m400_late_s)
 
     def _cmd_M410(self, command: str) -> None:
         self._quickstop()

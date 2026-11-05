@@ -34,7 +34,13 @@ from multilbic.scan.binning import (
     remove_mains,
 )
 from multilbic.scan.geometry import SampleFrame
-from multilbic.scan.timing import ClockMap, RowAnchor, fit_clock
+from multilbic.scan.timing import (
+    BENCH_ROW_REPLY_S,
+    ClockMap,
+    RowAnchor,
+    fit_clock,
+    settle_late_replies,
+)
 
 BASELINE_ROW = -1
 #: Samples taken with the laser on and the stage still, before the first
@@ -68,6 +74,9 @@ class ScanData:
     laser: int = 0
     #: From machine.toml when the run was made.
     ab_backlash_mm: float = 0.0
+    #: Marlin's on-time delay from a row's `G1` to its `M400`'s ok,
+    #: beyond the move (`[ab] row_reply_ms`; `settle_late_replies`).
+    row_reply_s: float = BENCH_ROW_REPLY_S
 
 
 @dataclass(frozen=True)
@@ -111,7 +120,7 @@ def build_map(
         base = NO_BASELINE
 
     positioned: list[tuple[RowAnchor, np.ndarray, np.ndarray, np.ndarray]] = []
-    for anchor in data.anchors:
+    for anchor in settle_late_replies(data.anchors, data.row_reply_s):
         mine = on_channel & (data.row == anchor.index)
         device_ms = data.device_ms[mine]
         values = data.current_a[mine]

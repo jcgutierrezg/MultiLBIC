@@ -132,9 +132,10 @@ from the host only once, and lead-screw backlash on reversal.
 3. **Row anchors.** Each row's end comes from the host timestamp of the
    `ok` to the `M400` after it; the start is the end minus the modelled
    duration. Samples are put in host time through the clock mapping.
-   *As built:* the start of the move is not used, because the first-move
-   delay varies by about 20 ms on the bench, while the end is known to
-   about a millisecond ([scan](scan.md#position)).
+   *As built:* the reply is the anchor, except where it comes late:
+   for a stretch of rows it sometimes arrives 20–40 ms after the move
+   has ended, and those rows are placed from the send instead
+   ([scan](scan.md#position)).
 4. **Serpentine self-calibration** (serpentine is the default; scanning
    in one direction only is an option, D3). Any leftover constant delay, and
    backlash, shows up as a shift between forward and reverse rows.

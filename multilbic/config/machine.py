@@ -64,6 +64,10 @@ class AbStage:
     #: board's own for that axis.
     stall_threshold_a: int | None = None
     stall_threshold_b: int | None = None
+    #: Marlin's `ok` to the `M400` after a row comes this long after the
+    #: row's `G1` was sent, beyond the move, when it is on time; late
+    #: ones are placed from the send (`scan.timing.settle_late_replies`).
+    row_reply_ms: float = 93.5
 
     @property
     def microstep_mm(self) -> float:
@@ -305,6 +309,8 @@ def _parse_ab(t: _Table) -> AbStage:
                            if t.has("stall_threshold_a") else None),
         stall_threshold_b=(int(t.read_float("stall_threshold_b"))
                            if t.has("stall_threshold_b") else None),
+        row_reply_ms=(t.read_positive_float("row_reply_ms")
+                      if t.has("row_reply_ms") else 93.5),
     )
     t.done()
     for key in ("stall_threshold_a", "stall_threshold_b"):

@@ -64,6 +64,11 @@ class Faults:
     #: random (standard deviation, each axis): the real revolver's
     #: 44 and 20 um (bench, 2026-11-04). 0: exactly back every time.
     servo_scatter_mm: float = 0.0
+    #: Every `M400` after the first `m400_late_after` is answered this
+    #: late: the real board's late streaks of 20-40 ms (bench,
+    #: 2026-11-05). 0: on time.
+    m400_late_s: float = 0.0
+    m400_late_after: int = 0
 
     @classmethod
     def none(cls) -> Faults:
@@ -107,6 +112,8 @@ class SimRig:
                 "A": f.backlash_mm, "B": f.backlash_mm,
                 "X": f.xy_backlash_mm, "Y": f.xy_backlash_mm,
             },
+            m400_late_s=f.m400_late_s,
+            m400_late_after=int(f.m400_late_after),
         )
         self.fake_laser = FakeLaserBoard(
             settle_ms=self.machine.laser_board.settle_ms

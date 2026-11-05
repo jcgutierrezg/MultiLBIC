@@ -88,6 +88,36 @@ def test_shift_is_measured_within_2_um(scan):
     assert errors.true_shift_mm == pytest.approx(nominal, abs=0.004)
 
 
+def test_late_replies_dont_move_the_rows(scan, tmp_path):
+    """Marlin's `ok` to the M400s coming 30 ms late from mid-map on
+    (the bench's late streaks, 2026-11-05): the rows are placed from
+    their sends, and the shift and the edges are as without it."""
+    executed = scan.rig.fake_marlin.executed
+    rows_g1 = [i for i, c in enumerate(executed)
+               if c.startswith("G1") and " A" in c
+               and c.endswith(f"F{SPEED_MM_S * 60:.3f}")]
+    middle = rows_g1[len(rows_g1) // 2]
+    after = sum(1 for c in executed[:middle] if c.startswith("M400"))
+    late = simulate_scan(
+        tmp_path,
+        width_mm=1.0,
+        height_mm=0.4,
+        pixel_mm=PIXEL_MM,
+        pitch_mm=PITCH_MM,
+        speed_mm_s=SPEED_MM_S,
+        faults=Faults(m400_late_s=0.03, m400_late_after=after),
+        clock=ScaledClock(2.0, precise=True),
+    )
+    assert late.rig.fake_marlin.m400_count > after + 2
+    found = late.result.alignment
+    assert found.found
+    assert found.shift_mm == pytest.approx(
+        scan.result.alignment.shift_mm, abs=0.004)
+    errors = edge_errors(late)
+    worst = max(np.abs(e).max() for e in errors.values())
+    assert worst <= max(0.005, PIXEL_MM)
+
+
 def test_a_edges_within_tolerance(scan):
     tolerance = max(0.005, PIXEL_MM)
     errors = edge_errors(scan)

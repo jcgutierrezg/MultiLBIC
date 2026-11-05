@@ -463,6 +463,7 @@ def run_header(
         "current_range_a": current_range_a,
         "current_limit_a": current_limit_for(current_range_a),
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
+        "row_reply_ms": machine.ab.row_reply_ms,
         "estimate_s": round(plan.estimate_s, 1),
         # Every sample the stream gave is kept, in order, those between
         # rows too (`GAP_ROW`): they are dated by count (`scan.stamps`).

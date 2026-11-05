@@ -46,7 +46,7 @@ import numpy as np
 
 from multilbic.scan.geometry import SampleFrame
 from multilbic.scan.mapping import ScanData
-from multilbic.scan.timing import RowAnchor
+from multilbic.scan.timing import BENCH_ROW_REPLY_S, RowAnchor
 
 SCHEMA = "multilbic-run/1"
 TITLE = "# MultiLBIC run"
@@ -164,6 +164,7 @@ class RunFile:
             current_a=c["current_a"],
             laser=h.get("laser", 0),
             ab_backlash_mm=h.get("ab_backlash_mm", 0.0),
+            row_reply_s=h.get("row_reply_ms", BENCH_ROW_REPLY_S * 1000) / 1000,
         )
 
 

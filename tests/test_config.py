@@ -139,6 +139,13 @@ def test_home_offset_inside_the_travel(raw):
             "home_offset_mm")
 
 
+def test_row_reply(raw):
+    assert parse(raw).ab.row_reply_ms == 93.5
+    _breaks(raw, lambda d: d["ab"].update(row_reply_ms=0), "row_reply_ms")
+    raw["ab"].pop("row_reply_ms")
+    assert parse(raw).ab.row_reply_ms == 93.5
+
+
 def test_home_offset_is_optional(raw):
     raw["ab"].pop("home_offset_mm")
     assert parse(raw).ab.home_offset_mm == 0.0
