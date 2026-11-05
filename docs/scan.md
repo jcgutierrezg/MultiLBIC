@@ -108,8 +108,14 @@ has to approach the corner the same way, and then the offset cancels.
   spread after mains removal is the noise floor. Both go in the trailer.
 - **Mains.** Pixels last a few ms, too short to average whole 20 ms
   cycles, so each row has the best-fitting sines at `mains_hz`
-  (`machine.toml`, 50 Hz) and two harmonics subtracted. A large step in
-  the map leaks about 1 % into those sines over a 30-cycle row.
+  (`machine.toml`, 50 Hz) and two harmonics subtracted. Fitted over
+  the whole row, a large step leaks about 1 % into those sines over a
+  30-cycle row: on a cell's 1 mA edge, 10 uA of 50 Hz put into the
+  row, which the serpentine alignment locked onto (laser 6, bench,
+  2026-11-05). So the sines are fitted where the row is flat, against a
+  moving average over one mains cycle (which holds no mains), and that
+  fit is used unless it is more than twice the whole row's, which only
+  happens where features shorter than a cycle leak into it.
 - **Slow drift** is left in. How to separate it is decision D8, set
   aside while there is no enclosure. On the simulated map it shows as
   the gaps between cells sitting tens of nA off zero.

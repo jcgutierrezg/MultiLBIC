@@ -247,7 +247,9 @@ timestamps, so the map can be cleaned afterwards with a notch at 50 Hz
 and its harmonics along each row, or by averaging each pixel over whole
 20 ms cycles. *As built:* a pixel lasts a few milliseconds, too short to
 average whole cycles, so each row has the best-fitting mains sines
-subtracted; `mains_hz` is in `machine.toml`.
+subtracted, fitted where the row is flat so that a cell's edge doesn't
+leak into them ([scan](scan.md#cleaning)); `mains_hz` is in
+`machine.toml`.
 
 **Drift is the harder problem** (measured with a contacted cell in the
 dark: most of the noise is 0.2–0.7 Hz drift, where map features sit at

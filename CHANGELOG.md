@@ -3,6 +3,24 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.49 - No mains put into the rows
+
+- Laser 6's alignment chose about 80 um where its edge says 120-137.
+  The mains removal did it: fitted over the whole row, the cell's 1 mA
+  edge leaked about 1 % into the 50 Hz sines, about 10 uA of ripple
+  subtracted *into* a row whose own mains was too small to show. The
+  ripple repeated row to row, and the fine-scale alignment locked onto
+  it one mains cycle (80 um at 4 mm/s) off.
+- The sines are now also fitted where the row is flat only, against a
+  one-cycle moving average that holds no mains; that fit is used unless
+  it is more than twice the whole row's (features shorter than a cycle,
+  which only the whole row's fit averages out). Beside a 1 mA edge the
+  mains now comes out to a tenth or better, where it was put in at 300
+  times its size.
+- All 30 maps of the day's five six-laser runs align at +110 to
+  +157 um; laser 6's at +115 to +132. In the last run, its edge spread
+  over rows halved (36 to 19 um).
+
 ## 0.6.48 - Six lasers repeat within 20 um
 
 - Hardware notes: a third six-laser map (0.6.47). Every laser put the

@@ -14,10 +14,35 @@ def test_mains_comes_out_and_a_step_stays():
     mains = 5e-8 * np.sin(2 * math.pi * 50 * t + 0.4)
     mains += 1e-8 * np.sin(2 * math.pi * 150 * t + 1.1)
     clean = remove_mains(t, step + mains, 50.0)
-    # A big feature projects a little onto the sines: about 1 % of a
-    # step over 30 cycles. That is the price; the mains is 4x worse.
-    assert np.std(clean - step) < 0.3 * np.std(mains)
-    assert np.abs(clean - step).max() < 0.03e-6
+    # The sines are fitted off the step, so none of it leaks into them.
+    assert np.std(clean - step) < 0.01 * np.std(mains)
+    assert np.abs(clean - step).max() < 1e-9
+
+
+def test_a_cells_edge_puts_no_mains_into_the_row():
+    # A 1 mA edge 50 um wide at 4 mm/s, beside 50 nA of mains and 20 nA
+    # of noise. Fitted over the whole row, the edge put about 10 uA of
+    # 50 Hz into it (bench, 2026-11-05).
+    rng = np.random.default_rng(2)
+    t = np.arange(0, 0.6, 1 / 800)
+    edge = 1e-3 * 0.5 * (1 + np.array(
+        [math.erf((x - 0.3) / (0.012 * math.sqrt(2))) for x in t]))
+    mains = 5e-8 * np.sin(2 * math.pi * 50 * t + 0.4)
+    noise = rng.normal(0, 2e-8, t.size)
+    left = remove_mains(t, edge + mains + noise, 50.0) - edge - noise
+    assert np.std(left) < 0.15 * np.std(mains)
+    assert np.abs(left).max() < 1e-8
+
+
+def test_features_shorter_than_a_cycle_dont_leak_either():
+    # Features every 15 or 25 ms, far above the mains: the flat-only fit
+    # can't see past them, the whole row's fit averages them out.
+    t = np.arange(0, 0.6, 1 / 800)
+    mains = 5e-8 * np.sin(2 * math.pi * 50 * t)
+    for period in (0.015, 0.025):
+        features = 1e-4 * np.sign(np.sin(2 * math.pi * t / period + 0.3))
+        clean = remove_mains(t, features + mains, 50.0)
+        assert np.std(clean - features) < 0.01 * np.std(mains)
 
 
 def test_mains_on_uneven_timestamps():

@@ -965,6 +965,12 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     send, their shifts were +120 and +133 um, as the cell's edge says.
     Laser 6's alignment chose +82 um where its edge says +137 um, as in
     run 1 (its row pairs split between about 80 and 155 um).
+  - **That was the mains removal** (0.6.49). Laser 6's rows had no 50 Hz
+    to speak of; the fit over each whole row put it there, the cell's
+    1 mA edge leaking about 1 % into the sines. Fitted where the row is
+    flat instead, every map of the day aligns at +110 to +157 um and
+    laser 6's at +115 to +132; its edge spread over rows halved, 36 to
+    19 um.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up
