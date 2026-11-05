@@ -119,6 +119,22 @@ class SyntheticSample:
         return cls(w, h, tuple(patches), spot_sigma_mm)
 
     @classmethod
+    def corner(
+        cls,
+        corner_uv_mm: tuple[float, float] = (0.5, 0.5),
+        cell_a: float = 1e-6,
+        spot_sigma_mm: float = 0.02,
+    ) -> SyntheticSample:
+        """A cell's corner at `corner_uv_mm`, the cell beyond it towards
+        +u and +v, the same at every wavelength: what the line-up maps
+        (`run.lineup`). The spot defaults to about 47 um 10-90 %."""
+        far = 50.0
+        u, v = corner_uv_mm
+        return cls(far, far, (
+            Patch(u, far, v, far, cell_a, peak_nm=650.0, width_nm=1e6),
+        ), spot_sigma_mm)
+
+    @classmethod
     def straight_edge(
         cls,
         width_mm: float = 2.0,

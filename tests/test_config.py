@@ -139,6 +139,14 @@ def test_home_offset_inside_the_travel(raw):
             "home_offset_mm")
 
 
+def test_cell_offset(raw):
+    assert parse(raw).laser(1).cell_offset_xy_mm == (0.0, 0.0)
+    raw["lasers"][0]["cell_offset_xy_mm"] = [0.02, -0.01]
+    assert parse(raw).laser(raw["lasers"][0]["number"]).cell_offset_xy_mm         == (0.02, -0.01)
+    _breaks(raw, lambda d: d["lasers"][0].update(cell_offset_xy_mm=[0.8, 0]),
+            "cell_offset_xy_mm")
+
+
 def test_row_reply(raw):
     assert parse(raw).ab.row_reply_ms == 93.5
     _breaks(raw, lambda d: d["ab"].update(row_reply_ms=0), "row_reply_ms")
@@ -238,7 +246,7 @@ def test_laser_board_release(raw):
 
 def test_geometry_defaults(machine):
     g = machine.geometry
-    assert g.reference_laser == 2
+    assert g.reference_laser == 3
     assert (g.x_along, g.y_along) == ("+A", "+B")
     # Checked on the bench 2026-10-21 (docs/hardware.md, Mechanics).
     assert g.directions_measured

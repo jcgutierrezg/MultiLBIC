@@ -77,6 +77,10 @@ max_accel_mm_s2 = 100.0
 # on the upper blade, 0.4 mm higher (48, 22, 20 um): the waist is above
 # the sample's plane, or the spot is astigmatic. Left out where unknown.
 # The window compares it with the row pitch; nothing else uses it yet.
+# cell_offset_xy_mm (optional, 0 if missing): where the laser lands on a
+# cell against where the photodiode puts it, in XY, against the
+# reference laser; added wherever a run places it. From a line-up (the
+# Maintenance window, or `multilbic lineup RUN --write`).
 
 [[lasers]]
 number = 1
@@ -133,8 +137,12 @@ spot_um = 72.9  # commission 2026-11-03
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's
-# position is taken relative to it (Phase 4).
-reference_laser = 2
+# position is taken relative to it (Phase 4), and so is each laser's
+# offset on the cell (cell_offset_xy_mm, 0 for this one). Laser 3 since
+# 2026-11-05: laser 2, the first reference, gives a twentieth of the
+# others' light (its supply). Calibrations made under laser 2 stay
+# right: each records its reference laser's position then.
+reference_laser = 3
 # XY carries the whole AB gantry, so moving XY moves the sample under the
 # beam like moving AB does. These say along which AB axis, and which way:
 # "+A" means X up moves the sample the same way as A up. Checked on the

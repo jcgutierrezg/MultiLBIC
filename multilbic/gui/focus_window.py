@@ -1,6 +1,6 @@
 """
-Focus assist in the window (Phase 6 step 6, D24): a small window of its
-own, opened from the Lasers panel's Focus button, beside the main one.
+Focus assist in the window (Phase 6 step 6, D24): the first tab of the
+Maintenance window (`gui.maintenance`), opened from the Lasers panel.
 
 Pick the laser and the edges, Start: the stage homes, brings the
 photodiode under the laser and passes back and forth across the edge
@@ -39,17 +39,12 @@ EDGES = (((0,), "A: the blade at the sample's height"),
          ((0, 1), "A and B: astigmatism too"))
 
 
-class FocusWindow:
-    def __init__(self, app: App):
+class FocusTab:
+    def __init__(self, app: App, parent: tk.Misc):
         self.app = app
-        top = tk.Toplevel(app.root)
-        self.top = top
-        top.title("Focus assist")
-        top.transient(app.root)
-        top.protocol("WM_DELETE_WINDOW", self.close)
-        top.bind("<Escape>", lambda e: app.stop())
-        body = ttk.Frame(top, padding=12)
-        body.pack(fill="both", expand=True)
+        body = ttk.Frame(parent, padding=12)
+        self.frame = body
+        top = body
 
         choose = ttk.Frame(body)
         choose.pack(fill="x")
@@ -130,12 +125,6 @@ class FocusWindow:
     def save(self) -> None:
         if not self.app.worker.save_focus():
             self.app.refused("save")
-
-    def close(self) -> None:
-        if self.app.state is State.FOCUSING:
-            self.app.stop()
-        self.app.focus_window = None
-        self.top.destroy()
 
     # ---- events ----
 

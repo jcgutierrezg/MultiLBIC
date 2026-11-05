@@ -250,8 +250,8 @@ class StagePanel:
     # ---- actions ----
 
     def jog(self, direction: str, quiet: bool = False) -> None:
-        if not self.app.homed or self.app.state in (State.RUNNING,
-                                                    State.FOCUSING):
+        if not self.app.homed or self.app.state in (
+                State.RUNNING, State.FOCUSING, State.COMMISSIONING):
             return
         axis, sign = jog_for(direction, self.pair.get(), self.app.machine)
         if not self.app.worker.jog(axis, sign * self.step.get()) \
@@ -361,12 +361,6 @@ class LaserPanel:
                                     style="Readout.TLabel",
                                     width=READOUT_CHARS, anchor="w")
         self.photodiode.grid(row=1, column=1, sticky="w", padx=(12, 0))
-        # Focus assist on the photodiode (Phase 6 step 6), in a window
-        # of its own.
-        self.focus_btn = ttk.Button(reading, text="Focus...", width=9,
-                                    command=app.open_focus)
-        if app.machine.photodiode is not None:
-            self.focus_btn.grid(row=0, column=2, rowspan=2, padx=(12, 0))
         self.lit = 0
 
     def select(self, number: int) -> None:
@@ -390,7 +384,8 @@ class LaserPanel:
             self.photodiode.configure(
                 text=reading_text(event.photodiode_a))
         elif isinstance(event, StateChanged) and event.state in (
-                State.RUNNING, State.FOCUSING, State.DISCONNECTED):
+                State.RUNNING, State.FOCUSING, State.COMMISSIONING,
+                State.DISCONNECTED):
             self.current.configure(text="-")
             self.photodiode.configure(text="-")
             if event.state is State.DISCONNECTED:
@@ -400,7 +395,6 @@ class LaserPanel:
         usable = self.app.state in (State.IDLE, State.MOVING)
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
-        _enable(self.focus_btn, self.app.connected)
 
 
 def device_text(key: str, ident: str) -> str:

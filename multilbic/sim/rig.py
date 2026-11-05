@@ -69,10 +69,15 @@ class Faults:
     #: 2026-11-05). 0: on time.
     m400_late_s: float = 0.0
     m400_late_after: int = 0
+    #: (laser, dx, dy): that laser lands this far off in XY on the
+    #: sample, but not on the photodiode, as a beam meeting the blades
+    #: higher than the cell at an angle. What `cell_offset_xy_mm`
+    #: corrects. Empty: every beam lands alike on both.
+    cell_offset_xy_mm: tuple[tuple[int, float, float], ...] = ()
 
     @classmethod
     def none(cls) -> Faults:
-        return cls(*(0.0 for _ in fields(cls)))
+        return cls(**{f.name: type(f.default)() for f in fields(cls)})
 
 
 @dataclass
@@ -155,11 +160,16 @@ class SimRig:
         )
 
     def spot_carriage(
-        self, position: dict[str, float], laser: int
+        self, position: dict[str, float], laser: int, on_cell: bool = False
     ) -> tuple[float, float]:
         """Which carriage point (calibration's frame) laser `laser`'s
-        spot is on, with the stage at `position`."""
+        spot is on, with the stage at `position`: on the photodiode's
+        blades, or `on_cell`, on the sample."""
         laser_x, laser_y = self.laser_xy_mm[laser]
+        if on_cell:
+            for n, dx, dy in self.faults.cell_offset_xy_mm:
+                if n == laser:
+                    laser_x, laser_y = laser_x + dx, laser_y + dy
         off = self.servo_offset_mm.get(
             self.machine.laser(laser).servo_angle_deg)
         if off is not None:
@@ -176,7 +186,7 @@ class SimRig:
     ) -> tuple[float, float]:
         """Where laser `laser`'s spot is on the sample, in its frame,
         with the stage at `position`."""
-        a, b = self.spot_carriage(position, laser)
+        a, b = self.spot_carriage(position, laser, on_cell=True)
         return (a - self.corner_carriage_mm[0],
                 b - self.corner_carriage_mm[1])
 

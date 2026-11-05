@@ -325,10 +325,10 @@ class OutlinePreview:
         machine = self.app.machine
         g = machine.geometry
         (xp, yp), _ = self.outline
-        ref = machine.laser(g.reference_laser).xy_centre_mm
+        ref = machine.laser(g.reference_laser).on_cell_xy_mm
         lit = self.laser or g.reference_laser
         try:
-            centre = machine.laser(lit).xy_centre_mm
+            centre = machine.laser(lit).on_cell_xy_mm
         except KeyError:
             centre = ref
         # Under laser `lit`, the sample point under the reference laser

@@ -468,7 +468,8 @@ Both are about 250 um on the photodiode after the stage was lowered
 moves while your hands are at the laser, though only about a
 millimetre round the edge once it is there.
 
-1. In the window: Home, then **Focus...**, laser 1, edge A, **Start**.
+1. In the window: Home, then **Maintenance...** (bottom left), the
+   **Focus** tab, laser 1, edge A, **Start**.
    Wait for the passes (the stage first goes to the photodiode).
 2. Turn the focus slowly and watch the width: it should drop towards
    tens of um. Stop turning once it rises again, and go back to the best.

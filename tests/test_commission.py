@@ -77,14 +77,15 @@ def commission(machine, lasers, *, new_corner=False, **rig_args):
 
 
 def test_it_recovers_wrong_laser_positions_the_corner_and_the_spots(machine):
-    offsets = {1: (0.1, -0.2), 3: (-0.25, 0.15)}
+    # Laser 3 is the reference: the corner is taken as it sees it.
+    offsets = {1: (0.1, -0.2), 2: (-0.25, 0.15)}
     faults = Faults(smu_stamp_lag_s=0.0186)
     # The photodiode moved since it was measured: a new corner.
-    rig, result = commission(machine, (2, 1, 3), offsets=offsets,
+    rig, result = commission(machine, (3, 1, 2), offsets=offsets,
                              corner_shift=(0.2, -0.3), faults=faults,
                              new_corner=True)
     p = result.proposal
-    assert p is not None and p.reference == 2
+    assert p is not None and p.reference == 3
     for n in (1, 2, 3):
         dx, dy = offsets.get(n, (0.0, 0.0))
         old = machine.laser(n).xy_centre_mm
@@ -109,7 +110,7 @@ def test_it_recovers_wrong_laser_positions_the_corner_and_the_spots(machine):
 
 
 def test_a_placeholder_laser_is_found_by_searching(machine):
-    rig, result = commission(machine, (2, 4), offsets={4: (2.5, -1.5)},
+    rig, result = commission(machine, (3, 4), offsets={4: (2.5, -1.5)},
                              new_corner=True)
     r = result.lasers[4]
     assert r.searched
@@ -168,7 +169,7 @@ def test_a_measured_corner_stays_and_the_reference_laser_moves(machine):
 
 
 def test_without_the_reference_laser_there_is_no_proposal(machine):
-    _, result = commission(estimated(machine), (3,))
+    _, result = commission(estimated(machine), (2,))
     assert result.proposal is None
     assert "reference" in result.error
 
@@ -199,13 +200,13 @@ def result_with(laser, corner, width=0.04):
 
 
 def test_each_laser_moves_by_its_view_of_the_corner(machine):
-    results = {2: result_with(2, (54.8, 18.5)),
+    results = {3: result_with(3, (54.8, 18.5)),
                1: result_with(1, (55.0, 18.4))}
     for p in (propose(estimated(machine), results),
               propose(machine, results, new_corner=True)):
-        assert p.reference == 2
+        assert p.reference == 3
     assert p.corner_ab_mm == (54.8, 18.5)
-    assert p.xy_centre_mm[2] == machine.laser(2).xy_centre_mm
+    assert p.xy_centre_mm[3] == machine.laser(3).xy_centre_mm
     x, y = machine.laser(1).xy_centre_mm
     assert p.xy_centre_mm[1] == pytest.approx((x + 0.2, y - 0.1))
     assert p.spot_um[1] == pytest.approx(40.0)
@@ -214,12 +215,12 @@ def test_each_laser_moves_by_its_view_of_the_corner(machine):
 def test_a_measured_corner_needs_no_reference(machine):
     machine = measured(machine)
     corner = machine.photodiode.corner_ab_mm
-    p = propose(machine, {3: result_with(3, (corner[0] + 0.1, corner[1]))})
+    p = propose(machine, {2: result_with(2, (corner[0] + 0.1, corner[1]))})
     assert p.reference == 0
-    x, y = machine.laser(3).xy_centre_mm
-    assert p.xy_centre_mm[3] == pytest.approx((x + 0.1, y))
+    x, y = machine.laser(2).xy_centre_mm
+    assert p.xy_centre_mm[2] == pytest.approx((x + 0.1, y))
     with pytest.raises(CommissionError, match="reference"):
-        propose(estimated(machine), {3: result_with(3, corner)})
+        propose(estimated(machine), {2: result_with(2, corner)})
 
 
 def test_writing_keeps_everything_else(machine):
@@ -267,7 +268,7 @@ def test_cli_writes_only_with_write(tmp_path, capsys):
     args = ["--machine", str(path), "commission", "--sim", "--lasers", "2,3",
             "--new-corner",
             "--warmup", "0", "--read", "0.3", "--speedup", "50",
-            "--sim-offset", "3=0.1,0.1", "--out", str(tmp_path / "runs")]
+            "--sim-offset", "2=0.1,0.1", "--out", str(tmp_path / "runs")]
     assert cli.main(args) == 0
     assert path.read_bytes() == before
     out = capsys.readouterr().out
@@ -281,8 +282,9 @@ def test_cli_writes_only_with_write(tmp_path, capsys):
     assert b"\r\n" not in written
     machine = load(path)
     assert machine.photodiode.measured
-    x, y = load().laser(3).xy_centre_mm
-    assert machine.laser(3).xy_centre_mm == pytest.approx(
+    # Laser 2 moved; laser 3, the reference, gives the new corner.
+    x, y = load().laser(2).xy_centre_mm
+    assert machine.laser(2).xy_centre_mm == pytest.approx(
         (x + 0.1, y + 0.1), abs=0.003)
 
 

@@ -298,7 +298,7 @@ def calibrate_through_the_panels(window, tmp_path, monkeypatch):
     cal = app.calibration_panel
     truth = window.rig.perfect_calibration("cell")
     window.click(cal.start_btn)
-    assert window.rig.fake_laser.active == 2
+    assert window.rig.fake_laser.active == app.machine.geometry.reference_laser
     cal.sample.set("cell")
     stage = app.stage
     for axis, value in zip("XYAB", (*truth.corner_xy_mm, *truth.corner_ab_mm),
@@ -616,12 +616,12 @@ def test_focus_assist_from_its_button(window, tmp_path):
         "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
         newline="")
     app.worker.machine_path = path
-    window.click(app.lasers.focus_btn)
-    fw = app.focus_window
-    assert fw is not None
+    window.click(app.maintenance_btn)
+    assert app.maintenance is not None
     # Off the developer's screen; it is the main window's child, so it
     # goes with it whatever happens.
-    fw.top.withdraw()
+    app.maintenance.top.withdraw()
+    fw = app.maintenance.focus
     assert "disabled" in fw.done_btn.state()
     fw.laser.set(2)
     fw.start_btn.invoke()
@@ -641,8 +641,8 @@ def test_focus_assist_from_its_button(window, tmp_path):
     window.pump(lambda: "saved:" in fw.summary.cget("text"))
     assert "# focus " in path.read_text(encoding="utf-8")
     assert "disabled" in fw.save_btn.state()
-    fw.close()
-    assert app.focus_window is None
+    app.maintenance.close()
+    assert app.maintenance is None
 
 
 def test_the_smu_line_is_short():
@@ -653,3 +653,54 @@ def test_the_smu_line_is_short():
     assert device_text("smu", "something else") == "something else"
     assert device_text("laser", "MultiLBIC-Laser,2.0.0") == \
         "MultiLBIC-Laser,2.0.0"
+
+
+def test_the_maintenance_window(window, tmp_path, monkeypatch):
+    import json
+
+    from multilbic.run import lineup as lu
+
+    app = window.app
+    window.click(app.maintenance_btn)
+    m = app.maintenance
+    assert m is not None
+    m.top.withdraw()
+    tabs = [m.notebook.tab(t, "text") for t in m.notebook.tabs()]
+    assert tabs == ["Focus", "Photodiode", "Line-up"]
+    # Clicking again brings the open one forward, not a second one.
+    window.click(app.maintenance_btn)
+    assert app.maintenance is m
+
+    # Photodiode: every laser ticked, and how long that takes.
+    assert m.commission.chosen() == tuple(app.laser_numbers())
+    assert "about" in m.commission.estimate.cget("text")
+    for n, var in m.commission.lasers.items():
+        var.set(n == 3)
+    assert m.commission.request().lasers == (3,)
+
+    # Line-up: nothing to centre on before there is a calibration.
+    assert "No calibration" in m.lineup.calibration.cget("text")
+    assert m.lineup.plan() is None
+    truth = window.rig.perfect_calibration("cell")
+    path = tmp_path / "cell.json"
+    path.write_text(json.dumps(
+        {"schema": "multilbic-calibration/1", **truth.to_dict()}))
+    monkeypatch.setattr("multilbic.gui.sample_panels.filedialog"
+                        ".askopenfilename", lambda **k: str(path))
+    window.click(app.calibration_panel.load_btn)
+    window.pump(lambda: "Corner: cell" in m.lineup.calibration.cget("text"))
+    plan = m.lineup.plan()
+    assert plan is not None
+    r = plan.request
+    assert r.lasers == tuple(app.laser_numbers())
+    assert (r.pixel_mm, r.pitch_mm, r.speed_mm_s) == (
+        lu.PIXEL_MM, lu.PITCH_MM, lu.SPEED_MM_S)
+    assert r.locate
+    assert r.calibration == lu.centred_patch(truth)
+    # Without the reference laser it doesn't start.
+    m.lineup.lasers[app.machine.geometry.reference_laser].set(False)
+    m.lineup.start()
+    assert "reference" in app.status_label.cget("text")
+
+    m.close()
+    assert app.maintenance is None

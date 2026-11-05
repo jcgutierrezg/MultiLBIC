@@ -78,7 +78,7 @@ nothing.
 
 The window's version of `multilbic calibrate` ([run](run.md#calibrate)):
 
-1. **Start** homes the stage and lights the reference laser (2) over
+1. **Start** homes the stage and lights the reference laser (3) over
    the AB centre. Jog until the spot is on the sample's top-right
    corner as you look at it (the photocurrent halves on an edge, in the
    dark), then **Set corner here**.
@@ -238,10 +238,18 @@ close-ups go onto a second row when they don't fit side by side.
 photodiode): each laser is located on the photodiode before its map and
 its map placed from that, about 40 s a laser ([run](run.md)).
 
-### Focus assist
+### Maintenance
 
-**Focus...** beside the readings opens a small window of its own
-(Phase 6 step 6, D24). Pick the laser and the edges (A, the blade at
+**Maintenance...** at the bottom left opens a window of its own with
+what keeps the lasers where `machine.toml` says, so none of it needs
+the command line: **Focus**, **Photodiode** and **Line-up**. Each shows
+what it found and writes to `machine.toml` only when asked; Esc or Stop
+stops any of them at once. On the Pi, commit `machine.toml` after
+saving (a deploy resets it).
+
+#### Focus
+
+Focus assist (Phase 6 step 6, D24). Pick the laser and the edges (A, the blade at
 the sample's height, or A and B, to see astigmatism), then **Start**:
 the stage homes, brings the photodiode under the laser (as `commission`
 does), lights it and passes back and forth across the edge, about
@@ -263,6 +271,37 @@ Pi, copy machine.toml back and commit it (a deploy resets it).
 Esc or Stop stops at once: laser and channel off, nothing saved, and
 the stage wants Home again. While it focuses, the rest of the window
 waits.
+
+#### Photodiode
+
+`multilbic commission` ([run](run.md#commission-each-laser-and-its-spot-with-the-photodiode-phase-6))
+from the window: tick the lasers (all six by default; it says how long
+that takes), **Start**. The stage homes, then takes the photodiode under
+each laser in turn and lights it; lasers 5 and 6 are infrared, so the
+box is closed first. It shows each laser's position and spot and what
+they would change in `machine.toml`, and keeps a report beside the run
+folders; **Save to machine.toml** writes them (`# commission <date>`).
+Tick "The photodiode was moved" only after moving it: the reference
+laser's view of the corner is then taken again (include laser 3).
+After any work in the box: lasers move when handled.
+
+#### Line-up
+
+Where each laser really lands on a cell, against the reference laser
+(3), and the offsets that put every laser's map on its
+([run](run.md#lineup-each-lasers-offset-on-the-cell)). First set the
+calibration's corner on a cell's corner, under laser 3, in the
+Calibration panel (or load such a calibration): the tab shows the
+corner it will use. Tick the lasers (laser 3 must be one), **Start**:
+it confirms the plan, then maps a 1.2 mm square centred on that corner
+with every laser placed from the photodiode, at 10 um pixels, 25 um
+rows and 4 mm/s, each laser on its range from the run setup (about
+25 min for six). The maps show in the run column like any run's. Then
+the table gives each laser's two cell edges, its row shift and its
+proposed offset; a `?` marks an edge not found clearly, and that laser
+is left as it is. **Save offsets to machine.toml** writes them
+(`cell_offset_xy_mm`, `# lineup <date>`); a second line-up should then
+show the lasers within a few um.
 
 ## Colours
 

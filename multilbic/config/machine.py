@@ -83,6 +83,11 @@ class XyStage:
     max_accel_mm_s2: float
 
 
+#: A laser's offset on the cell beyond this is a mistake, not a beam's
+#: tilt: the line-up measured 10-100 um (bench, 2026-11-05).
+MAX_CELL_OFFSET_MM = 0.5
+
+
 @dataclass(frozen=True)
 class Laser:
     number: int
@@ -95,6 +100,19 @@ class Laser:
     #: edge scanned through it (a knife edge, or a cell's edge). None
     #: until then. The window compares it with the row pitch.
     spot_um: float | None = None
+    #: Where the laser lands on a sample, against where the photodiode
+    #: puts it, in XY: each beam meets the blades a little higher than
+    #: the cell, at its own angle (`multilbic lineup`, the Maintenance
+    #: window's Line-up). 0 for the reference laser, by definition.
+    cell_offset_xy_mm: tuple[float, float] = (0.0, 0.0)
+
+    @property
+    def on_cell_xy_mm(self) -> tuple[float, float]:
+        """`xy_centre_mm` for a sample: where XY puts the AB centre
+        under this laser on the cell."""
+        x, y = self.xy_centre_mm
+        dx, dy = self.cell_offset_xy_mm
+        return x + dx, y + dy
 
 
 @dataclass(frozen=True)
@@ -358,8 +376,14 @@ def _parse_laser(t: _Table) -> Laser:
         measured=t.read_bool("measured"),
         spot_um=(t.read_positive_float("spot_um") if t.has("spot_um")
                  else None),
+        cell_offset_xy_mm=(t.read_pair("cell_offset_xy_mm")
+                           if t.has("cell_offset_xy_mm") else (0.0, 0.0)),
     )
     t.done()
+    if max(abs(v) for v in laser.cell_offset_xy_mm) > MAX_CELL_OFFSET_MM:
+        raise t.error(
+            f"cell_offset_xy_mm {list(laser.cell_offset_xy_mm)} is over "
+            f"{MAX_CELL_OFFSET_MM} mm: a line-up measures tens of um")
     if laser.number not in LASER_NUMBERS:
         raise t.error(
             f"laser number {laser.number} is not one of "

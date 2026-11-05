@@ -448,6 +448,8 @@ def run_header(
         "firmware": firmware,
         "laser": laser,
         "wavelength_nm": machine.laser(laser).wavelength_nm,
+        # Added to where the photodiode puts the laser (`run.lineup`).
+        "cell_offset_xy_mm": list(machine.laser(laser).cell_offset_xy_mm),
         "frame_origin_ab_mm": list(r.frame.origin_ab_mm),
         "frame_size_mm": [r.frame.width_mm, r.frame.height_mm],
         "pixel_mm": r.pixel_mm,

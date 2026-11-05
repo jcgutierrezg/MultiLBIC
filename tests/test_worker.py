@@ -494,3 +494,105 @@ def test_done_and_stop_while_focusing(machine, tmp_path):
         assert any("focus: stopped" in e.text for e in watch.of(Log))
     finally:
         worker.close()
+
+
+# ---- commissioning and the line-up (the Maintenance window) ----
+
+
+def test_commission_through_the_worker_and_save(machine, tmp_path):
+    from multilbic.gui.worker import CommissionEnded, MachineChanged
+    from multilbic.run.commission import CommissionRequest
+
+    worker, watch, path = focus_worker(machine, tmp_path)
+    try:
+        request = CommissionRequest((3,), warmup_s=0.0, read_s=0.3)
+        assert worker.start_commission(request, tmp_path / "runs",
+                                       {"commit": "test"})
+        assert worker.state is State.COMMISSIONING
+        assert not worker.jog("a", 0.1)
+        watch.wait(lambda: watch.of(CommissionEnded), timeout=180)
+        watch.idle()
+        (ended,) = watch.of(CommissionEnded)
+        assert ended.error is None, watch.errors()
+        assert ended.result.proposal is not None
+        assert ended.report is not None and ended.report.exists()
+        assert watch.of(LaserChanged)[-1].laser == 0
+        before = len(watch.of(Reading))
+        watch.wait(lambda: len(watch.of(Reading)) > before)
+
+        assert worker.save_commission()
+        watch.wait(lambda: watch.of(MachineChanged))
+        watch.idle()
+        assert "# commission " in path.read_text(encoding="utf-8")
+    finally:
+        worker.close()
+
+
+def test_stop_while_commissioning(machine, tmp_path):
+    from multilbic.gui.worker import CommissionEnded
+    from multilbic.run.commission import CommissionRequest
+
+    worker, watch, _ = focus_worker(machine, tmp_path)
+    try:
+        assert worker.start_commission(CommissionRequest((3,)),
+                                       tmp_path / "runs", {})
+        watch.wait(lambda: any("laser 3" in e.text for e in watch.of(Log)))
+        worker.stop()
+        watch.idle()
+        (ended,) = watch.of(CommissionEnded)
+        assert ended.error
+        assert watch.of(LaserChanged)[-1].laser == 0
+    finally:
+        worker.close()
+
+
+@pytest.mark.sim_timing
+def test_a_lineup_through_the_worker_and_save(machine, tmp_path):
+    import dataclasses
+    from importlib import resources
+
+    from multilbic.gui.worker import LineUpEnded, MachineChanged
+    from multilbic.run.lineup import centred_patch
+    from multilbic.sim.sample import SyntheticSample
+
+    faults = Faults(cell_offset_xy_mm=((1, 0.03, -0.02),))
+    machine = sim_machine(machine, faults)
+    path = tmp_path / "machine.toml"
+    path.write_text(resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
+        newline="")
+    holder = {}
+
+    def connector():
+        conn = open_sim(machine, clock=ScaledClock(5.0, precise=True),
+                        corner_carriage_mm=CORNER, faults=faults,
+                        sample=SyntheticSample.corner((0.5, 0.5)))
+        holder["rig"] = conn.rig
+        return conn
+
+    worker = MachineWorker(machine, connector, poll_s=0.05,
+                           machine_path=path)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        cal = holder["rig"].perfect_calibration("corner")
+        a, b = cal.corner_ab_mm
+        cal = dataclasses.replace(cal, corner_ab_mm=(a + 0.5, b + 0.5))
+        lineup = RunRequest(centred_patch(cal, 0.6), (1, 3), 0.01, 0.025,
+                            2.0, baseline_s=0.5, warmup_s=0.0)
+        assert worker.start_lineup(lineup, tmp_path / "runs", {})
+        watch.wait(lambda: watch.of(LineUpEnded), timeout=240)
+        watch.idle()
+        (ended,) = watch.of(LineUpEnded)
+        assert ended.error is None, watch.errors()
+        assert ended.lineup.proposal[1] == pytest.approx((0.03, -0.02),
+                                                         abs=0.005)
+        assert worker.save_lineup()
+        watch.wait(lambda: watch.of(MachineChanged))
+        watch.idle()
+        assert "# lineup " in path.read_text(encoding="utf-8")
+        assert worker.machine.laser(1).cell_offset_xy_mm == pytest.approx(
+            (0.03, -0.02), abs=0.005)
+    finally:
+        worker.close()

@@ -31,7 +31,7 @@ full range (up to about 34 mm, less the run-up).
 
 | Key | Meaning |
 |---|---|
-| `reference_laser` | the laser calibration is done under (2) |
+| `reference_laser` | the laser calibration is done under (3 since 2026-11-05; 2 before), and each laser's offset on the cell is taken against |
 | `x_along`, `y_along` | which AB axis each XY axis moves the sample along, and which way: `"+A"` means X up moves it like A up. **Checked on the bench before any real run** (`directions_measured`) |
 | `xy_take_up_mm`, `ab_take_up_mm` | every placing move ends moving up from at least this far below, so backlash is always taken up the same way (Marlin lists 0.2 mm on X/Y, uncorrected) |
 | `ab_backlash_mm` | A/B backlash once measured. Calibration reads AB after moving up, half the backlash above the stage; aligned maps are shifted by half of it to agree |
@@ -174,6 +174,11 @@ commissioning sweeps. The run file's header and `run.json` record each
 laser's offset (`located`), and its XY as used (`xy_mm`). Nothing is
 written to `machine.toml`.
 
+Each laser's `cell_offset_xy_mm` is added on top, located or not: where
+the beam lands on the cell against where the photodiode puts it
+([`lineup`](#lineup-each-lasers-offset-on-the-cell)). Run files record
+the offset used.
+
 ## The run folder
 
 ```text
@@ -304,6 +309,38 @@ stage as well.
 uv run multilbic read --lasers 1,2,3 --current-range 1=650u,2=25u,3=15m \
     --at 1=100,70,33.2,19.3 --at 2=99.7,79.3,30,10 --at 3=100,80,28.7,7.6
 ```
+
+## `lineup`: each laser's offset on the cell
+
+```bash
+uv run multilbic lineup ~/multilbic-runs/<run folder>
+uv run multilbic lineup ~/multilbic-runs/<run folder> --write
+```
+
+Each laser is placed from the photodiode, but its beam meets the blades
+a little above the cell, at its own angle: on the cell it lands tens of
+um from where the blades said, the same way each run (bench,
+2026-11-05: the same cell edge up to 45 um apart along A). The
+Maintenance window's Line-up tab makes the run: a 1.2 mm square centred
+on the calibration's corner, set on a cell's corner, every laser placed
+from the photodiode (`run/lineup.py`). `lineup` reads it again:
+
+1. In each laser's map, the cell's edge crossing the rows (along u, A)
+   and the one crossing the columns (along v, B): each row or column
+   fitted where the rows that cross the edge agree it is, the median
+   and spread of those kept. An edge from fewer than 5 rows, or whose
+   rows disagree by more than 40 um, is not trusted, and that laser is
+   left out.
+2. Against the reference laser's edges, each laser's difference, turned
+   into XY, is added to the `cell_offset_xy_mm` its run used. The
+   reference laser's offset stays 0: the corner calibration is made
+   under it.
+
+`--write` writes the offsets into `machine.toml` (`# lineup <date>`),
+asking first. An offset over 0.5 mm is refused when `machine.toml`
+loads. In the simulator, beams 30-40 um off on the cell are found to
+within 5 um, and after writing a second line-up puts the lasers within
+6 um.
 
 ## `commission`: each laser and its spot, with the photodiode (Phase 6)
 

@@ -691,6 +691,44 @@ def commission(args: argparse.Namespace) -> int:
     return 0
 
 
+# ---- lineup ----
+
+
+def lineup(args: argparse.Namespace) -> int:
+    """Each laser's offset on the cell, from a line-up run's maps
+    (`run.lineup`)."""
+    import datetime
+
+    from multilbic.run.lineup import LineUpError, apply_offsets, read_lineup
+
+    machine = load(args.machine)
+    try:
+        result = read_lineup(args.folder, machine)
+    except LineUpError as exc:
+        raise SystemExit(str(exc)) from None
+    for line in result.lines(machine):
+        say(line)
+    if not result.proposal:
+        return 1
+    path = machine_file(args.machine)
+    text = apply_offsets(path.read_text(encoding="utf-8"), result.proposal,
+                         datetime.date.today().isoformat())
+    if not args.write:
+        say("not written (--write writes it)")
+        return 0
+    if not args.yes:
+        if not sys.stdin.isatty():
+            raise SystemExit("no terminal to confirm on: pass --yes")
+        if input(f"write these offsets to {path}? [y/N] ").strip().lower() \
+                != "y":
+            say("not written")
+            return 0
+    path.write_text(text, encoding="utf-8", newline="")
+    say(f"written: {path}" + ("" if args.machine else
+                              " (commit it: a deploy resets the checkout)"))
+    return 0
+
+
 def parse_places_like(
     items: list[str] | None, count: int, flag: str,
 ) -> dict[int, tuple[float, ...]]:
@@ -829,7 +867,7 @@ def main(argv: list[str] | None = None) -> int:
         "photodiode, and propose machine.toml's changes")
     com.add_argument("--lasers", default="1,2,3",
                      help="e.g. 1,2,3 (default); include the reference "
-                     "laser (2) until the photodiode's corner is measured")
+                     "laser (3) until the photodiode's corner is measured")
     com.add_argument("--warmup", type=float, default=60.0,
                      help="s with each laser on before reading it")
     com.add_argument("--read", type=float, default=2.0,
@@ -859,6 +897,16 @@ def main(argv: list[str] | None = None) -> int:
     com.add_argument("--speedup", type=float, default=SIM_SPEED,
                      help="simulated seconds per real second (--sim)")
     com.set_defaults(func=commission)
+
+    lin = commands.add_parser(
+        "lineup", help="each laser's offset on the cell, from a line-up "
+        "run over a cell's corner (the Maintenance window makes the run)")
+    lin.add_argument("folder", help="the run's folder")
+    lin.add_argument("--write", action="store_true",
+                     help="write the offsets into machine.toml (asks first "
+                     "unless --yes)")
+    lin.add_argument("--yes", action="store_true")
+    lin.set_defaults(func=lineup)
 
     window = commands.add_parser("gui", help="the window")
     window.add_argument("--sim", action="store_true",

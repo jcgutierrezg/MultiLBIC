@@ -354,7 +354,7 @@ class Calibrator:
         try:
             for n in sorted(lasers):
                 placement = place(
-                    calibration, self.machine.laser(n).xy_centre_mm,
+                    calibration, self.machine.laser(n).on_cell_xy_mm,
                     self.machine.ab.centre_mm, n,
                 )
                 lines = grid_lines(placement.frame)

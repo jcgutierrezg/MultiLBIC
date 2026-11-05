@@ -33,12 +33,12 @@ from smuniversal_lab_suite.core.gui.theme import Theme, set_dark_title_bar
 
 from multilbic.config.machine import MachineConfig
 from multilbic.gui import look
-from multilbic.gui.focus_window import FocusWindow
 from multilbic.gui.machine_panels import (
     ConnectionPanel,
     LaserPanel,
     StagePanel,
 )
+from multilbic.gui.maintenance import MaintenanceWindow
 from multilbic.gui.run_panel import RunPanel
 from multilbic.gui.sample_panels import CalibrationPanel, RunSetupPanel
 from multilbic.gui.worker import (
@@ -72,6 +72,7 @@ STATE_TEXT = {
     State.MOVING: "busy",
     State.RUNNING: "running",
     State.FOCUSING: "focusing",
+    State.COMMISSIONING: "commissioning",
     State.STOPPING: "stopping...",
 }
 
@@ -99,7 +100,7 @@ class App:
         self.console_window: ConsoleWindow | None = None
         self._closing = False
         self._pump_id: str | None = None
-        self.focus_window: FocusWindow | None = None
+        self.maintenance: MaintenanceWindow | None = None
 
         root.title("MultiLBIC" + (" (simulated)" if simulated else ""))
         root.minsize(1280, 720)
@@ -147,6 +148,12 @@ class App:
 
         footer = ttk.Frame(root, padding=(10, 2, 10, 6))
         footer.grid(row=2, column=0, sticky="ew")
+        # Focus assist, commissioning and the line-up, in a window of
+        # their own (`gui.maintenance`): out of the way of everyday work.
+        self.maintenance_btn = ttk.Button(footer, text="Maintenance...",
+                                          command=self.open_maintenance)
+        if machine.photodiode is not None:
+            self.maintenance_btn.pack(side="left", padx=(0, 12))
         self.status_label = ttk.Label(footer, text="", style="Hint.TLabel")
         self.status_label.pack(side="left")
 
@@ -235,12 +242,13 @@ class App:
         self.worker.stop()
         self.status("Stop pressed")
 
-    def open_focus(self) -> None:
-        """Focus assist's window, or the open one to the front."""
-        if self.focus_window is None:
-            self.focus_window = FocusWindow(self)
+    def open_maintenance(self) -> None:
+        """The Maintenance window (focus, commissioning, line-up), or
+        the open one to the front."""
+        if self.maintenance is None:
+            self.maintenance = MaintenanceWindow(self)
         else:
-            self.focus_window.top.lift()
+            self.maintenance.top.lift()
 
     def calibration(self) -> Calibration | None:
         """The calibration a run would start from now."""
@@ -255,6 +263,9 @@ class App:
             self.status(f"{what}: not during a run", error=True)
         elif self.state is State.FOCUSING:
             self.status(f"{what}: not while focusing (Done or Stop first)",
+                        error=True)
+        elif self.state is State.COMMISSIONING:
+            self.status(f"{what}: not while commissioning (Stop first)",
                         error=True)
         elif self.state is State.DISCONNECTED:
             self.status(f"{what}: connect first", error=True)
@@ -296,8 +307,8 @@ class App:
             self.setup.replan()
         for panel in self.panels:
             panel.handle(event)
-        if self.focus_window is not None:
-            self.focus_window.handle(event)
+        if self.maintenance is not None:
+            self.maintenance.handle(event)
         if isinstance(event, (StateChanged, Homed)):
             self._refresh()
 
@@ -307,10 +318,12 @@ class App:
             ["disabled"] if self.state in (State.DISCONNECTED,
                                            State.CONNECTING)
             else ["!disabled"])
+        self.maintenance_btn.state(
+            ["!disabled"] if self.connected else ["disabled"])
         for panel in self.panels:
             panel.refresh()
-        if self.focus_window is not None:
-            self.focus_window.refresh()
+        if self.maintenance is not None:
+            self.maintenance.refresh()
 
     def _console(self, text: str, error: bool) -> None:
         stamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -342,6 +355,10 @@ class App:
         elif self.state is State.FOCUSING and not messagebox.askyesno(
                 "Stop focusing?", "Focus assist is running. Stop it and "
                 "close? Nothing is saved.", parent=self.root):
+            return
+        elif self.state is State.COMMISSIONING and not messagebox.askyesno(
+                "Stop commissioning?", "Commissioning is running. Stop it "
+                "and close? Nothing is saved.", parent=self.root):
             return
         self._closing = True
         self.status("closing: making everything safe")

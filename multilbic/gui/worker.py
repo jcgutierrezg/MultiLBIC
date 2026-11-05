@@ -32,15 +32,23 @@ A run ends with the output off, so readings stop until the next home.
 States::
 
     DISCONNECTED -> CONNECTING -> IDLE <-> MOVING      (calibration actions)
-                                   IDLE <-> RUNNING    (a run)
+                                   IDLE <-> RUNNING    (a run, a line-up)
                                    IDLE <-> FOCUSING   (focus assist)
-           MOVING, RUNNING, FOCUSING -> STOPPING -> IDLE
+                                   IDLE <-> COMMISSIONING
+           MOVING, RUNNING, FOCUSING, COMMISSIONING -> STOPPING -> IDLE
 
 **Focus assist** (Phase 6 step 6) passes across a blade edge on the
 photodiode until `finish_focus()` (Done), then measures the laser again
 and sends `FocusEnded` with what it proposes for `machine.toml`;
 `save_focus()` writes it, and the worker and calibration carry on with
 the new file (`MachineChanged`).
+
+**Commissioning** finds each chosen laser on the photodiode
+(`run.commission`) and sends `CommissionEnded` with what it proposes;
+**the line-up** is a run over a cell's corner, after which each laser's
+offset on the cell is worked out (`run.lineup`) and sent as
+`LineUpEnded`. `save_commission()` and `save_lineup()` write them, as
+`save_focus()` does (the Maintenance window).
 """
 
 from __future__ import annotations
@@ -60,13 +68,27 @@ from multilbic.run.calibrate import (
     load_calibration,
     load_ranges,
 )
-from multilbic.run.commission import CommissionError, apply_proposal
+from multilbic.run.commission import (
+    Commissioner,
+    CommissionError,
+    CommissionRequest,
+    CommissionResult,
+    apply_proposal,
+    folder_name,
+    write_report,
+)
 from multilbic.run.devices import Connection
 from multilbic.run.focus import (
     FocusAssist,
     FocusPass,
     FocusRequest,
     FocusResult,
+)
+from multilbic.run.lineup import (
+    LineUp,
+    LineUpError,
+    apply_offsets,
+    read_lineup,
 )
 from multilbic.run.motion import RunStopped
 from multilbic.run.ranges import RangeCheck
@@ -94,6 +116,7 @@ class State(enum.StrEnum):
     MOVING = "moving"
     RUNNING = "running"
     FOCUSING = "focusing"
+    COMMISSIONING = "commissioning"
     STOPPING = "stopping"
 
 
@@ -200,6 +223,24 @@ class FocusEnded:
 
 
 @dataclass(frozen=True)
+class CommissionEnded:
+    #: What was measured, the proposal in it; None if it never started.
+    result: CommissionResult | None
+    #: Where its report went.
+    report: Path | None = None
+    #: Why there is nothing to save, if there isn't.
+    error: str | None = None
+
+
+@dataclass(frozen=True)
+class LineUpEnded:
+    #: None if the run or the analysis failed.
+    lineup: LineUp | None
+    folder: Path | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class MachineChanged:
     machine: MachineConfig
     path: Path
@@ -210,6 +251,7 @@ Event = (
     | LaserChanged
     | CalibrationChanged | RunStarted | RowEvent | MapEvent | RunEnded
     | FocusStarted | FocusPassed | FocusEnded | MachineChanged
+    | CommissionEnded | LineUpEnded
 )
 
 
@@ -250,6 +292,12 @@ class MachineWorker:
         self._focus: FocusAssist | None = None
         #: The last focus assist's result, until saved.
         self._focused: FocusResult | None = None
+        self._commissioner: Commissioner | None = None
+        #: The last run's folder.
+        self._last_folder: Path | None = None
+        #: The last commissioning's and line-up's results, until saved.
+        self._commissioned: CommissionResult | None = None
+        self._lined_up: LineUp | None = None
         #: The stage's coordinates mean something.
         self._homed = False
         #: The SMU output is on at 0 V, so readings can be taken.
@@ -455,6 +503,35 @@ class MachineWorker:
         carry on with it."""
         return self._moving("save focus", self._save_focus)
 
+    # ---- commissioning and the line-up (the Maintenance window) ----
+
+    def start_commission(self, request: CommissionRequest,
+                         out_root: str | Path,
+                         provenance: dict[str, Any]) -> bool:
+        """Home, then find each laser of the request on the photodiode,
+        lighting each in turn (as `multilbic commission`)."""
+        return self._submit(
+            "commission",
+            lambda: self._run_commission(request, Path(out_root), provenance),
+            State.COMMISSIONING)
+
+    def save_commission(self) -> bool:
+        """Write the last commissioning's proposal into machine.toml."""
+        return self._moving("save commissioning", self._save_commission)
+
+    def start_lineup(self, request: RunRequest, out_root: str | Path,
+                     provenance: dict[str, Any]) -> bool:
+        """A run over a cell's corner (`run.lineup.centred_patch`), then
+        each laser's offset on the cell from its map."""
+        return self._submit(
+            "line-up",
+            lambda: self._run_lineup(request, Path(out_root), provenance),
+            State.RUNNING)
+
+    def save_lineup(self) -> bool:
+        """Write the last line-up's offsets into machine.toml."""
+        return self._moving("save line-up", self._save_lineup)
+
     # ---- Stop ----
 
     def stop(self) -> None:
@@ -470,6 +547,10 @@ class MachineWorker:
             elif state is State.FOCUSING:
                 if self._focus is not None:
                     self._focus.request_stop()
+                self._set_state_locked(State.STOPPING)
+            elif state is State.COMMISSIONING:
+                if self._commissioner is not None:
+                    self._commissioner.request_stop()
                 self._set_state_locked(State.STOPPING)
             elif state is State.MOVING and self._cal is not None:
                 self._cal.halt()
@@ -551,6 +632,7 @@ class MachineWorker:
                 with self._lock:
                     self._session = None
                     self._focus = None
+                    self._commissioner = None
                     connected = self._conn is not None
                     self._set_state_locked(
                         State.IDLE if connected else State.DISCONNECTED
@@ -651,6 +733,7 @@ class MachineWorker:
             if self._state is State.STOPPING:
                 raise RunStopped("stopped before it started")
             self._session = session
+        self._last_folder = session.folder
         self._emit(RunStarted(session.folder, tuple(session.plans),
                               request))
         # The run ends with the SMU output off: no readings until the
@@ -708,23 +791,138 @@ class MachineWorker:
         self._position()
 
     def _save_focus(self) -> None:
-        result, path = self._focused, self.machine_path
-        if result is None or result.proposal is None or path is None:
+        result = self._focused
+        if result is None or result.proposal is None:
             raise RuntimeError("nothing to save: run focus assist first")
+        proposal = result.proposal
+        self._write_machine(lambda text, when: apply_proposal(
+            text, proposal, when, source="focus"))
+        self._focused = None
+
+    def _run_commission(self, request: CommissionRequest, out_root: Path,
+                        provenance: dict[str, Any]) -> None:
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("not connected")
+        if (not conn.simulated
+                and not self.machine.geometry.directions_measured):
+            raise RuntimeError(
+                "[geometry] x_along/y_along in machine.toml have not been "
+                "checked on the machine (directions_measured = false)")
+        commissioner = Commissioner(conn.devices, self.machine, conn.clock,
+                                    say=self._log)
+        with self._lock:
+            if self._state is State.STOPPING:
+                raise RunStopped("stopped before it started")
+            self._commissioner = commissioner
+        self._commissioned = None
+        self._reading = False
+        self._set_homed(False)
+        folder = out_root / folder_name(conn.simulated)
+        try:
+            result = commissioner.run(request)
+        except BaseException as exc:
+            why = str(exc) or type(exc).__name__
+            partial = commissioner.partial(why)
+            report = None
+            if partial is not None and partial.lasers:
+                report = write_report(folder, self.machine, partial,
+                                      simulated=conn.simulated,
+                                      provenance=provenance)
+            self._emit(CommissionEnded(partial, report, why))
+            raise
+        finally:
+            self._emit(LaserChanged(0))
+        self._set_homed(True)
+        report = write_report(folder, self.machine, result,
+                              simulated=conn.simulated, provenance=provenance)
+        error = result.error
+        if result.proposal is not None:
+            if self.machine_path is None:
+                error = "the window was not given machine.toml's path"
+            else:
+                self._commissioned = result
+        self._emit(CommissionEnded(result, report, error))
+        for line in result.lines(self.machine):
+            self._log(line)
+        self._log(f"report: {report}")
+        self._readings_again()
+
+    def _save_commission(self) -> None:
+        result = self._commissioned
+        if result is None or result.proposal is None:
+            raise RuntimeError("nothing to save: commission first")
+        proposal = result.proposal
+        self._write_machine(lambda text, when: apply_proposal(
+            text, proposal, when))
+        self._commissioned = None
+
+    def _run_lineup(self, request: RunRequest, out_root: Path,
+                    provenance: dict[str, Any]) -> None:
+        self._lined_up = None
+        self._run(request, out_root, provenance)
+        folder = self._last_folder
+        if folder is None:
+            return
+        try:
+            lineup = read_lineup(folder, self.machine)
+        except LineUpError as exc:
+            self._emit(LineUpEnded(None, folder, str(exc)))
+            return
+        error = lineup.error
+        if lineup.proposal:
+            if self.machine_path is None:
+                error = "the window was not given machine.toml's path"
+            else:
+                self._lined_up = lineup
+        self._emit(LineUpEnded(lineup, folder, error))
+        for line in lineup.lines(self.machine):
+            self._log(line)
+
+    def _save_lineup(self) -> None:
+        lineup = self._lined_up
+        if lineup is None or not lineup.proposal:
+            raise RuntimeError("nothing to save: run a line-up first")
+        offsets = dict(lineup.proposal)
+
+        def write(text: str, when: str) -> str:
+            try:
+                return apply_offsets(text, offsets, when)
+            except LineUpError as exc:
+                raise CommissionError(str(exc)) from None
+
+        self._write_machine(write)
+        self._lined_up = None
+
+    def _write_machine(self, change: Callable[[str, str], str]) -> None:
+        """machine.toml changed and written, and the worker and the
+        calibration carried on with it."""
+        path = self.machine_path
+        if path is None:
+            raise RuntimeError("the window was not given machine.toml's path")
         when = datetime.date.today().isoformat()
         try:
-            text = apply_proposal(path.read_text(encoding="utf-8"),
-                                  result.proposal, when, source="focus")
+            text = change(path.read_text(encoding="utf-8"), when)
         except CommissionError as exc:
             raise RuntimeError(str(exc)) from None
         path.write_text(text, encoding="utf-8", newline="")
         machine = load(path)
         self.machine = machine
         self._calibrator().use_machine(machine)
-        self._focused = None
         self._emit(MachineChanged(machine, path))
         self._log(f"machine.toml written: {path}")
         self._calibration_changed()
+
+    def _readings_again(self) -> None:
+        """The SMU output on at 0 V again, so idle readings carry on."""
+        conn = self._conn
+        if conn is None:
+            return
+        d = conn.devices
+        d.smu.prepare(bias_v=0.0)
+        d.smu.output_on()
+        self._reading = True
+        self._position()
 
     def _release(self) -> None:
         """Laser and SMU off, devices closed. Every step is tried."""

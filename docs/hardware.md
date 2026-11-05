@@ -971,6 +971,14 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     flat instead, every map of the day aligns at +110 to +157 um and
     laser 6's at +115 to +132; its edge spread over rows halved, 36 to
     19 um.
+  - **Laser 3 "lowest along v" was not real** (0.6.50). Measured again
+    with the line-up's edge finding (`run/lineup.py`), the edge along A
+    of lasers 1-3 sits 0.05-0.07 mm into these patches, one or two
+    50 um rows from their start: too few points on one side to fit, and
+    now reported as not found. Laser 2, dim, was found among the others
+    along u (0.372-0.375 mm). The line-up centres its patch on the cell's
+    corner, with 25 um rows, for this. **The reference is laser 3 since
+    0.6.50**, laser 2 giving a twentieth of the others' light.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

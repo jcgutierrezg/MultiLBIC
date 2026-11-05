@@ -3,6 +3,31 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.50 - The Maintenance window and the line-up
+
+- **Maintenance...**, at the window's bottom left, opens a window with
+  three tabs: **Focus** (focus assist, moved out of the Lasers panel),
+  **Photodiode** (commissioning, as `multilbic commission`) and
+  **Line-up**. Each shows what it found and writes `machine.toml` only
+  on Save.
+- **Line-up**: a run over a 1.2 mm square centred on the calibration's
+  corner (set on a cell's corner), every laser placed from the
+  photodiode; then each laser's two cell edges against the reference
+  laser's, and the offset that puts its map on the reference's
+  (`run/lineup.py`, also `multilbic lineup RUN [--write]`).
+- New per-laser `cell_offset_xy_mm` in `machine.toml` (optional, 0),
+  added wherever a laser is placed on a sample, and recorded in each
+  run file. In the simulator, which can now land a beam elsewhere on
+  the cell than on the photodiode (`Faults.cell_offset_xy_mm`), offsets
+  of 30-40 um are found within 5 um and, written, put the next
+  line-up's lasers within 6 um.
+- **The reference laser is laser 3** (was 2, the dim one). Calibrations
+  made under laser 2 stay right.
+- Re-read with the line-up's edge finding, the earlier six-laser runs
+  put laser 2 among the others along u (0.372-0.375 mm), and the
+  "laser 3 lowest along v" was an edge too close to those patches'
+  start to measure: the line-up centres its patch for that reason.
+
 ## 0.6.49 - No mains put into the rows
 
 - Laser 6's alignment chose about 80 um where its edge says 120-137.

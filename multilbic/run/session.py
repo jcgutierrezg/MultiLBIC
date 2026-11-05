@@ -183,7 +183,7 @@ def plan_run(request: RunRequest, machine: MachineConfig) -> list[LaserPlan]:
     for n in request.lasers:
         laser = _laser(machine, n)
         placement = place(
-            request.calibration, laser.xy_centre_mm,
+            request.calibration, laser.on_cell_xy_mm,
             machine.ab.centre_mm, n,
         )
         for axis, value, travel in zip(
