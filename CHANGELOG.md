@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.48 - Six lasers repeat within 20 um
+
+- Hardware notes: a third six-laser map (0.6.47). Every laser put the
+  cell's edge along B where it did in the second run, within 18 um;
+  five of the six within 16 um of each other, laser 4 35 um short of
+  them in both. Along A they spread 100 um, each laser where it was
+  before (laser 3 lowest), within 2-21 um.
+- Two of its maps had late replies throughout (lasers 1 and 4, 27 rows
+  each); placed from the send, their shifts were +120 and +133 um.
+  Laser 6's alignment chose +82 um where its edge says +137, as in the
+  first run: still to look at.
+
 ## 0.6.47 - Late replies placed from the send
 
 - The serpentine shift's sign flips (3 of 12 maps on 2026-11-05, 4 of

@@ -942,6 +942,29 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     four six-laser runs of the day then give shifts of +110 to +157 um,
     none negative, and each map's two directions meet on the cell's
     edge.
+- **Six lasers repeat within 20 um (2026-11-05, 0.6.47).** A third
+  located map (`20261105T154210Z_std_test_v2-corner`), the cell's edges
+  as before:
+
+  | Laser | Edge along B (u), run 2 | run 3 | Edge along A (v), run 2 | run 3 |
+  |---|---|---|---|---|
+  | 1 | 0.394 | 0.376 | (none) | (4 columns) |
+  | 2 (dim) | 0.377 | 0.378 | 0.122 | 0.124 |
+  | 3 | 0.385 | 0.374 | 0.079 | 0.070 |
+  | 4 | 0.337 | 0.334 | 0.146 | 0.162 |
+  | 5 | 0.368 | 0.369 | 0.172 | 0.173 |
+  | 6 | 0.361 | 0.362 | 0.140 | 0.119 |
+  | **Spread** | 57 um | **44 um** | 93 um | 103 um |
+
+  - Along u every laser repeated within 18 um, and five agree within
+    16 um; laser 4 is 35 um short of them in both runs.
+  - Along v each laser repeated within 2-21 um, but they spread
+    100 um: laser 3 lowest (0.07), 2 and 6 at 0.12-0.14, 4 and 5 at
+    0.15-0.17. Fixed offsets per laser, not drift.
+  - Lasers 1 and 4 had late replies on 27 rows each; placed from the
+    send, their shifts were +120 and +133 um, as the cell's edge says.
+    Laser 6's alignment chose +82 um where its edge says +137 um, as in
+    run 1 (its row pairs split between about 80 and 155 um).
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up
