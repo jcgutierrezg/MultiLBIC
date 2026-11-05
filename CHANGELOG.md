@@ -3,6 +3,17 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.45 - The released servo holds
+
+- Hardware notes: with firmware 2.1.0 flashed and the servo released,
+  the spot stopped jumping. Laser 4 with the stage still held to 0.3 um
+  for 60 s and moved under 2 um in each 2 min after a swing (7-24 um
+  jumps before); laser 3 tracked by the stage moved 4-11 um in each
+  2 min after a swing (60-106 um before). Each selection still lands
+  the laser 7-42 um from the last, which locating on the photodiode
+  measures.
+- Firmware 2.1.0 is on the board (flashed 2026-11-05).
+
 ## 0.6.44 - The servo released after each turn
 
 - Laser board firmware 2.1.0: once the servo has turned and settled it

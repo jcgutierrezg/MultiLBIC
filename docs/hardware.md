@@ -869,8 +869,20 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     then (the builder's idea), each time a few um of beam. Moving the
     stage and reading the photodiode don't do it (test A).
   - **Decided: release the servo after each turn** (firmware 2.1.0,
-    0.6.44); the gearbox holds the revolver. Test B again with it
-    released tells whether the jumps stop.
+    0.6.44); the gearbox holds the revolver.
+  - **Released, it holds** (2.1.0 flashed, the same tests again,
+    `servo_still.py` and `servo_creep.py`):
+
+    | Test | Powered (2.0.0) | Released (2.1.0) |
+    |---|---|---|
+    | Laser 4, stage still, 60 s before any swing | jumps to +11, then +31 um | within 0.3 um |
+    | Laser 4, stage still, 2 min after each of two swings | jumps of 7-24 um, up to +54 um | under 2 um, no jumps |
+    | Laser 3, edge tracked by the stage, 2 min after each of three swings | +60, +62, +106 um | +7, +11, +4 um (the tracking's own scatter is about +-10 um a point) |
+
+    - Each selection still lands the laser somewhere new: laser 4 at
+      -34 and -42 um from where it was parked, laser 3 at +7, +21 and
+      +31 um. That is what locating on the photodiode after each
+      selection measures, and now the laser stays there for the map.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

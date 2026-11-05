@@ -113,8 +113,8 @@ the next turn; the gearbox holds the revolver. The driver sets it from
 a power-up forgets it. 2.0.0 answers `RELEASE?` with `ERR UNKNOWN`: the
 driver accepts it, and its servo stays powered.
 
-Firmware 2.0.0 is on the board (flashed 2026-10-19); 2.1.0 is written
-(2026-11-05), not yet flashed. 1.x firmware answers in free text, and
+Firmware 2.1.0 is on the board (flashed 2026-11-05; 2.0.0 since
+2026-10-19). 1.x firmware answers in free text, and
 the driver refuses it at `open()`.
 
 ## miniSMU
