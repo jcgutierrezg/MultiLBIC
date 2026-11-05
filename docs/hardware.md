@@ -883,6 +883,38 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
       -34 and -42 um from where it was parked, laser 3 at +7, +21 and
       +31 um. That is what locating on the photodiode after each
       selection measures, and now the laser stays there for the map.
+  - **Six lasers within 60 um** (two runs, each laser located on the
+    photodiode, the servo released; `20261105T142736Z` and
+    `20261105T144808Z_std_test_v2-corner`). The cell's two edges in
+    each laser's map, from the rows and columns well inside the patch:
+
+    | Laser | Edge along B (u), run 1 | run 2 | Edge along A (v), run 1 | run 2 |
+    |---|---|---|---|---|
+    | 1 | 0.417 | 0.394 | 0.172 | (none) |
+    | 2 (dim) | 0.215 | 0.377 | (none) | 0.122 |
+    | 3 | 0.410 | 0.385 | 0.070 | 0.079 |
+    | 4 | 0.272 | 0.337 | 0.138 | 0.146 |
+    | 5 | 0.378 | 0.368 | 0.172 | 0.172 |
+    | 6 | 0.372 | 0.361 | 0.139 | 0.140 |
+    | **Spread** | 200 um | **57 um** | 100 um | 93 um |
+
+    - The last located run with the servo powered spread 370 um along u
+      and 150 um along v.
+    - Lasers 1, 3, 5 and 6 repeat within 25 um along u, and 3-6 within
+      10 um along v. Laser 4 moved 65 um along u between the runs, and
+      laser 2 (about 30 times dimmer, located with full sweeps) 160 um.
+    - Laser 3 sits 60-100 um below the others along v in both runs: a
+      fixed offset, perhaps its beam's tilt between the upper blade
+      (0.53 mm above the cell) and the cell. Its edge along A is near
+      the patch's start, from only 4-9 columns.
+    - All six were found 0.1-0.4 mm from `machine.toml`, differently in
+      each run (the servo's landing); that is what the locate step is
+      for.
+    - The serpentine shift was negative for 3 of the 12 maps (laser 3
+      -87 um in run 1; lasers 1 and 5, -196 and -68 um, in run 2;
+      +117 to +156 um for the rest). Those maps' two directions still
+      agree after it (their edges' spread is no wider), so the timing
+      itself changed for those maps, by about 40 ms at 4 mm/s.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.46 - Six lasers within 60 um
+
+- Hardware notes: two six-laser maps located on the photodiode with the
+  servo released. In the second, all six lasers put the cell's edge
+  along B within 57 um of each other (370 um in the last located run
+  with the servo powered). Along A, lasers 4-6 agree within 30 um and
+  laser 3 is 70-90 um off in both runs.
+- Between the two runs, lasers 1, 3, 5 and 6 repeated within 25 um.
+  Laser 4 moved 65 um and laser 2, the dim one, 160 um.
+- The serpentine shift came out negative for three of the twelve maps,
+  and each such map's two directions still agree: the timing changed
+  for that map, not just the alignment's choice.
+
 ## 0.6.45 - The released servo holds
 
 - Hardware notes: with firmware 2.1.0 flashed and the servo released,
