@@ -586,13 +586,15 @@ def test_a_lineup_through_the_worker_and_save(machine, tmp_path):
         watch.idle()
         (ended,) = watch.of(LineUpEnded)
         assert ended.error is None, watch.errors()
-        assert ended.lineup.proposal[1] == pytest.approx((0.03, -0.02),
-                                                         abs=0.005)
+        # The fault adds to the offset machine.toml already has.
+        x, y = machine.laser(1).cell_offset_xy_mm
+        expected = (x + 0.03, y - 0.02)
+        assert ended.lineup.proposal[1] == pytest.approx(expected, abs=0.005)
         assert worker.save_lineup()
         watch.wait(lambda: watch.of(MachineChanged))
         watch.idle()
         assert "# lineup " in path.read_text(encoding="utf-8")
         assert worker.machine.laser(1).cell_offset_xy_mm == pytest.approx(
-            (0.03, -0.02), abs=0.005)
+            expected, abs=0.005)
     finally:
         worker.close()

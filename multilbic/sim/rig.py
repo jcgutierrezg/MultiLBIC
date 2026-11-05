@@ -69,10 +69,14 @@ class Faults:
     #: 2026-11-05). 0: on time.
     m400_late_s: float = 0.0
     m400_late_after: int = 0
+    #: These lines to the board (numbered from 1) are taken up this late:
+    #: a row whose move starts late, its reply late with it.
+    late_lines: tuple[int, ...] = ()
+    late_line_s: float = 0.0
     #: (laser, dx, dy): that laser lands this far off in XY on the
-    #: sample, but not on the photodiode, as a beam meeting the blades
-    #: higher than the cell at an angle. What `cell_offset_xy_mm`
-    #: corrects. Empty: every beam lands alike on both.
+    #: sample, beyond its `cell_offset_xy_mm`, but not on the photodiode,
+    #: as a beam meeting the blades higher than the cell at an angle.
+    #: Empty: every beam lands on the cell where machine.toml says.
     cell_offset_xy_mm: tuple[tuple[int, float, float], ...] = ()
 
     @classmethod
@@ -119,6 +123,8 @@ class SimRig:
             },
             m400_late_s=f.m400_late_s,
             m400_late_after=int(f.m400_late_after),
+            late_lines=tuple(f.late_lines),
+            late_line_s=f.late_line_s,
         )
         self.fake_laser = FakeLaserBoard(
             settle_ms=self.machine.laser_board.settle_ms
@@ -167,6 +173,10 @@ class SimRig:
         blades, or `on_cell`, on the sample."""
         laser_x, laser_y = self.laser_xy_mm[laser]
         if on_cell:
+            # On the cell as machine.toml says (as `laser_xy_mm` takes
+            # its xy_centre_mm), and the fault's offset beyond that.
+            dx, dy = self.machine.laser(laser).cell_offset_xy_mm
+            laser_x, laser_y = laser_x + dx, laser_y + dy
             for n, dx, dy in self.faults.cell_offset_xy_mm:
                 if n == laser:
                     laser_x, laser_y = laser_x + dx, laser_y + dy

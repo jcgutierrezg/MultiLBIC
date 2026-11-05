@@ -57,6 +57,16 @@ is the file's quickest replies', or `row_reply_ms` when even those are
 late. (The 113–135 ms "first-move delay" spread once given as the
 reason to anchor on the end was most likely these late replies.)
 
+**Rows that start late.** A single row's reply can come late because
+its move started late, the board having taken its `G1` up late; then
+the reply is right and the send is not (lasers 5 and 6, the first
+line-up, 2026-11-05: three rows 27–45 ms late drawn 100–200 um off from
+the send, within 10–20 um from the reply). The files can't tell the two
+apart by their times, but a row's own data can: each late row keeps the
+placement, send or reply, that lines up better with the on-time rows of
+its direction within 4 rows (`mapping._agreeing`). Without such rows to
+compare, as in a map late from end to end, the send stays.
+
 Between rows, the B step gets its own `M400`, so each row starts from
 rest. Queued back to back, Marlin would carry speed through the corner
 and the row would no longer be the trapezoid the model assumes.

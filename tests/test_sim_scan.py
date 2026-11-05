@@ -118,6 +118,34 @@ def test_late_replies_dont_move_the_rows(scan, tmp_path):
     assert worst <= max(0.005, PIXEL_MM)
 
 
+def test_a_row_that_starts_late_stays_where_it_was(scan, tmp_path):
+    """A single row's G1 taken up 30 ms late: its move and its reply
+    both come late (bench, 2026-11-05). Placed from its reply, as its
+    neighbours agree, the edges are as without it."""
+    executed = scan.rig.fake_marlin.executed
+    rows_g1 = [i for i, c in enumerate(executed)
+               if c.startswith("G1") and " A" in c
+               and c.endswith(f"F{SPEED_MM_S * 60:.3f}")]
+    # Every line the board took up, in order: a row's G1 in the middle.
+    line = rows_g1[len(rows_g1) // 2] + 1
+    late = simulate_scan(
+        tmp_path,
+        width_mm=1.0,
+        height_mm=0.4,
+        pixel_mm=PIXEL_MM,
+        pitch_mm=PITCH_MM,
+        speed_mm_s=SPEED_MM_S,
+        faults=Faults(late_lines=(line,), late_line_s=0.03),
+        clock=ScaledClock(2.0, precise=True),
+    )
+    assert late.rig.fake_marlin.lines_received >= line
+    errors = edge_errors(late)
+    worst = max(np.abs(e).max() for e in errors.values())
+    assert worst <= max(0.005, PIXEL_MM)
+    assert late.result.alignment.shift_mm == pytest.approx(
+        scan.result.alignment.shift_mm, abs=0.004)
+
+
 def test_a_edges_within_tolerance(scan):
     tolerance = max(0.005, PIXEL_MM)
     errors = edge_errors(scan)

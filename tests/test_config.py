@@ -140,9 +140,12 @@ def test_home_offset_inside_the_travel(raw):
 
 
 def test_cell_offset(raw):
-    assert parse(raw).laser(1).cell_offset_xy_mm == (0.0, 0.0)
-    raw["lasers"][0]["cell_offset_xy_mm"] = [0.02, -0.01]
-    assert parse(raw).laser(raw["lasers"][0]["number"]).cell_offset_xy_mm         == (0.02, -0.01)
+    first = raw["lasers"][0]
+    # Optional: without it, 0.
+    first.pop("cell_offset_xy_mm", None)
+    assert parse(raw).laser(first["number"]).cell_offset_xy_mm == (0.0, 0.0)
+    first["cell_offset_xy_mm"] = [0.02, -0.01]
+    assert parse(raw).laser(first["number"]).cell_offset_xy_mm == (0.02, -0.01)
     _breaks(raw, lambda d: d["lasers"][0].update(cell_offset_xy_mm=[0.8, 0]),
             "cell_offset_xy_mm")
 

@@ -73,6 +73,8 @@ class FakeMarlin:
         backlash_mm: dict[str, float] | None = None,
         m400_late_s: float = 0.0,
         m400_late_after: int = 0,
+        late_lines: tuple[int, ...] = (),
+        late_line_s: float = 0.0,
     ):
         self.machine = machine
         self.machine_type = machine_type or machine.name
@@ -83,6 +85,13 @@ class FakeMarlin:
         #: after the first `m400_late_after` is answered this late.
         self.m400_late_s = m400_late_s
         self.m400_late_after = m400_late_after
+        #: The board sometimes takes a line up late, so a row's move
+        #: starts late and its M400's ok comes late with it (single rows,
+        #: bench 2026-11-05): the lines numbered here (from 1, every line
+        #: received) wait `late_line_s` before they are taken up.
+        self.late_lines = frozenset(late_lines)
+        self.late_line_s = late_line_s
+        self.lines_received = 0
         self.m400_count = 0
         #: Lost motion per axis on a reversal, in mm.
         self.backlash_mm = {axis: 0.0 for axis in AXES}
@@ -249,9 +258,13 @@ class FakeMarlin:
                 return
             if self.halted or self.silent:
                 continue
+            self.lines_received += 1
             if self.reply_latency_s:
                 assert self._clock is not None
                 self._clock.sleep(self.reply_latency_s)
+            if self.late_line_s and self.lines_received in self.late_lines:
+                assert self._clock is not None
+                self._clock.sleep(self.late_line_s)
             self._process(line)
 
     def _process(self, line: str) -> None:

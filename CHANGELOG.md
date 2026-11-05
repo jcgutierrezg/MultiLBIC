@@ -3,6 +3,25 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.51 - The first line-up, and rows that start late
+
+- The first line-up on the bench (`20261105T181317Z_lineup_test-lineup`):
+  every laser's two cell edges found, laser 2's too. Against laser 3,
+  the lasers sat 8-86 um off along X and up to 108 um along Y; the
+  offsets are saved in `machine.toml` (`cell_offset_xy_mm`).
+- Lasers 5 and 6 each had a row or two drawn 100-200 um off. Their
+  replies were 27-45 ms late, but these were single rows, and their
+  moves had started late too: placed from the send, as 0.6.47 does for
+  late replies, they were wrong; from the reply, right. A late row now
+  keeps whichever placement lines up with the on-time rows of its own
+  direction near it; with none to compare, the send, as before. Every
+  map of the day still aligns at +110 to +157 um, and the line-up's
+  offsets move by 1 um at most.
+- The simulator can take a line up late (`Faults.late_lines`); a test
+  shows such a row stays in place. Its beams land on the cell where
+  `machine.toml`'s offsets say, as they land on the photodiode where its
+  `xy_centre_mm` says.
+
 ## 0.6.50 - The Maintenance window and the line-up
 
 - **Maintenance...**, at the window's bottom left, opens a window with

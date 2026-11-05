@@ -89,6 +89,7 @@ servo_angle_deg = 150
 xy_centre_mm = [78.965, 72.094]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 67.5  # commission 2026-11-03
+cell_offset_xy_mm = [-0.021, -0.008]  # lineup 2026-11-05
 
 [[lasers]]
 number = 2
@@ -97,6 +98,7 @@ servo_angle_deg = 90
 xy_centre_mm = [76.058, 72.604]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 41.7  # commission 2026-11-03
+cell_offset_xy_mm = [-0.008, 0.063]  # lineup 2026-11-05
 
 [[lasers]]
 number = 3
@@ -105,6 +107,7 @@ servo_angle_deg = 30
 xy_centre_mm = [74.854, 70.383]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 35.1  # commission 2026-11-03
+cell_offset_xy_mm = [0.000, 0.000]  # lineup 2026-11-05
 
 [[lasers]]
 number = 4
@@ -118,6 +121,7 @@ servo_angle_deg = 150
 xy_centre_mm = [48.921, 43.868]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 99.5  # commission 2026-11-03
+cell_offset_xy_mm = [-0.086, 0.080]  # lineup 2026-11-05
 
 [[lasers]]
 number = 5
@@ -126,6 +130,7 @@ servo_angle_deg = 90
 xy_centre_mm = [48.007, 42.217]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 71.7  # commission 2026-11-03
+cell_offset_xy_mm = [-0.014, 0.108]  # lineup 2026-11-05
 
 [[lasers]]
 number = 6
@@ -134,6 +139,7 @@ servo_angle_deg = 30
 xy_centre_mm = [49.501, 38.264]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 72.9  # commission 2026-11-03
+cell_offset_xy_mm = [-0.020, 0.059]  # lineup 2026-11-05
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's

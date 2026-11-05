@@ -109,10 +109,12 @@ def test_no_files_no_lineup(tmp_path, machine):
         read_lineup(tmp_path, machine)
 
 
-def _lineup_run(out, machine, faults, lasers=(1, 3, 5)):
+def _lineup_run(out, machine, faults, lasers=(1, 3, 5), truth=None):
+    """A line-up run with `machine`'s offsets, on a rig whose beams land
+    as `truth` (machine.toml when the run began, with `faults`) says."""
     clock = ScaledClock(5.0, precise=True)
     sample = SyntheticSample.corner((0.5, 0.5))
-    rig = SimRig(machine, clock, sample, CORNER_CARRIAGE_MM, faults)
+    rig = SimRig(truth or machine, clock, sample, CORNER_CARRIAGE_MM, faults)
     cal = rig.perfect_calibration("corner")
     # The operator set the corner on the cell's corner.
     a, b = cal.corner_ab_mm
@@ -143,15 +145,24 @@ def test_a_simulated_lineup_finds_and_corrects_each_offset(tmp_path):
     first = _lineup_run(tmp_path / "first", machine, faults)
     assert first.error is None, first.lines(machine)
     assert first.proposal[3] == (0.0, 0.0)
-    assert first.proposal[1] == pytest.approx((0.030, -0.020), abs=0.005)
-    assert first.proposal[5] == pytest.approx((-0.025, 0.040), abs=0.005)
 
-    # Written, the maps land on each other.
+    def beyond(n, dx, dy):
+        # The fault adds to the offset machine.toml already has.
+        x, y = machine.laser(n).cell_offset_xy_mm
+        return x + dx, y + dy
+
+    assert first.proposal[1] == pytest.approx(beyond(1, 0.030, -0.020),
+                                              abs=0.005)
+    assert first.proposal[5] == pytest.approx(beyond(5, -0.025, 0.040),
+                                              abs=0.005)
+
+    # Written, the maps land on each other; the beams stay where they are.
     corrected = dataclasses.replace(machine, lasers=tuple(
         dataclasses.replace(laser, cell_offset_xy_mm=first.proposal.get(
             laser.number, laser.cell_offset_xy_mm))
         for laser in machine.lasers))
-    second = _lineup_run(tmp_path / "second", corrected, faults)
+    second = _lineup_run(tmp_path / "second", corrected, faults,
+                         truth=machine)
     su, sv = second.spread_um()
     assert su is not None and su < 6
     assert sv is not None and sv < 6

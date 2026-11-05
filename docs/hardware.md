@@ -971,6 +971,24 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     flat instead, every map of the day aligns at +110 to +157 um and
     laser 6's at +115 to +132; its edge spread over rows halved, 36 to
     19 um.
+  - **The first line-up** (2026-11-05, 0.6.50,
+    `20261105T181317Z_lineup_test-lineup`, from the Maintenance window):
+    a 1.2 mm square on the cell's corner, set under laser 3, 25 um rows.
+    Every edge found clearly, laser 2's included:
+
+    | Laser | Edge u, mm | Edge v, mm | Offset saved, um (X, Y) |
+    |---|---|---|---|
+    | 1 | 0.543 | 0.134 | -21, -8 |
+    | 2 | 0.556 | 0.205 | -8, +63 |
+    | 3 | 0.565 | 0.142 | 0, 0 (reference) |
+    | 4 | 0.479 | 0.222 | -86, +80 |
+    | 5 | 0.551 | 0.250 | -14, +108 |
+    | 6 | 0.544 | 0.201 | -20, +59 |
+
+    The spread was 86 um along u and 116 um along v; laser 4 furthest,
+    as in every run. Lasers 5 and 6 had single rows drawn 100-200 um
+    off: their moves had started late, not just their replies (0.6.51,
+    [scan](scan.md#position)).
   - **Laser 3 "lowest along v" was not real** (0.6.50). Measured again
     with the line-up's edge finding (`run/lineup.py`), the edge along A
     of lasers 1-3 sits 0.05-0.07 mm into these patches, one or two
