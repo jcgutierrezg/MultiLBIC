@@ -194,6 +194,12 @@ settle_ms = 2000
 # relit after up to 1 s dark came back at 40 % and stayed there; 2 s or
 # more gave full power (bench, 2026-10-27). The driver waits out the rest.
 relight_ms = 3000
+# Release the servo once it has turned and settled (firmware 2.1.0), so
+# it stops correcting itself: held powered, it moved the beam in steps
+# of 7-24 um at random times, for minutes after a turn and with nothing
+# else moving (bench, 2026-11-05). The driver applies it at every
+# open(); 2.0.0 has no such command and keeps the servo powered.
+release_servo = true
 
 # Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.

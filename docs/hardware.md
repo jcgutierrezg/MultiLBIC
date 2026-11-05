@@ -112,8 +112,8 @@ run.
 ### Laser board firmware
 
 [`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino)
-is now **version 2.0.0** (Phase 2). Its protocol is in
-[devices](devices.md#laser-board-protocol-20). Pins and angles are
+is now **version 2.1.0** (2026-11-05; 2.0.0 in Phase 2). Its
+protocol is in [devices](devices.md#laser-board-protocol-21). Pins and angles are
 unchanged: laser enables on pins 1, 2, 3, 4, 5, 8, servo on pin 9, and
 pins 0, 6, 7 and 10 free.
 
@@ -125,6 +125,8 @@ What changed from the 1.x sketch:
 - 1.x always busy-waited 2 s. In 2.0 the settle time can be set, and is
   skipped when the servo is already at the angle.
 - 1.x parked the servo at 90° on `LASER 0`. 2.0 leaves it where it is.
+- 2.1 releases the servo once it has turned and settled (`RELEASE`),
+  because held powered it kept moving the beam (below, 2026-11-05).
 
 **2.0.0 is on the board** (flashed 2026-10-19; `ID?` answers
 `MultiLBIC-Laser,2.0.0`, `STATE?` answers `STATE 0 90`). The driver
@@ -851,6 +853,24 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     about 10 um a laser).
   - Laser 2's output swung from -11 to -48 uA between runs the same
     afternoon (one commissioning failed on it), the 5 V supply again.
+- **The servo moves on its own while powered (2026-11-05).** Maps
+  located on the photodiode still didn't line up, so the spot was
+  watched on a blade edge for minutes at a time (`servo_creep.py`,
+  `servo_ab.py`; the photodiode reads 13-70 uA per um there):
+
+  | Test | What moved | The edge |
+  |---|---|---|
+  | Laser 3, revolver screws eased, edge tracked by the stage, then three servo swings away and back | stage | after each return, 60-106 um over 2 min, in jumps of 8-40 um |
+  | B: laser 4 parked half over the edge, stage still, then two swings | nothing | jumps of 7-24 um, all one way, at random times for minutes; 20 s apart to over a minute |
+  | A: laser 4, edge tracked by the stage for 4 min, servo not moved | stage | drift of -12 um, no jumps |
+
+  - With nothing else moving, the spot jumps only while the servo is
+    powered and holding an angle: its controller corrects itself now and
+    then (the builder's idea), each time a few um of beam. Moving the
+    stage and reading the photodiode don't do it (test A).
+  - **Decided: release the servo after each turn** (firmware 2.1.0,
+    0.6.44); the gearbox holds the revolver. Test B again with it
+    released tells whether the jumps stop.
 - **The six-laser map, and lasers 1-3 moved (2026-11-03).** A
   1.5 x 1.5 mm patch at the cell's corner with all six lasers
   (`20261103T171854Z_std_test_v2-corner`, 0.6.29): lasers 4-6 lined up

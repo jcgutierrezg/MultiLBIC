@@ -82,7 +82,7 @@ time since the last home or stop. Its `M400` answers the moment the
 queue ends, as Marlin's does. The fake link can delay every reply
 (`connect(..., latency_s, jitter_s)`), in order.
 
-## Laser board: protocol 2.0
+## Laser board: protocol 2.1
 
 Firmware: [`firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino`](../firmware/laser/MultiLBIC_Laser/MultiLBIC_Laser.ino).
 115200 baud, one command per line, **exactly one reply line per
@@ -90,13 +90,15 @@ command**.
 
 | Command | Reply | Notes |
 |---|---|---|
-| `ID?` | `MultiLBIC-Laser,2.0.0` | checked at `open()` |
+| `ID?` | `MultiLBIC-Laser,2.1.0` | checked at `open()` |
 | `STATE?` | `STATE <laser> <angle>` | laser 0 = all off |
 | `ANGLES?` | `ANGLES 150 90 30 150 90 30` | checked against `machine.toml` at `open()` |
 | `SETTLE?` | `SETTLE <ms>` | |
 | `SETTLE <ms>` | `OK SETTLE <ms>` | 0–10000 |
 | `LASER <1-6>` | `OK LASER <n>` | all off, servo turns, waits the settle time, laser on |
 | `LASER 0` or `OFF` | `OK OFF` | servo stays where it is |
+| `RELEASE?` | `RELEASE <0\|1>` | 2.1 only |
+| `RELEASE <0\|1>` | `OK RELEASE <0\|1>` | 1: release the servo after each turn (the default) |
 | anything else | `ERR UNKNOWN` | also `ERR BAD_LASER`, `ERR BAD_VALUE` |
 
 The settle wait is skipped when the servo is already at the angle, so
@@ -104,8 +106,16 @@ going from laser 1 to 4 (both 150°) is immediate. After a timeout the
 driver refuses commands until `resync()`, because a late reply would
 otherwise be read as the answer to the next command.
 
-Firmware 2.0.0 is on the board (flashed 2026-10-19). 1.x firmware
-answers in free text, and the driver refuses it at `open()`.
+With `RELEASE 1`, 2.1.0's default, the servo is released once it
+has turned and settled (no more control pulses) and attached again for
+the next turn; the gearbox holds the revolver. The driver sets it from
+`machine.toml`'s `[laser_board] release_servo` at every `open()`, since
+a power-up forgets it. 2.0.0 answers `RELEASE?` with `ERR UNKNOWN`: the
+driver accepts it, and its servo stays powered.
+
+Firmware 2.0.0 is on the board (flashed 2026-10-19); 2.1.0 is written
+(2026-11-05), not yet flashed. 1.x firmware answers in free text, and
+the driver refuses it at `open()`.
 
 ## miniSMU
 

@@ -217,6 +217,18 @@ def test_laser_board_relight(raw):
     assert parse(data).laser_board.relight_ms == 3000
 
 
+def test_laser_board_release(raw):
+    assert load().laser_board.release_servo is True
+    _breaks(raw, lambda d: d["laser_board"].update(release_servo=1),
+            "release_servo")
+    data = copy.deepcopy(raw)
+    data["laser_board"]["release_servo"] = False
+    assert parse(data).laser_board.release_servo is False
+    # Optional: an older machine.toml without it releases the servo.
+    del data["laser_board"]["release_servo"]
+    assert parse(data).laser_board.release_servo is True
+
+
 def test_geometry_defaults(machine):
     g = machine.geometry
     assert g.reference_laser == 2

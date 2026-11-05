@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.44 - The servo released after each turn
+
+- Laser board firmware 2.1.0: once the servo has turned and settled it
+  is released (its control pulses stop), and attached again only for
+  the next turn. Held powered, it moved the beam in steps of 7-24 um at
+  random times, for minutes after a turn and with the stage still
+  (bench, 2026-11-05). `RELEASE?` and `RELEASE <0|1>` read and set it.
+  To be flashed and tried on the bench.
+- `[laser_board] release_servo` (optional, default true): the driver
+  sets it at every `open()`. 2.0.0 has no such command, and is still
+  accepted as it was.
+
 ## 0.6.43 - Each laser placed from the photodiode
 
 - Runs locate each laser on the photodiode right after selecting it

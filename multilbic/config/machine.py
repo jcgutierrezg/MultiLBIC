@@ -115,6 +115,11 @@ class LaserBoardSettings:
     #: laser 1 relit sooner comes back at 40 % and stays there (bench,
     #: 2026-10-27). Optional in machine.toml.
     relight_ms: int = 3000
+    #: Release the servo once it has turned and settled (firmware 2.1:
+    #: `RELEASE 1`), so it stops correcting itself; held powered it moved
+    #: the beam in steps of 7-24 um (bench, 2026-11-05). Optional; the
+    #: driver applies it at every open(), and 2.0.0 can't.
+    release_servo: bool = True
 
 
 #: How an XY axis lines up with the raster stage: "+A" means moving that
@@ -435,7 +440,10 @@ def _parse_laser_board(t: _Table) -> LaserBoardSettings:
     settle = t.read_int("settle_ms")
     relight = (t.read_int("relight_ms") if t.has("relight_ms")
                else DEFAULT_RELIGHT_MS)
-    settings = LaserBoardSettings(settle_ms=settle, relight_ms=relight)
+    release = (t.read_bool("release_servo") if t.has("release_servo")
+               else True)
+    settings = LaserBoardSettings(settle_ms=settle, relight_ms=relight,
+                                  release_servo=release)
     t.done()
     if not 0 <= relight <= MAX_RELIGHT_MS:
         raise t.error(f"relight_ms {relight} is outside 0..{MAX_RELIGHT_MS}")
