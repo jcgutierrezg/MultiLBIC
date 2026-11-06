@@ -1,4 +1,6 @@
-"""The laser board driver, against the simulated 2.0.0 firmware."""
+"""The laser board driver, against the simulated 2.1.0 firmware."""
+
+import dataclasses
 
 import pytest
 
@@ -18,8 +20,40 @@ def rig(machine, clock):
 
 def test_open_identifies_and_reads_settle(rig):
     board, _, _ = rig
-    assert board.firmware == "MultiLBIC-Laser,2.0.0"
+    assert board.firmware == "MultiLBIC-Laser,2.1.0"
     assert board.settle_ms == 2000
+
+
+def test_open_sets_the_servo_release(machine, clock):
+    """machine.toml says whether the servo is released after each turn;
+    open() puts the board that way, whatever it was left at."""
+    fake = FakeLaserBoard()
+    fake.release = False
+    board = LaserBoard(connect(fake, clock), machine, clock)
+    board.open()
+    assert board.servo_release is True
+    assert fake.release is True
+    board.close()
+
+    held = dataclasses.replace(
+        machine, laser_board=dataclasses.replace(
+            machine.laser_board, release_servo=False))
+    board = LaserBoard(connect(fake, clock), held, clock)
+    board.open()
+    assert board.servo_release is False
+    assert fake.release is False
+    board.close()
+
+
+def test_open_accepts_2_0_0_without_release(machine, clock):
+    """2.0.0 has no RELEASE command and keeps the servo powered."""
+    fake = FakeLaserBoard(firmware_id="MultiLBIC-Laser,2.0.0")
+    board = LaserBoard(connect(fake, clock), machine, clock)
+    board.open()
+    assert board.servo_release is None
+    board.select(3)
+    assert fake.active == 3
+    board.close()
 
 
 def test_open_refuses_other_firmware(machine, clock):

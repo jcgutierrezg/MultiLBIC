@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
+from multilbic.run.locate import LOCATE_S, LaserFix, Locator
 from multilbic.run.motion import approach
 from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
@@ -62,7 +63,7 @@ if TYPE_CHECKING:
 
 
 #: The miniSMU's measurement ranges, as `--current-range` and the
-#: window name them: all five (docs/hardware.md). "auto" autoranges, and
+#: window name them: all five (docs/hardware/smu.md). "auto" autoranges, and
 #: drops samples while streaming (D15).
 CURRENT_RANGES: dict[str, float | None] = {
     "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3,
@@ -110,6 +111,11 @@ class RunRequest:
     laser_ranges_a: dict[int, float | None] = field(default_factory=dict)
     #: A laser whose range clips starts again one range up (D26).
     step_up: bool = True
+    #: Locate each laser on the photodiode right after selecting it and
+    #: place its map from that, not from its `xy_centre_mm`: the servo
+    #: lands it within about +-0.1 mm, differently each time
+    #: (`run.locate`). Needs a measured [photodiode] on an opened channel.
+    locate: bool = False
 
     def range_for(self, laser: int) -> float | None:
         """The measurement range laser `laser` maps with."""
@@ -135,6 +141,8 @@ class LaserOutcome:
     current_range_a: float | None = None
     #: The files of attempts that clipped and were started again.
     clipped_attempts: list[str] = field(default_factory=list)
+    #: Where it was located on the photodiode, if it was.
+    fix: LaserFix | None = None
 
 
 @dataclass
@@ -165,12 +173,17 @@ def plan_run(request: RunRequest, machine: MachineConfig) -> list[LaserPlan]:
             "machine.toml; their maps would land in the wrong place. "
             "Pass --allow-unmeasured to scan them anyway."
         )
+    if request.locate and (machine.photodiode is None
+                           or not machine.photodiode.measured):
+        raise RunPlanError(
+            "placing from the photodiode needs a measured [photodiode] in "
+            "machine.toml (commission first)")
     xy_lo = machine.geometry.xy_take_up_mm
     plans = []
     for n in request.lasers:
         laser = _laser(machine, n)
         placement = place(
-            request.calibration, laser.xy_centre_mm,
+            request.calibration, laser.on_cell_xy_mm,
             machine.ab.centre_mm, n,
         )
         for axis, value, travel in zip(
@@ -225,11 +238,13 @@ class LaserEstimate:
     warmup_s: float
     rows_s: float
     map_s: float
+    #: Locating it on the photodiode first, and going there and back.
+    locate_s: float = 0.0
 
     @property
     def total_s(self) -> float:
         return (self.travel_s + self.switch_s + self.baseline_s
-                + self.warmup_s + self.rows_s + self.map_s)
+                + self.warmup_s + self.rows_s + self.map_s + self.locate_s)
 
 
 @dataclass(frozen=True)
@@ -286,6 +301,7 @@ def estimate_run(
             warmup_s=request.warmup_s,
             rows_s=p.raster.estimate_s,
             map_s=MAP_FIXED_S + MAP_PER_SAMPLE_S * samples,
+            locate_s=LOCATE_S if request.locate else 0.0,
         ))
     return RunEstimate(HOMING_S, tuple(lasers))
 
@@ -332,6 +348,17 @@ class Session:
         self.on_row = on_row
         self.on_map = on_map
         self.stop = threading.Event()
+        self._locator: Locator | None = None
+        if request.locate:
+            pd = machine.photodiode
+            assert pd is not None  # plan_run checked
+            if pd.channel not in devices.smu.channels:
+                raise RunPlanError(
+                    f"placing from the photodiode needs SMU channel "
+                    f"{pd.channel}, which wasn't opened")
+            self._locator = Locator(devices, machine, clock, say=say)
+            # Stop reaches the locate the way it reaches the rows.
+            self._locator.halt = self.stop
         stamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
         self.folder = Path(out_root) / (
             f"{stamp}_{_slug(request.calibration.sample)}"
@@ -394,6 +421,19 @@ class Session:
         result.current_range_a = range_a
         try:
             x, y = plan.placement.xy_mm
+            if self._locator is not None:
+                # Selects the laser: the servo lands it here for its map.
+                fix = self._locator.locate(n)
+                result.fix = fix
+                x, y = x + fix.offset_xy_mm[0], y + fix.offset_xy_mm[1]
+                xy_lo = self.machine.geometry.xy_take_up_mm
+                for axis, value, travel in zip(
+                        "XY", (x, y), self.machine.xy.travel_mm, strict=True):
+                    if not xy_lo <= value <= travel:
+                        raise RunPlanError(
+                            f"laser {n}: located, the sample needs "
+                            f"{axis}{value:.3f}, outside {xy_lo:g}..{travel:g}")
+                self._event("laser_located", **fix.as_dict())
             approach(self.devices.marlin, self.machine, x=x, y=y,
                      stop=self.stop)
             while True:
@@ -408,7 +448,9 @@ class Session:
                 )
                 header["run_id"] = self.run_id
                 header["note"] = self.request.note
-                header["xy_mm"] = list(plan.placement.xy_mm)
+                header["xy_mm"] = [x, y]
+                if result.fix is not None:
+                    header["located"] = result.fix.as_dict()
                 header["calibration"] = self.request.calibration.to_dict()
                 if result.clipped_attempts:
                     header["clipped_attempts"] = result.clipped_attempts
@@ -548,6 +590,7 @@ class Session:
                 "laser_ranges_a": {str(n): v
                                    for n, v in r.laser_ranges_a.items()},
                 "step_up": r.step_up,
+                "locate": r.locate,
             },
             "plans": [
                 {
@@ -574,6 +617,7 @@ class Session:
                     "serpentine_shift_um": o.shift_um,
                     "current_range_a": o.current_range_a,
                     "clipped_attempts": o.clipped_attempts,
+                    "located": o.fix.as_dict() if o.fix else None,
                 }
                 for o in outcome.lasers
             ],

@@ -16,13 +16,18 @@ drift and a rate error. The current is `signal(channel, t)` plus noise;
 the scan simulation (`multilbic.sim.rig`) plugs the stage position and a
 synthetic sample into `signal`.
 
-The noise can be shaped like the bench's (`docs/hardware.md`, contacted
+The noise can be shaped like the bench's (`docs/hardware/smu.md`, contacted
 cell at 0 V): white noise (`noise_a`), mains pickup at `mains_hz` and
 its odd harmonics (`mains_a`), and slow drift made of a few sine waves
 between 0.2 and 0.7 Hz (`drift_a`, RMS). Packets can also arrive in
 bursts (`burst_s`): above 500 Hz the real one delivers about every
 100 ms, keeping the average rate. A burst delays arrival, never the
-timestamp.
+timestamp. A stamp lag (`stamp_lag_s`) stamps each packet that long
+after its current was measured, as the bench suggests the real one does
+(stamped when sent, docs/hardware/timing.md); it is what the sync check
+measures. A stamp saw-tooth (`stamp_saw_ms` every `stamp_saw_period_s`)
+is the real one's: its stamps fall behind for ~100 ms, then jump to
+catch up, while the measurements stay evenly spaced (bench, 2026-11-03).
 """
 
 from __future__ import annotations
@@ -59,6 +64,9 @@ class FakeMiniSMU:
         mains_hz: float = 50.0,
         drift_a: float = 0.0,
         burst_s: float = 0.0,
+        stamp_lag_s: float = 0.0,
+        stamp_saw_ms: float = 0.0,
+        stamp_saw_period_s: float = 0.1,
         seed: int = 0,
     ):
         self._clock = clock
@@ -74,6 +82,9 @@ class FakeMiniSMU:
         self.mains_hz = mains_hz
         self.drift_a = drift_a
         self.burst_s = burst_s
+        self.stamp_lag_s = stamp_lag_s
+        self.stamp_saw_ms = stamp_saw_ms
+        self.stamp_saw_period_s = stamp_saw_period_s
         self._random = random.Random(seed)
         shape = random.Random(seed + 1)
         self._mains_phase = shape.uniform(0, 2 * math.pi)
@@ -294,7 +305,7 @@ class FakeMiniSMU:
         while self._next_due and not self.stalled:
             channel = min(self._next_due, key=self._next_due.__getitem__)
             due = self._next_due[channel]
-            if self._released(due) > now:
+            if self._released(due + self.stamp_lag_s) > now:
                 return
             if self.garble_next:
                 self.garble_next = False
@@ -303,11 +314,21 @@ class FakeMiniSMU:
             self._next_due[channel] = due + interval
             volts = self.voltage[channel] if self.enabled[channel] else 0.0
             # Whole milliseconds and a fifth field, as the bench showed.
-            stamp = int(round(self.device_ms(due)))
+            # Measured at `due`, stamped when sent.
+            stamp = int(round(self.device_ms(due + self.stamp_lag_s)
+                              + self._saw_ms(due)))
             amps = self._current(channel, due)
             self._buffer.extend(
                 f"{channel},{stamp},{volts:.4e},{amps:.4e},0\n".encode()
             )
+
+    def _saw_ms(self, due: float) -> float:
+        """The stamp's saw-tooth error at `due`: +half at the start of
+        each period, falling to -half, then a jump back up."""
+        if not self.stamp_saw_ms or not self.stamp_saw_period_s:
+            return 0.0
+        phase = ((due - self._base_t) / self.stamp_saw_period_s) % 1.0
+        return self.stamp_saw_ms * (0.5 - phase)
 
     def _released(self, due: float) -> float:
         """When a packet stamped at `due` reaches the port."""
@@ -318,7 +339,8 @@ class FakeMiniSMU:
     def _next_due_time(self) -> float | None:
         if not self._next_due:
             return None
-        return self._released(min(self._next_due.values()))
+        return self._released(min(self._next_due.values())
+                              + self.stamp_lag_s)
 
 
 class FakeSerial:

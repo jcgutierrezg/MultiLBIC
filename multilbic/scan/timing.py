@@ -17,10 +17,22 @@ Three pieces, matching the plan in `docs/architecture.md` (option B):
   the clocks. The instrument's `set_time()` is never relied on.
 * **Row anchors.** A row ends when Marlin's `ok` to the `M400` after it
   arrives. That is the anchor: the row's start is the end minus the
-  modelled duration. The start of the move is not used, because Marlin's
-  100 ms first-move delay varies by about 20 ms (113-135 ms on the
-  bench), which at 2 mm/s is 40 µm, while the end is known to about a
-  millisecond.
+  modelled duration. Most of the time the `ok` comes a steady time
+  after the row's `G1` was sent, the move plus 93-96 ms (Marlin's
+  first-move delay and the round trip; bench, 72 run files, 2026-10-23
+  to 11-05), steady to half a millisecond in each file. But for a
+  stretch of rows, sometimes a whole map, it comes 20-40 ms late (in
+  about one map in six). The rows are then placed 20-40 ms late, which
+  at 4 mm/s turned the serpentine shift from +130 to as low as -196 µm
+  (2026-11-05). The move itself had started and ended on time: placed
+  from the send instead, the same maps gave the usual shift and their
+  forward and reverse rows met on the cell's edge.
+  `settle_late_replies` does that for every late row: a reply later
+  than the file's usual delay, by more than `LATE_REPLY_S`, is replaced
+  by the send time plus the usual delay plus the move. The usual delay
+  is the file's own, from its quickest replies, unless even those are
+  late against the machine's on-time delay (`[ab] row_reply_ms`): in
+  one map every row was 20-40 ms late, its quickest included.
 
 What is left uncorrected here is constant: the `ok`'s latency and the
 smallest stream delay. A constant time error moves forward rows one way
@@ -32,11 +44,12 @@ backlash.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 
 import numpy as np
 
-#: Marlin's DEFAULT_ACCELERATION on this machine (docs/hardware.md). The
+#: Marlin's DEFAULT_ACCELERATION on this machine (docs/hardware/motion.md). The
 #: acceleration of a move is the lower of this and each axis's own limit.
 MARLIN_DEFAULT_ACCEL_MM_S2 = 100.0
 #: Marlin waits this long before starting a move into an empty planner
@@ -45,6 +58,13 @@ MARLIN_DEFAULT_ACCEL_MM_S2 = 100.0
 FIRST_MOVE_DELAY_S = 0.100
 #: The clock map's stretch of time per minimum.
 CLOCK_WINDOW_S = 1.0
+#: A row's `ok` this much later than its file's usual send-to-reply
+#: delay is late (`settle_late_replies`). On time, the delay is steady
+#: to about half a millisecond in a file; late ones were 20-40 ms over.
+LATE_REPLY_S = 0.004
+#: The on-time delay for run files from before it was recorded in their
+#: header: the bench's (`[ab] row_reply_ms`, machine.toml).
+BENCH_ROW_REPLY_S = 0.0935
 
 
 @dataclass(frozen=True)
@@ -156,6 +176,39 @@ class RowAnchor:
             self.a_from_mm, self.a_to_mm, self.feed_mm_s,
             self.accel_mm_s2, self.end_s,
         )
+
+
+def reply_delays(anchors: Sequence[RowAnchor]) -> np.ndarray:
+    """Each row's time from its `G1` being sent to its `M400`'s ok,
+    minus the modelled move, in seconds."""
+    return np.array([
+        a.end_s - a.sent_s - a.motion().profile.duration_s for a in anchors
+    ])
+
+
+def settle_late_replies(
+    anchors: Sequence[RowAnchor],
+    on_time_s: float = BENCH_ROW_REPLY_S,
+) -> tuple[RowAnchor, ...]:
+    """The anchors, with each late reply replaced by the send time plus
+    the file's usual delay plus the move. The usual delay is the median
+    of the replies within `LATE_REPLY_S` of the quickest; if even the
+    quickest is late against `on_time_s`, the machine's on-time delay,
+    that is used."""
+    if not anchors:
+        return tuple(anchors)
+    delays = reply_delays(anchors)
+    quickest = float(delays.min())
+    if quickest > on_time_s + LATE_REPLY_S:
+        usual = on_time_s
+    else:
+        usual = float(np.median(delays[delays <= quickest + LATE_REPLY_S]))
+    out = []
+    for anchor, delay in zip(anchors, delays, strict=True):
+        if delay > usual + LATE_REPLY_S:
+            anchor = replace(anchor, end_s=anchor.end_s - (delay - usual))
+        out.append(anchor)
+    return tuple(out)
 
 
 @dataclass(frozen=True)

@@ -18,7 +18,7 @@ backlash, through a dead band: on a reversal the motor turns through
 the whole backlash before the stage moves again. `stage_position()`
 reports where the stage is, which is what a laser spot sees. Marlin's
 own backlash compensation is effectively off on this machine (correction
-0, `docs/hardware.md`), so nothing here undoes it.
+0, `docs/hardware/motion.md`), so nothing here undoes it.
 
 Simulated time comes from the clock passed to `attach()`, so a
 `ScaledClock` makes moves complete faster than real time while every
@@ -71,11 +71,28 @@ class FakeMarlin:
         home_duration_s: float = 2.0,
         reply_latency_s: float = 0.001,
         backlash_mm: dict[str, float] | None = None,
+        m400_late_s: float = 0.0,
+        m400_late_after: int = 0,
+        late_lines: tuple[int, ...] = (),
+        late_line_s: float = 0.0,
     ):
         self.machine = machine
         self.machine_type = machine_type or machine.name
         self.home_duration_s = home_duration_s
         self.reply_latency_s = reply_latency_s
+        #: The real board's `ok` to an `M400` sometimes comes 20-40 ms
+        #: late, for many rows in a row (bench, 2026-11-05): every M400
+        #: after the first `m400_late_after` is answered this late.
+        self.m400_late_s = m400_late_s
+        self.m400_late_after = m400_late_after
+        #: The board sometimes takes a line up late, so a row's move
+        #: starts late and its M400's ok comes late with it (single rows,
+        #: bench 2026-11-05): the lines numbered here (from 1, every line
+        #: received) wait `late_line_s` before they are taken up.
+        self.late_lines = frozenset(late_lines)
+        self.late_line_s = late_line_s
+        self.lines_received = 0
+        self.m400_count = 0
         #: Lost motion per axis on a reversal, in mm.
         self.backlash_mm = {axis: 0.0 for axis in AXES}
         self.backlash_mm.update(backlash_mm or {})
@@ -87,6 +104,10 @@ class FakeMarlin:
             "A": AxisLimits(ab.max_feed_mm_s, ab.max_accel_mm_s2),
             "B": AxisLimits(ab.max_feed_mm_s, ab.max_accel_mm_s2),
         }
+        #: What `M206` set: where each axis reads once homed.
+        self.home_offset: dict[str, float] = {}
+        #: StallGuard thresholds set by M914, by axis.
+        self.stall_threshold: dict[str, int] = {}
         self.travel = {
             "X": xy.travel_mm[0],
             "Y": xy.travel_mm[1],
@@ -237,9 +258,13 @@ class FakeMarlin:
                 return
             if self.halted or self.silent:
                 continue
+            self.lines_received += 1
             if self.reply_latency_s:
                 assert self._clock is not None
                 self._clock.sleep(self.reply_latency_s)
+            if self.late_line_s and self.lines_received in self.late_lines:
+                assert self._clock is not None
+                self._clock.sleep(self.late_line_s)
             self._process(line)
 
     def _process(self, line: str) -> None:
@@ -489,12 +514,32 @@ class FakeMarlin:
         self._wait_while(lambda: self.now() < end)
         with self._lock:
             for axis in axes:
-                self.commanded[axis] = 0.0
-                self.planned[axis] = 0.0
-                self._load_planned[axis] = 0.0
+                home = self.home_offset.get(axis, 0.0)
+                self.commanded[axis] = home
+                self.planned[axis] = home
+                self._load_planned[axis] = home
             self._reset_trace_locked(self._load_planned)
             self.homed = True
             self.motors_on = True
+
+    def _cmd_M211(self, command: str) -> None:
+        # Software endstops: the fake always keeps to `travel`, which is
+        # machine.toml's, as the real machine keeps to its hard stops.
+        pass
+
+    def _cmd_M914(self, command: str) -> None:
+        # StallGuard thresholds: kept, to be seen; homing here doesn't
+        # depend on them.
+        words = self._words(command)
+        for axis in ("A", "B"):
+            if axis in words:
+                self.stall_threshold[axis] = int(words[axis])
+
+    def _cmd_M206(self, command: str) -> None:
+        words = self._words(command)
+        for axis in ("A", "B"):
+            if axis in words:
+                self.home_offset[axis] = words[axis]
 
     def _cmd_G90(self, command: str) -> None:
         self.relative = False
@@ -512,6 +557,10 @@ class FakeMarlin:
             lambda: self._busy_locked() or self._locked_out_locked(),
             until=self._queue_end_locked,
         )
+        self.m400_count += 1
+        if self.m400_late_s and self.m400_count > self.m400_late_after:
+            assert self._clock is not None
+            self._clock.sleep(self.m400_late_s)
 
     def _cmd_M410(self, command: str) -> None:
         self._quickstop()

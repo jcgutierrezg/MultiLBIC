@@ -1,17 +1,23 @@
 """
-Which axis a jog arrow moves, so that the spot moves on the sample the
-way the arrow points, as the operator sees it.
+Which axis a jog arrow moves, so that the stage moves the way the arrow
+points, as the operator sees it at the machine.
+
+The stage, not the spot: the builder asked for it (2026-10-28) after
+the arrows first moved the spot over the sample, which is the opposite
+way and felt backwards at the machine. The spot moves across the sample
+against the arrow.
 
 `[display]` in machine.toml says which way +A (`u_points`) and +B
-(`v_points`) move the spot as seen at the machine; `[geometry]` says
-which AB axis each XY axis moves the sample along (`x_along`,
-`y_along`). On this machine +A and +X move the spot left, +B and +Y
-down (bench, 2026-10-23), so the left arrow is +A in AB mode and +X in
-XY mode. A machine with swapped or reversed axes gets its arrows right
-from the same two tables.
+(`v_points`) move the spot over the sample as seen at the machine, so
+the stage moves the opposite way; `[geometry]` says which AB axis each
+XY axis moves the sample along (`x_along`, `y_along`). On this machine
++A and +X move the spot left (bench, 2026-10-23), so the stage right:
+the right arrow is +A in AB mode and +X in XY mode, as the command
+line's `d` is. +B and +Y move the spot down, the stage up. A machine
+with swapped or reversed axes gets its arrows right from the same two
+tables.
 
-In the window, `w a s d` are arrows too (up, left, down, right). The
-command line's key mode predates this and maps `d` to X+ instead.
+In the window, `w a s d` are arrows too (up, left, down, right).
 """
 
 from __future__ import annotations
@@ -32,8 +38,8 @@ PAIRS = ("xy", "ab")
 
 
 def jog_for(direction: str, pair: str, machine: MachineConfig) -> tuple[str, int]:
-    """(axis, sign) that moves the spot `direction` on the sample, with
-    `pair` "xy" or "ab"."""
+    """(axis, sign) that moves the stage `direction`, with `pair` "xy"
+    or "ab"."""
     if direction not in OPPOSITE:
         raise ValueError(f"no direction {direction!r}")
     ab_axis, ab_sign = _ab_for(direction, machine)
@@ -51,10 +57,11 @@ def jog_for(direction: str, pair: str, machine: MachineConfig) -> tuple[str, int
 
 def _ab_for(direction: str, machine: MachineConfig) -> tuple[str, int]:
     d = machine.display
-    for axis, points in (("A", d.u_points), ("B", d.v_points)):
-        if direction == points:
+    for axis, spot in (("A", d.u_points), ("B", d.v_points)):
+        stage = OPPOSITE[spot]  # the stage moves against the spot
+        if direction == stage:
             return axis, 1
-        if direction == OPPOSITE[points]:
+        if direction == spot:
             return axis, -1
     raise ValueError(
         f"[display] u_points={d.u_points!r}, v_points={d.v_points!r} "

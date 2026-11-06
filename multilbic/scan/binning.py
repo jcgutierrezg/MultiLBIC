@@ -9,8 +9,21 @@ Raw samples to a pixel grid, and the cleaning done on the way.
   harmonics (bench). Pixels along a row are a few milliseconds long, too
   short to average over whole 20 ms cycles, so mains is removed per row
   instead: a least-squares fit of sines at the mains frequency and its
-  harmonics, subtracted. A row lasts tens of cycles, so a map feature
-  barely projects onto them.
+  harmonics, subtracted.
+  Fitted over the whole row, a big feature projects onto the sines:
+  about 1 % of a step over 30 cycles, which on a cell's 1 mA edge is
+  10 uA of 50 Hz put *into* the row, against tens of nA of mains
+  (bench, 2026-11-05). That ripple repeats from row to row, so the
+  serpentine alignment locked onto it, one mains cycle (80 um at
+  4 mm/s) off. So the sines are also fitted where the row is flat
+  only: each sample's level is the mean over one whole mains cycle
+  around it, which holds no mains at all; where that level changes by
+  more than twice the spread of what is left, the sample is not used,
+  and the rest, mains and noise, is fitted. That fit is blind to
+  features shorter than a cycle, which the whole row's fit averages
+  out. A feature leaking into a fit only adds to it, and the mains is
+  the same in both: the fit off the features is subtracted, unless it
+  is more than twice the whole row's.
 * **Slow drift** (0.2-0.7 Hz, the larger part with a cell connected) is
   not removed here. How to separate it from the signal is decision D8,
   set aside for now; the per-row cleaning is the place it would go.
@@ -66,7 +79,51 @@ def remove_mains(
         return y.copy()
     design = np.column_stack(columns)
     coefficients, *_ = np.linalg.lstsq(design, y, rcond=None)
+    residual, flat = _off_features(t, y, 1.0 / mains_hz)
+    if flat.sum() >= 4 * len(columns) and np.ptp(t[flat]) >= 2.0 / mains_hz:
+        off_features, *_ = np.linalg.lstsq(
+            design[flat], residual[flat], rcond=None
+        )
+        # The fit off the features, unless it is more than twice the
+        # whole row's: then features shorter than a cycle leaked into it.
+        if np.sum(off_features[1:] ** 2) <= 4 * np.sum(coefficients[1:] ** 2):
+            coefficients = off_features
     return y - design[:, 1:] @ coefficients[1:]
+
+
+def _off_features(
+    t: np.ndarray, y: np.ndarray, period_s: float
+) -> tuple[np.ndarray, np.ndarray]:
+    """Each sample minus its level, the mean over one mains period
+    around it (which holds no mains), and where the row is flat enough
+    for that difference to be mains and noise only."""
+    order = np.argsort(t, kind="stable")
+    ts, ys = t[order], y[order]
+    # The running integral, so a mean over any span is a difference.
+    integral = np.concatenate(
+        ([0.0], np.cumsum(np.diff(ts) * (ys[1:] + ys[:-1]) / 2))
+    )
+
+    def mean_over(start: np.ndarray, end: np.ndarray) -> np.ndarray:
+        return (np.interp(end, ts, integral)
+                - np.interp(start, ts, integral)) / (end - start)
+
+    half = period_s / 2
+    level = mean_over(ts - half, ts + half)
+    change = mean_over(ts, ts + period_s) - mean_over(ts - period_s, ts)
+    residual = ys - level
+    # Only where both spans lie inside the row.
+    inside = (ts >= ts[0] + period_s) & (ts <= ts[-1] - period_s)
+    flat = np.zeros(ts.size, dtype=bool)
+    if inside.any():
+        r = residual[inside]
+        spread = 1.4826 * float(np.median(np.abs(r - np.median(r))))
+        flat = inside & (np.abs(change) <= 2 * spread)
+    out_residual = np.empty_like(residual)
+    out_flat = np.empty_like(flat)
+    out_residual[order] = residual
+    out_flat[order] = flat
+    return out_residual, out_flat
 
 
 def baseline(

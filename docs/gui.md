@@ -7,18 +7,16 @@ title: "The window"
 
 `multilbic gui` opens it, maximised, and connects to the machine;
 `multilbic gui --sim` to the simulated one, with a synthetic sample on
-the carriage to find. Built in Phase 5 ([plan](plan.md)); it passed
-in simulation on Windows and on the Pi's monitor (2026-10-26). Its first
-run of the real machine is bench step 9 ([bench](bench.md#phase-5-a-map-from-the-window)).
+the carriage to find.
 
 ```bash
 uv run multilbic gui --sim
 ```
 
-On the Pi it runs on the Pi's own monitor, started there (D6), on
-deadsnakes' Python 3.14 with Ubuntu's Tk, whose text is smooth (D21;
-uv's own Python draws it jagged, `deploy/pi/setup.sh` says which you
-have). Only one MultiLBIC process can have the real machine at a time:
+On the Pi it runs on the Pi's own monitor (or that screen shared over
+remote desktop, [bench](bench.md#seeing-the-pis-screen)), on deadsnakes'
+Python 3.14 with Ubuntu's Tk, whose text is smooth (D21; uv's own
+Python draws it jagged, `deploy/pi/setup.sh` says which you have). Only one MultiLBIC process can have the real machine at a time:
 a second window or a `multilbic run` stops with "the machine is in use"
 ([run](run.md#run)).
 
@@ -27,7 +25,7 @@ a second window or a `multilbic run` stops with "the machine is in use"
 | | |
 |---|---|
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
-| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the photocurrent now |
+| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; Go to photodiode; the cell's and the photodiode's current now |
 | sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
 | run column | what the run is doing, a progress bar and the time left; the **Plan** tab (the run as set up, drawn and timed); a tab per laser with its map, live and then finished; Open run file..., Open folder |
 | footer | the last thing that happened; everything is in the Console |
@@ -50,8 +48,9 @@ waits for everything to be safe before it goes.
 Nothing moves until **Home**. **Motors off** releases the steppers, so
 the stage can be pushed by hand; home again afterwards.
 
-The pad's arrows move **the spot on the sample the way they point**, as
-you see it at the machine: on this machine ← is +A (or +X), ↓ is +B (or
+The pad's arrows move **the stage the way they point** (since 0.6.6;
+before, they moved the spot over the sample, the opposite way), as
+you see it at the machine: on this machine → is +A (or +X), ↑ is +B (or
 +Y). Each button says which axis it moves. This comes from `[display]`
 and `[geometry]` in `machine.toml` (`multilbic/gui/jogkeys.py`).
 
@@ -77,7 +76,7 @@ nothing.
 
 The window's version of `multilbic calibrate` ([run](run.md#calibrate)):
 
-1. **Start** homes the stage and lights the reference laser (2) over
+1. **Start** homes the stage and lights the reference laser (3) over
    the AB centre. Jog until the spot is on the sample's top-right
    corner as you look at it (the photocurrent halves on an edge, in the
    dark), then **Set corner here**.
@@ -116,7 +115,7 @@ drawn where that laser falls.
 The fields are `multilbic run`'s options ([run](run.md#run)), with the
 same defaults. The plan is checked as you type, with the checks `run`
 makes before anything moves: a field that isn't a number, a laser with
-a placeholder position (tick "allow lasers marked *" to scan it anyway),
+an unmeasured position (tick "allow lasers marked *" to scan it anyway),
 a sample too big for AB, a pixel too fine for the speed. The problem
 shows in red and **Start run** stays off until it is fixed. Above
 5 mm/s, and with autoranging, a warning shows in orange.
@@ -153,9 +152,8 @@ edit them):
   a few rows at the pitch with the laser's spot on each, and the pixels
   along the middle row. They show at a glance whether rows overlap,
   touch, or leave a strip only the spot's rim reaches. The spot is
-  `spot_um` in `machine.toml` (lasers 1-3 from the 2026-10-23 bench;
-  the photodiode measures all six in Phase 6); a laser without one
-  says so.
+  `spot_um` in `machine.toml`, measured by commissioning; a laser
+  without one says so.
 - **Ranges**: each laser's, in the table, with where it came from
   (checked, set, guess); a note when any is a guess.
 - **Times**: homing, then each laser (its rows, the time per row, its
@@ -171,8 +169,8 @@ from the raster (how many, how long with run-up, at what speed), the
 XY travel from the distances between placements, the map's building
 time from the samples it will hold. Homing (28 s), a laser's fixed cost
 (13 s plus the servo's settle) and the per-row overhead (0.13 s) are
-measured constants from the bench runs of 2026-10-23 and 26; on the
-step 9 run the estimate gave 3 min 43 s against 3 min 41 s. Every run
+measured constants from the bench runs of 2026-10-23 and 26 (3 min
+43 s estimated against 3 min 41 s on a laser 2 map then). Every run
 records its estimate in `run.json`, so the constants can be checked
 against later runs.
 
@@ -211,14 +209,44 @@ is heavy work. **Open folder** opens the last run's folder.
 
 ## Lasers and the photocurrent
 
-A laser button lights that laser; Off turns them all off. Lasers whose
-position in `machine.toml` is still a placeholder are marked `*`.
+A laser button lights that laser; Off turns them all off. A laser
+whose position in `machine.toml` isn't measured would be marked `*`.
 During a run the buttons are locked, and the one the run has lit is
 filled.
+
+**Go to photodiode** (where `machine.toml` has a photodiode) brings the middle of the photodiode's open quarter under the laser that
+is on, where all of its light lands on the chip: the place a locate
+starts from, from `machine.toml`'s position for that laser. It needs
+the stage homed and a laser on.
 
 Once homed, the photocurrent is read twice a second while the machine
 is idle: in the dark, an edge is where it halves. A run ends with the
 SMU output off, so readings stop until the next Home.
+
+**Cell** is channel 1 and **Photodiode** channel 2 (since 0.6.10): the
+window opens the SMU with both, at 0 V on autorange. Autorange is
+limited to 1 mA, and a reading at that limit is marked `(limit)`: the
+truth may be larger (the bright lasers on the photodiode are). During
+a run channel 2 is set up as channel 1 is, but not read.
+
+Pictures fill short gaps along a row (up to 4 pixels) from their
+neighbours, where a stretch of the stream is missing. The run file
+keeps the gaps.
+
+**place from photodiode** in Run setup (on by default, where
+`machine.toml` has a photodiode): each laser is located on the
+photodiode before its map and its map placed from that, about 40 s a
+laser ([run](run.md#placing-each-laser-from-the-photodiode)).
+
+### Maintenance
+
+**Maintenance...** at the bottom left (where `machine.toml` has a
+photodiode) opens a window of its own with three tabs: **Focus**,
+**Photodiode** and **Line-up**: focus assist, `multilbic commission`
+and the line-up, each showing what it found and writing to
+`machine.toml` only when asked. How to use each, and when, is in
+[commissioning](commissioning.md). While one runs, the rest of the
+window waits; Esc or STOP stops it.
 
 ## Colours
 

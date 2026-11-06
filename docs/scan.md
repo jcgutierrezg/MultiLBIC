@@ -5,9 +5,9 @@ title: "Scan"
 
 # Scan
 
-How a map is made from a run, as built in Phase 3. The design it
-follows is in [architecture](architecture.md#position-sync); decisions
-are in [plan](plan.md#decisions).
+How a map is made from a run. The design it follows is in
+[architecture](architecture.md#position-sync), what the bench measured
+in [timing](hardware/timing.md), decisions in [decisions](decisions.md).
 
 | Module | Job |
 |---|---|
@@ -41,10 +41,30 @@ are in [plan](plan.md#decisions).
 ## Position
 
 **Row anchors.** A row ends when Marlin's `ok` to the `M400` after it
-arrives; the start is that time minus the modelled duration. The start
-of the move is not used: the first-move delay was 113–135 ms on the
-bench, a 40 µm spread at 2 mm/s. Marlin's `Reply` now carries `sent_s`
-and `received_s`, stamped on the reader thread.
+arrives; the start is that time minus the modelled duration. Marlin's
+`Reply` carries `sent_s` and `received_s`, stamped on the reader
+thread.
+
+**Late replies.** On time, the `ok` comes a steady time after the row's
+`G1` was sent, beyond the move: 93–96 ms, steady to half a millisecond
+in each file (`[ab] row_reply_ms`, 93.5). For a stretch of rows, in
+about one map in six, it comes 20–40 ms late, and the move does not:
+placed from the reply, those rows sat 20–40 ms late and the serpentine
+shift flipped sign (bench, 2026-11-05). So a row whose reply is more
+than 4 ms later than its file's usual delay is placed from its send
+plus that delay (`scan.timing.settle_late_replies`). The usual delay
+is the file's quickest replies', or `row_reply_ms` when even those are
+late.
+
+**Rows that start late.** A single row's reply can come late because
+its move started late, the board having taken its `G1` up late; then
+the reply is right and the send is not (lasers 5 and 6, the first
+line-up, 2026-11-05: three rows 27–45 ms late drawn 100–200 um off from
+the send, within 10–20 um from the reply). The files can't tell the two
+apart by their times, but a row's own data can: each late row keeps the
+placement, send or reply, that lines up better with the on-time rows of
+its direction within 4 rows (`mapping._agreeing`). Without such rows to
+compare, as in a map late from end to end, the send stays.
 
 Between rows, the B step gets its own `M400`, so each row starts from
 rest. Queued back to back, Marlin would carry speed through the corner
@@ -62,6 +82,19 @@ convex hull that lies closest to them. A window where the host read
 late sits above the line and does not tilt it, as it would a
 least-squares fit. It is updated as samples arrive (`ClockTracker`).
 
+**Dating samples by count** (since 0.6.35, `scan.stamps`). The
+miniSMU measures at a steady rate, but its stamps saw-tooth: they fall
+about 6 % behind for ~100 ms, then jump 5-8 ms to catch up (bench,
+2026-11-03). A run file now keeps every sample the stream gave, those
+between rows too, so each channel's samples are dated by a straight
+line of stamp against sample number over the whole file, where the
+saw-tooth averages out. The line is split where the stamps step more
+than 12 ms off its pace (a lost stretch or a restart). In the simulator
+with the bench's saw-tooth, the edge's row-to-row spread at 4 mm/s
+falls from 7.2 to 1.7 um and the empty pixels from 5.9 % to none.
+Files from before keep their stamps; `RunFile.scan_data(stamps=True)`
+gives the stamps for comparison.
+
 **The serpentine shift.** Everything left is constant: the `ok`'s
 latency, the stream's smallest delay, backlash on A. Each puts forward
 rows one way and reverse rows the other. The shift is measured by
@@ -77,6 +110,11 @@ the same way for every row; the stage then sits half the backlash
 behind B's commanded value throughout. Corner calibration (Phase 4)
 has to approach the corner the same way, and then the offset cancels.
 
+**Each laser's placement** comes from the photodiode where the run
+located it, plus its `cell_offset_xy_mm`
+([run](run.md#placing-each-laser-from-the-photodiode)); both are in the
+file's header.
+
 ## Cleaning
 
 - **Dark baseline.** Each laser's map starts with the laser off and the
@@ -84,8 +122,14 @@ has to approach the corner the same way, and then the offset cancels.
   spread after mains removal is the noise floor. Both go in the trailer.
 - **Mains.** Pixels last a few ms, too short to average whole 20 ms
   cycles, so each row has the best-fitting sines at `mains_hz`
-  (`machine.toml`, 50 Hz) and two harmonics subtracted. A large step in
-  the map leaks about 1 % into those sines over a 30-cycle row.
+  (`machine.toml`, 50 Hz) and two harmonics subtracted. Fitted over
+  the whole row, a large step leaks about 1 % into those sines over a
+  30-cycle row: on a cell's 1 mA edge, 10 uA of 50 Hz put into the
+  row, which the serpentine alignment locked onto (laser 6, bench,
+  2026-11-05). So the sines are fitted where the row is flat, against a
+  moving average over one mains cycle (which holds no mains), and that
+  fit is used unless it is more than twice the whole row's, which only
+  happens where features shorter than a cycle leak into it.
 - **Slow drift** is left in. How to separate it is decision D8, set
   aside while there is no enclosure. On the simulated map it shows as
   the gaps between cells sitting tens of nA off zero.
@@ -101,7 +145,10 @@ One CSV per laser map, in SMUniversal's `#`-header style, so that
 # sample: ...            one `# key: value` per line; values are JSON
 # status: incomplete
 row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
+-3,0,1,...                the stream before the baseline (no position)
 -1,0,1,...                the dark baseline
+-2,0,1,...                the warm-up, laser on, stage still
+-3,0,1,...                the stream through the turnaround
 #row: {"index": 0, "b_mm": ..., "end_s": ...}
 0,1,1,...                 that row's samples
 ...
@@ -119,6 +166,9 @@ row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
   before alignment, for a quick look.
 - **One line per packet**, with a channel column: the two channels
   stream separate packets, so they are not paired up.
+- **Every packet**, in the stream's order (since 0.6.35, header
+  `stream: continuous`): the ones between the blocks are row `-3`, with
+  no position, never mapped. They are what dating by count needs.
 - The header names the sample, laser and wavelength, frame, pixel,
   pitch, speed, stream rate, mains frequency, app version, commit and
   dirty state, and every device's firmware.
@@ -180,9 +230,3 @@ moment; device tests keep the plain one.
 under laser 3 (652 nm), dark fingers, the defect as a dimmer block in
 the right cell's upper half, and the rows outside the cells near zero
 give or take the drift.
-
-## Not done here
-
-Phase 4: homing and corner calibration as steps of a run, the loop over
-lasers, Stop, fault handling beyond "laser off, stream stopped, output
-off, file marked", and running a real map off the machine.

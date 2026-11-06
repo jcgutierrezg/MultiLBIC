@@ -325,10 +325,10 @@ class OutlinePreview:
         machine = self.app.machine
         g = machine.geometry
         (xp, yp), _ = self.outline
-        ref = machine.laser(g.reference_laser).xy_centre_mm
+        ref = machine.laser(g.reference_laser).on_cell_xy_mm
         lit = self.laser or g.reference_laser
         try:
-            centre = machine.laser(lit).xy_centre_mm
+            centre = machine.laser(lit).on_cell_xy_mm
         except KeyError:
             centre = ref
         # Under laser `lit`, the sample point under the reference laser
@@ -530,6 +530,13 @@ class RunSetupPanel:
                                variable=self.step_up, command=self.changed)
         step.pack(side="left", padx=(12, 0))
         self.entries.append(step)
+        self.locate = tk.BooleanVar(master=app.root, value=True)
+        if app.machine.photodiode is not None:
+            place = ttk.Checkbutton(
+                more, text="place from photodiode", variable=self.locate,
+                command=self.changed)
+            place.pack(side="left", padx=(12, 0))
+            self.entries.append(place)
 
         note = ttk.Frame(self.frame)
         note.grid(row=6, column=0, columnspan=4, sticky="ew", pady=2)
@@ -582,6 +589,7 @@ class RunSetupPanel:
             laser_ranges={n: self.range_vars[n].get() for n in lasers},
             range_sources={n: self.range_source[n] for n in lasers},
             step_up=self.step_up.get(),
+            locate=self.locate.get(),
         )
 
     # ---- ranges ----

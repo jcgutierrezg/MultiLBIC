@@ -26,6 +26,7 @@ and how it ends:
 from __future__ import annotations
 
 import datetime
+import math
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -39,7 +40,7 @@ from multilbic.hardware.laser import LaserBoard
 from multilbic.hardware.marlin import Marlin
 from multilbic.hardware.smu import PhotocurrentSmu, SmuError, StreamSample
 from multilbic.run.motion import AB_TRAVEL_FEED_MM_S, RunStopped, approach
-from multilbic.scan.mapping import BASELINE_ROW, WARMUP_ROW
+from multilbic.scan.mapping import BASELINE_ROW, GAP_ROW, WARMUP_ROW
 from multilbic.scan.raster import TRAVEL_FEED_MM_S, RasterPlan
 from multilbic.scan.timing import ClockTracker, RowAnchor
 from multilbic.store.runfile import RunWriter, SampleRow
@@ -139,6 +140,8 @@ class _Collector:
         self._clock = clock
         self.tracker = ClockTracker()
         self._pending: list[StreamSample] = []
+        #: Older than the last block taken, not yet written.
+        self.between: list[StreamSample] = []
         self.received = 0
 
     def pull(self) -> None:
@@ -172,7 +175,8 @@ class _Collector:
         self, lo_s: float, hi_s: float
     ) -> list[tuple[StreamSample, float]]:
         """Samples taken in [lo_s, hi_s], with their mapped host times.
-        Older ones are dropped; newer ones wait for the next row."""
+        Older ones go to `between` (the stream between blocks, which the
+        file keeps); newer ones wait for the next row."""
         if not self._pending:
             return []
         host = self.tracker.fit().to_host(
@@ -184,8 +188,26 @@ class _Collector:
                 later.append(sample)
             elif h >= lo_s:
                 taken.append((sample, float(h)))
+            else:
+                self.between.append(sample)
         self._pending = later
         return taken
+
+    def write_rest(self, writer: RunWriter) -> None:
+        """Everything still held, at the end: after the last block."""
+        self.between.extend(self._pending)
+        self._pending = []
+        self.write_between(writer)
+
+    def write_between(self, writer: RunWriter) -> None:
+        """The samples older than the last block taken, before it in
+        the file: every sample stays in the stream's order (`GAP_ROW`,
+        for dating by count)."""
+        if self.between:
+            writer.write_samples([
+                _sample_row(s, GAP_ROW, 0, math.nan, math.nan)
+                for s in self.between])
+            self.between = []
 
 
 def scan_laser(
@@ -255,6 +277,7 @@ def scan_laser(
         collector.wait_past(t1)
         stage = marlin.position()
         baseline = collector.take(t0, t1)
+        collector.write_between(writer)
         block = [
             _sample_row(s, BASELINE_ROW, 0, stage["A"], stage["B"])
             for s, _ in baseline
@@ -275,9 +298,11 @@ def scan_laser(
                 clock.sleep(min(0.5, warmup_s - (clock.now() - w0)))
             w1 = clock.now()
             collector.wait_past(w1)
+            warm = collector.take(w0, w1)
+            collector.write_between(writer)
             block = [
                 _sample_row(s, WARMUP_ROW, 0, stage["A"], stage["B"])
-                for s, _ in collector.take(w0, w1)
+                for s, _ in warm
             ]
             writer.write_samples(block)
             written(WARMUP_ROW, block)
@@ -309,6 +334,7 @@ def scan_laser(
             taken = collector.take(
                 motion.start_s - ROW_MARGIN_S, motion.end_s + ROW_MARGIN_S
             )
+            collector.write_between(writer)
             _check_range(taken, current_range_a, f"row {row.index}")
             expected = plan.stream_hz * motion.profile.duration_s
             if len(taken) < MIN_ROW_SAMPLE_SHARE * expected:
@@ -340,6 +366,12 @@ def scan_laser(
         raise
     finally:
         _shut_down(devices, moving=status != "complete", say=say)
+        try:
+            # What came after the last block too, so the file holds
+            # every sample received.
+            collector.write_rest(writer)
+        except Exception as exc:
+            say(f"the stream's last samples weren't written: {exc}")
         if collector.received:
             trailer["clock_map"] = collector.tracker.fit().as_dict()
         trailer["samples_received"] = collector.received
@@ -416,6 +448,8 @@ def run_header(
         "firmware": firmware,
         "laser": laser,
         "wavelength_nm": machine.laser(laser).wavelength_nm,
+        # Added to where the photodiode puts the laser (`run.lineup`).
+        "cell_offset_xy_mm": list(machine.laser(laser).cell_offset_xy_mm),
         "frame_origin_ab_mm": list(r.frame.origin_ab_mm),
         "frame_size_mm": [r.frame.width_mm, r.frame.height_mm],
         "pixel_mm": r.pixel_mm,
@@ -431,5 +465,9 @@ def run_header(
         "current_range_a": current_range_a,
         "current_limit_a": current_limit_for(current_range_a),
         "ab_backlash_mm": machine.geometry.ab_backlash_mm,
+        "row_reply_ms": machine.ab.row_reply_ms,
         "estimate_s": round(plan.estimate_s, 1),
+        # Every sample the stream gave is kept, in order, those between
+        # rows too (`GAP_ROW`): they are dated by count (`scan.stamps`).
+        "stream": "continuous",
     }

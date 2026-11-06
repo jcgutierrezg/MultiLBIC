@@ -98,9 +98,26 @@ class LaserBoard:
             # The firmware forgets a runtime value on power-up, so the
             # configured one is applied every time.
             self.set_settle(wanted)
+        self.servo_release = self._apply_release()
         state = self.state()
         self._active, self._angle = state.laser, state.servo_angle_deg
         return ident
+
+    def _apply_release(self) -> bool | None:
+        """Release the servo after each turn, or keep it powered, as
+        machine.toml says (firmware 2.1). Returns what the board now does;
+        None for 2.0.0, which has no such command and keeps it powered."""
+        try:
+            reply = self.query("RELEASE?")
+        except LaserBoardError:
+            return None
+        if not reply.startswith("RELEASE "):
+            return None
+        wanted = self._machine.laser_board.release_servo
+        if (reply.split()[1] == "1") != wanted:
+            value = 1 if wanted else 0
+            self._expect(self.query(f"RELEASE {value}"), f"OK RELEASE {value}")
+        return wanted
 
     def close(self) -> None:
         self._link.close()

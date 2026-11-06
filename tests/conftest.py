@@ -1,8 +1,11 @@
-"""Shared fixtures, and the switch that keeps hardware tests off by default.
+"""Shared fixtures, the switch that keeps hardware tests off by default,
+and the test windows kept off the screen.
 
 Tests marked `hardware` need the real machine. They are skipped unless
 pytest is run with `--hardware`, which is only ever done on the Pi.
 """
+
+import os
 
 import pytest
 
@@ -32,6 +35,48 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         if "hardware" in item.keywords:
             item.add_marker(skip)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _keep_test_windows_off_screen():
+    """Build every test window transparent and off-screen, as
+    SMUniversal's suite does.
+
+    The window tests build real windows, which used to appear on top of
+    whatever the person running the suite was doing (the builder asked,
+    2026-11-03). Windows has no virtual display to put them on, so they
+    are made invisible instead: fully transparent, and far outside the
+    desktop. They are still real, mapped windows, so geometry, events
+    and `update()` behave as before.
+
+    Set `MULTILBIC_TEST_SHOW_WINDOWS=1` to see them (to watch a test, or
+    take a screenshot of one).
+    """
+    if os.environ.get("MULTILBIC_TEST_SHOW_WINDOWS"):
+        yield
+        return
+    try:
+        import tkinter as tk
+    except ImportError:
+        yield
+        return
+    originals = {cls: cls.__init__ for cls in (tk.Tk, tk.Toplevel)}
+
+    def hiding(original):
+        def init(self, *args, **kwargs):
+            original(self, *args, **kwargs)
+            try:
+                self.attributes("-alpha", 0.0)
+                self.geometry("+-32000+-32000")
+            except tk.TclError:
+                pass  # a platform without alpha still runs the test
+        return init
+
+    for cls, original in originals.items():
+        cls.__init__ = hiding(original)
+    yield
+    for cls, original in originals.items():
+        cls.__init__ = original
 
 
 @pytest.fixture

@@ -11,10 +11,11 @@ from __future__ import annotations
 
 import queue
 import threading
+from collections.abc import Callable
 
 from multilbic.clock import Clock
 
-FIRMWARE_ID = "MultiLBIC-Laser,2.0.0"
+FIRMWARE_ID = "MultiLBIC-Laser,2.1.0"
 LASER_ANGLES = (150, 90, 30, 150, 90, 30)
 START_ANGLE = 90
 MAX_SETTLE_MS = 10000
@@ -38,6 +39,13 @@ class FakeLaserBoard:
         self.silent = False
         #: Every command line from the host, in order.
         self.received: list[str] = []
+        #: 2.1.0 releases the servo after each turn (`RELEASE`); 2.0.0
+        #: has no such command.
+        self.has_release = not firmware_id.endswith("2.0.0")
+        self.release = True
+        #: Called with the new angle whenever the servo turns (the rig
+        #: uses it to land the lasers a little off, as the real one does).
+        self.on_servo_move: Callable[[int], None] | None = None
         self._inbox: queue.Queue[str | None] = queue.Queue()
         self._emit = None
         self._clock: Clock | None = None
@@ -88,6 +96,11 @@ class FakeLaserBoard:
                 return "ERR BAD_VALUE"
             self.settle_ms = int(value)
             return f"OK SETTLE {self.settle_ms}"
+        if command == "RELEASE?" and self.has_release:
+            return f"RELEASE {1 if self.release else 0}"
+        if command in ("RELEASE 0", "RELEASE 1") and self.has_release:
+            self.release = command.endswith("1")
+            return f"OK RELEASE {1 if self.release else 0}"
         if command in ("OFF", "LASER 0"):
             self._set_active(0)
             return "OK OFF"
@@ -100,6 +113,8 @@ class FakeLaserBoard:
             target = self.angles[laser - 1]
             if target != self.servo_angle:
                 self.servo_angle = target
+                if self.on_servo_move is not None:
+                    self.on_servo_move(target)
                 assert self._clock is not None
                 self._clock.sleep(self.settle_ms / 1000.0)
             self._set_active(laser)

@@ -54,7 +54,8 @@ def test_scripted_calibration_matches_the_truth(rig, machine, tmp_path):
     path = tmp_path / "cal.json"
     read, write, out = scripted([
         "x+1", "step 0.25", "a-", "where",
-        f"move x={x} y={y} a=17.5 b=17.5",
+        f"move x={x} y={y} a={machine.ab.centre_mm[0]} "
+        f"b={machine.ab.centre_mm[1]}",
         "read",
         "here",
         "size 2 1",
@@ -164,8 +165,8 @@ def test_key_mode_jogs_toggles_and_steps(rig, machine):
 def test_a_jog_out_of_range_in_key_mode_is_only_reported(rig, machine):
     import contextlib
 
-    # From A at the centre (17.5), three 10 mm steps up run past the
-    # 35 mm safe limit on the second.
+    # From A at the centre (20), 10 mm steps up run past the 39.5 mm
+    # safe limit on the second.
     keys = FakeKeys(["q", "e", "e", "d", "d", "\r"])
     read, write, out = scripted(["keys", "quit"])
     prompt = CalibrationPrompt(
@@ -175,7 +176,8 @@ def test_a_jog_out_of_range_in_key_mode_is_only_reported(rig, machine):
     )
     prompt.start()
     prompt.loop()
-    assert rig.marlin.position()["A"] == pytest.approx(27.5)
+    assert rig.marlin.position()["A"] == pytest.approx(
+        machine.ab.centre_mm[0] + 10.0)
     errors = [line for line in out if line.startswith("error")]
     assert len(errors) == 1 and "outside" in errors[0]
 
@@ -220,6 +222,33 @@ def test_calibrator_refuses_bad_input_before_moving(rig, machine):
         cal.trace()
     assert cal.position() == before
     cal.shut_down()
+
+
+def test_the_sample_stays_put_when_the_reference_laser_moves(rig, machine):
+    # Laser 2 refocused: its xy_centre_mm moves by d. A calibration made
+    # before keeps the sample where it is on the carriage, loaded or
+    # already open, and its corner's XY moves by d with the beam.
+    from dataclasses import replace
+
+    ref = machine.geometry.reference_laser
+    truth = rig.perfect_calibration("cell 7")
+    x, y = machine.laser(ref).xy_centre_mm
+    lasers = tuple(replace(laser, xy_centre_mm=(x + 0.3, y - 0.2))
+                   if laser.number == ref else laser
+                   for laser in machine.lasers)
+    moved = replace(machine, lasers=lasers)
+
+    loaded = calibrator(rig, moved)
+    loaded.adopt(truth)
+    opened = calibrator(rig, machine)
+    opened.adopt(truth)
+    opened.use_machine(moved)
+    for cal in (loaded, opened):
+        cx, cy = truth.corner_xy_mm
+        assert cal.corner_xy == pytest.approx((cx + 0.3, cy - 0.2))
+        assert cal.calibration().corner_carriage_mm == pytest.approx(
+            truth.corner_carriage_mm)
+        assert cal.calibration().reference_xy_mm == (x + 0.3, y - 0.2)
 
 
 def test_calibrator_outline_is_the_sample_as_a_run_places_it(rig, machine):
@@ -281,3 +310,21 @@ def test_halt_stops_a_trace_and_the_next_jog_works(rig, machine):
     assert after["X"] - before["X"] == pytest.approx(0.5)
     cal.shut_down()
     assert rig.fake_laser.active == 0
+
+
+def test_a_calibration_from_another_home_offset_is_refused(machine, tmp_path):
+    from multilbic.run.calibrate import CalibrationMismatch
+
+    old = {
+        "schema": "multilbic-calibration/1", "sample": "s",
+        "reference_laser": 2, "reference_xy_mm": [75.6, 71.7],
+        "corner_xy_mm": [70.0, 65.0], "corner_ab_mm": [17.5, 17.5],
+        "size_mm": [2.0, 1.0], "x_along": "+A", "y_along": "+B",
+    }  # before 0.6.17: no home offset, A/B zero 5 mm off the stop
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps(old))
+    assert load_calibration(path).ab_home_offset_mm == 0.0
+    with pytest.raises(CalibrationMismatch, match=r"\+5 mm off"):
+        load_calibration(path, machine)
+    path.write_text(json.dumps({**old, "ab_home_offset_mm": 5.0}))
+    assert load_calibration(path, machine).corner_ab_mm == (17.5, 17.5)

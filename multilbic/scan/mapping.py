@@ -34,13 +34,24 @@ from multilbic.scan.binning import (
     remove_mains,
 )
 from multilbic.scan.geometry import SampleFrame
-from multilbic.scan.timing import ClockMap, RowAnchor, fit_clock
+from multilbic.scan.timing import (
+    BENCH_ROW_REPLY_S,
+    ClockMap,
+    RowAnchor,
+    fit_clock,
+    settle_late_replies,
+)
 
 BASELINE_ROW = -1
 #: Samples taken with the laser on and the stage still, before the first
 #: row: how the laser's output settles after switching on. Kept in the
 #: file, never mapped.
 WARMUP_ROW = -2
+#: The stream between the blocks above: before the baseline, while the
+#: laser switches on, and through each turnaround between rows. Kept so
+#: every sample the stream gave is in the file in order, which lets them
+#: be dated by their count (`scan.stamps`); never mapped. No position.
+GAP_ROW = -3
 
 
 @dataclass(frozen=True)
@@ -63,6 +74,9 @@ class ScanData:
     laser: int = 0
     #: From machine.toml when the run was made.
     ab_backlash_mm: float = 0.0
+    #: Marlin's on-time delay from a row's `G1` to its `M400`'s ok,
+    #: beyond the move (`[ab] row_reply_ms`; `settle_late_replies`).
+    row_reply_s: float = BENCH_ROW_REPLY_S
 
 
 @dataclass(frozen=True)
@@ -105,8 +119,7 @@ def build_map(
     else:
         base = NO_BASELINE
 
-    positioned: list[tuple[RowAnchor, np.ndarray, np.ndarray, np.ndarray]] = []
-    for anchor in data.anchors:
+    def position(anchor: RowAnchor) -> Positioned:
         mine = on_channel & (data.row == anchor.index)
         device_ms = data.device_ms[mine]
         values = data.current_a[mine]
@@ -117,7 +130,17 @@ def build_map(
         if mains and values.size:
             values = remove_mains(device_ms / 1000.0, values, data.mains_hz)
         values = values - base.offset_a
-        positioned.append((anchor, motion.a_at(host[moving]), values, device_ms))
+        return anchor, motion.a_at(host[moving]), values, device_ms
+
+    settled = settle_late_replies(data.anchors, data.row_reply_s)
+    positioned = [position(anchor) for anchor in settled]
+    # A late reply is mostly the reply alone being late, but sometimes
+    # the move started late too (single rows, bench 2026-11-05): each
+    # late row keeps the placement its neighbours agree with.
+    for k, (raw, new) in enumerate(zip(data.anchors, settled, strict=True)):
+        if new.end_s != raw.end_s:
+            positioned[k] = _agreeing(k, positioned, position(raw), settled,
+                                      data.anchors)
 
     if align:
         alignment = align_mod.estimate_shift(
@@ -147,3 +170,52 @@ def build_map(
         data.pitch_mm,
     )
     return MapResult(grid, clock, base, alignment, rows)
+
+
+Positioned = tuple[RowAnchor, np.ndarray, np.ndarray, np.ndarray]
+#: A late row is compared with the on-time rows of its own direction this
+#: many rows either side, smoothed this much (the alignment's scale for
+#: a 50-100 um spot).
+NEIGHBOUR_ROWS = 4
+NEIGHBOUR_SMOOTH_MM = 0.02
+
+
+def _agreeing(
+    k: int,
+    positioned: list[Positioned],
+    from_reply: Positioned,
+    settled: tuple[RowAnchor, ...],
+    raw: tuple[RowAnchor, ...],
+) -> Positioned:
+    """Row `k` placed from its send (`positioned[k]`) or from its late
+    reply (`from_reply`): whichever lines up better with the on-time
+    rows near it that run the same way. With none of those, or nothing
+    to line up (no feature crossing the rows), the send stays: a reply
+    late for a stretch of rows was the reply alone."""
+    from_send = positioned[k]
+    direction = from_send[0].motion().direction
+    neighbours = [
+        positioned[j] for j in range(max(0, k - NEIGHBOUR_ROWS),
+                                     min(len(positioned), k + NEIGHBOUR_ROWS + 1))
+        if j != k and settled[j].end_s == raw[j].end_s
+        and positioned[j][0].motion().direction == direction
+        and positioned[j][1].size
+    ]
+    if not neighbours or not from_send[1].size or not from_reply[1].size:
+        return from_send
+
+    def misfit(candidate: Positioned) -> float | None:
+        row = RowSamples(direction, candidate[1], candidate[2])
+        shifts = []
+        for n in neighbours:
+            found = align_mod._pair_shift(
+                row, RowSamples(direction, n[1], n[2]),
+                align_mod.MAX_SHIFT_MM, NEIGHBOUR_SMOOTH_MM)
+            if found is not None and found[1] >= align_mod.MIN_QUALITY:
+                shifts.append(found[0])
+        return abs(float(np.median(shifts))) if shifts else None
+
+    send, reply = misfit(from_send), misfit(from_reply)
+    if send is None or reply is None or send <= reply:
+        return from_send
+    return from_reply

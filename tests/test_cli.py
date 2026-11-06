@@ -72,10 +72,22 @@ def test_real_run_refused_until_directions_are_checked(machine, tmp_path):
 
 
 def test_bad_requests_are_refused_before_devices(machine, tmp_path):
+    from importlib import resources
+
     path, _, _ = saved_calibration(machine, tmp_path)
+    # Laser 5 a placeholder again (all six were commissioned 2026-10-30).
+    lines = resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8").splitlines(keepends=True)
+    start = lines.index("number = 5\n")
+    at = next(i for i in range(start, len(lines))
+              if lines[i].startswith("measured"))
+    lines[at] = "measured = false\n"
+    placeholder = tmp_path / "machine.toml"
+    placeholder.write_text("".join(lines), encoding="utf-8", newline="")
     with pytest.raises(SystemExit, match="placeholder"):
-        cli.main(["run", str(path), "--sim", "--yes", "--lasers", "5",
-                  "--pixel", "0.01", "--pitch", "0.05"])
+        cli.main(["--machine", str(placeholder), "run", str(path), "--sim",
+                  "--yes", "--lasers", "5", "--pixel", "0.01",
+                  "--pitch", "0.05"])
     with pytest.raises(SystemExit, match="e.g. 1,2,3"):
         cli.main(["run", str(path), "--sim", "--yes", "--lasers", "two",
                   "--pixel", "0.01", "--pitch", "0.05"])

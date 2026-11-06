@@ -33,7 +33,8 @@ def test_values_match_hardware_notes():
     # Laser 2 is the alignment laser; its position was measured.
     laser2 = config.laser(2)
     assert laser2.wavelength_nm == 519
-    assert laser2.xy_centre_mm == (75.6, 71.7)
+    # Commissioned again 2026-11-03: it had moved 1 mm since 2026-10-30.
+    assert laser2.xy_centre_mm == (76.058, 72.604)
     assert laser2.measured
     # Two groups of three share servo angles.
     for a, b in [(1, 4), (2, 5), (3, 6)]:
@@ -43,10 +44,16 @@ def test_values_match_hardware_notes():
         )
     # 4, 5 and 6 are placeholders until commissioning.
     assert [laser.measured for laser in config.lasers] == [
-        True, True, True, False, False, False,
+        True, True, True, True, True, True,
     ]
-    assert config.ab.centre_mm == (17.5, 17.5)
-    assert config.ab.max_feed_mm_s == 6.0
+    assert config.ab.centre_mm == (20.0, 20.0)
+    # Zero at the hard stop, 0.5 mm kept clear of both (2026-10-29).
+    assert config.ab.home_offset_mm == 5.0
+    assert (config.ab.safe_min_mm, config.ab.safe_max_mm) == (0.5, 39.5)
+    # X stops short of a cable (2026-10-30).
+    assert config.xy.travel_mm == (103.0, 120.0)
+    # 6 vibrated over the whole travel (2026-11-04).
+    assert config.ab.max_feed_mm_s == 5.0
     assert config.ab.microstep_mm == pytest.approx(0.3125e-3)
 
 
@@ -121,8 +128,48 @@ def test_inverted_safe_range(raw):
 
 def test_centre_outside_safe_range(raw):
     _breaks(
-        raw, lambda d: d["ab"].update(centre_mm=[17.5, 36.0]), "centre_mm"
+        raw, lambda d: d["ab"].update(centre_mm=[20.0, 39.8]), "centre_mm"
     )
+
+
+def test_home_offset_inside_the_travel(raw):
+    _breaks(raw, lambda d: d["ab"].update(home_offset_mm=-1.0),
+            "home_offset_mm")
+    _breaks(raw, lambda d: d["ab"].update(home_offset_mm=40.0),
+            "home_offset_mm")
+
+
+def test_cell_offset(raw):
+    first = raw["lasers"][0]
+    # Optional: without it, 0.
+    first.pop("cell_offset_xy_mm", None)
+    assert parse(raw).laser(first["number"]).cell_offset_xy_mm == (0.0, 0.0)
+    first["cell_offset_xy_mm"] = [0.02, -0.01]
+    assert parse(raw).laser(first["number"]).cell_offset_xy_mm == (0.02, -0.01)
+    _breaks(raw, lambda d: d["lasers"][0].update(cell_offset_xy_mm=[0.8, 0]),
+            "cell_offset_xy_mm")
+
+
+def test_row_reply(raw):
+    assert parse(raw).ab.row_reply_ms == 93.5
+    _breaks(raw, lambda d: d["ab"].update(row_reply_ms=0), "row_reply_ms")
+    raw["ab"].pop("row_reply_ms")
+    assert parse(raw).ab.row_reply_ms == 93.5
+
+
+def test_home_offset_is_optional(raw):
+    raw["ab"].pop("home_offset_mm")
+    assert parse(raw).ab.home_offset_mm == 0.0
+
+
+def test_the_homing_thresholds(raw):
+    ab = parse(raw).ab
+    # A's own; B left as the board has it (2026-11-04).
+    assert (ab.stall_threshold_a, ab.stall_threshold_b) == (135, None)
+    raw["ab"].pop("stall_threshold_a")
+    assert parse(raw).ab.stall_threshold_a is None
+    _breaks(raw, lambda d: d["ab"].update(stall_threshold_b=300),
+            "stall_threshold_b")
 
 
 def test_duplicate_laser(raw):
@@ -188,9 +235,21 @@ def test_laser_board_relight(raw):
     assert parse(data).laser_board.relight_ms == 3000
 
 
+def test_laser_board_release(raw):
+    assert load().laser_board.release_servo is True
+    _breaks(raw, lambda d: d["laser_board"].update(release_servo=1),
+            "release_servo")
+    data = copy.deepcopy(raw)
+    data["laser_board"]["release_servo"] = False
+    assert parse(data).laser_board.release_servo is False
+    # Optional: an older machine.toml without it releases the servo.
+    del data["laser_board"]["release_servo"]
+    assert parse(data).laser_board.release_servo is True
+
+
 def test_geometry_defaults(machine):
     g = machine.geometry
-    assert g.reference_laser == 2
+    assert g.reference_laser == 3
     assert (g.x_along, g.y_along) == ("+A", "+B")
     # Checked on the bench 2026-10-21 (docs/hardware.md, Mechanics).
     assert g.directions_measured

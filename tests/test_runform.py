@@ -46,6 +46,7 @@ def test_each_bad_field_is_named(machine, calibration):
 
 
 def test_what_plan_run_refuses_is_shown(machine, calibration):
+    machine = placeholders(machine, 4)
     with pytest.raises(FormError, match="placeholder"):
         plan_form(RunForm(lasers=(4,)), calibration, machine, simulated=True)
     assert plan_form(RunForm(lasers=(4,), allow_unmeasured=True),
@@ -64,6 +65,8 @@ def test_the_real_machine_needs_its_directions_checked(machine, calibration):
 
 
 def test_warnings(machine, calibration):
+    # A ceiling above 5 mm/s, as before 2026-11-04, to reach the warning.
+    machine = replace(machine, ab=replace(machine.ab, max_feed_mm_s=6.0))
     plan = plan_form(RunForm(speed_mm_s="5.5", current_range="auto"),
                      calibration, machine, simulated=True)
     assert any("noisy" in w for w in plan.warnings)
@@ -102,8 +105,13 @@ def test_the_estimate_matches_the_bench_run(machine):
     from multilbic.scan.geometry import Calibration
 
     cal = Calibration.from_dict(BENCH_CALIBRATION)
-    plan = plan_form(RunForm(speed_mm_s="1"), cal, machine, simulated=False)
+    # That run (2026-10-26) placed from machine.toml.
+    plan = plan_form(RunForm(speed_mm_s="1", locate=False), cal, machine,
+                     simulated=False)
     assert plan.estimate_s == pytest.approx(221, rel=0.05)
+    located = plan_form(RunForm(speed_mm_s="1"), cal, machine,
+                        simulated=False)
+    assert located.estimate_s == pytest.approx(plan.estimate_s + 40, abs=1)
 
 
 def test_the_estimate_follows_the_sample(machine):
@@ -150,11 +158,23 @@ def test_spot_against_pitch():
 
 
 def test_unmeasured_spots_share_one_note(machine, calibration):
+    machine = placeholders(machine, 4, 5, 6)
     plan = plan_form(RunForm(lasers=(2, 4, 5, 6), allow_unmeasured=True),
                      calibration, machine, simulated=True)
     unmeasured = [n for n in plan.notes if "not measured" in n]
     assert unmeasured == ["lasers 4, 5, 6: spots not measured yet (the "
                           "photodiode measures them, Phase 6)"]
+
+
+def placeholders(machine, *numbers):
+    """`machine` with lasers `numbers` back to placeholders: unmeasured,
+    no spot (all six were commissioned 2026-10-30)."""
+    from dataclasses import replace as _replace
+
+    lasers = tuple(_replace(laser, measured=False, spot_um=None)
+                   if laser.number in numbers else laser
+                   for laser in machine.lasers)
+    return _replace(machine, lasers=lasers)
 
 
 def test_the_version_is_the_running_codes():

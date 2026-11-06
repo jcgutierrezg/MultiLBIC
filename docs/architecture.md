@@ -5,13 +5,10 @@ title: "Architecture"
 
 # Architecture
 
-This is the design agreed before any code was written. Decisions are
-recorded in [plan](plan.md#decisions). The device layer (Phase 2), the
-scan core (Phase 3) and command-line runs (Phase 4) are built; where the
-build differs from what follows, the difference is noted here and the
-detail is in [devices](devices.md), [scan](scan.md) and [run](run.md).
-*As built,* placing the sample uses XY as well as AB (D11), and the
-command line is `multilbic calibrate` and `multilbic run` (D13).
+The design, agreed before any code was written and kept up to date
+with what was built. Decisions are in [decisions](decisions.md); the
+detail is in [devices](devices.md), [scan](scan.md), [run](run.md) and
+[gui](gui.md).
 
 ## Goals
 
@@ -37,10 +34,10 @@ gui/  ──►  run/  ──►  scan/        (pure: geometry, raster, timing, 
 Imports point one way only, as in SMUniversal. `scan/` imports nothing
 with I/O, so all the maths behind a map is unit-testable. `gui/` never
 talks to a device directly. It sends requests to `run/` and gets results
-back through a queue (SMUniversal house rule 8, *the UI is a queue*).
-*As built* (Phase 5): the queue is `gui/worker.py`, one thread that owns
-the devices and drives `run/` (`Calibrator`, `Session`); the window
-calls it and drains its events every 50 ms ([gui](gui.md#how-it-is-built)).
+back through a queue (SMUniversal house rule 8, *the UI is a queue*):
+`gui/worker.py`, one thread that owns the devices and drives `run/`
+(`Calibrator`, `Session`); the window calls it and drains its events
+every 50 ms ([gui](gui.md#how-it-is-built)).
 
 ### Package sketch
 
@@ -50,18 +47,19 @@ Flat layout, one namespace, matching SMUniversal:
 |---|---|
 | `multilbic/config/` | Load `machine.toml`: laser XY centres, servo angles, AB centre and safe range, feeds, ports per platform. Values you calibrate live in the file, not in the code. |
 | `multilbic/hardware/marlin.py` | G-code client: line protocol, `ok`/`busy` handling, `ADVANCED_OK` buffer tracking, `M114` parsing, `M400`, Stop via `M410`, `M503` dump, homing, jog, motors on/off. |
-| `multilbic/hardware/laser.py` | Laser board protocol: select a laser, all off, state query (once the new firmware lands). |
+| `multilbic/hardware/laser.py` | Laser board protocol: select a laser, all off, state query, settle time, servo release. |
 | `multilbic/hardware/smu.py` | SMUniversal's `UndalogicMiniSMU` for configuration and output control, plus a streaming reader that lives only here (streaming is not needed in SMUniversal). |
 | `multilbic/scan/geometry.py` | Coordinate frames: machine XY, AB, sample frame, laser offsets, corner calibration. |
+| `multilbic/scan/photodiode.py` | The photodiode on the carriage: reaching a point on it under any laser. |
 | `multilbic/scan/raster.py` | Row plan: row pitch, serpentine order, run-up/run-out, row count, time estimate, bounds checks against the AB safe range. |
 | `multilbic/scan/timing.py` | Motion profile, SMU-clock ↔ host-clock mapping, per-row time anchors, sample → position. |
 | `multilbic/scan/binning.py` | Raw samples → pixel grid, for the live heatmap and the end-of-run plot. |
 | `multilbic/scan/alignment.py` | Estimate the forward/reverse row shift from data (the serpentine self-calibration). |
-| `multilbic/run/` | The scan orchestrator in a worker thread: home → calibrate → per laser → rows; Stop and fault handling; incremental file writing. |
+| `multilbic/run/` | Calibration, runs (home, then per laser: locate on the photodiode, rows), Stop and faults, incremental file writing; commissioning, focus, the line-up, the sync check. |
 | `multilbic/store/` | The run file format: writer and reader, shared later by the viewer. |
 | `multilbic/sim/` | Fake Marlin, fake laser board, fake streaming SMU, synthetic sample. |
-| `multilbic/gui/` | Tk window: connection, jog, sample setup, laser select, calibration steps, live heatmap, console, progress and time estimate. *As built:* `gui/worker.py` (no Tk) is the thread that owns the devices; the window calls it and reads its events. Opening the machine, real (under the machine lock) or simulated, is `run/devices.py`, shared with the command line. |
-| `tools/` | Bench probes, run on the Pi over SSH, independent of the app. |
+| `multilbic/gui/` | Tk window: connection, jog, calibration, run setup, live map, console, the Maintenance window. `gui/worker.py` (no Tk) is the thread that owns the devices. Opening the machine, real (under the machine lock) or simulated, is `run/devices.py`, shared with the command line. |
+| `multilbic/bench/` | Device probes, run on the Pi over SSH ([diagnostics](diagnostics.md#the-device-probes)). |
 
 ### What comes from SMUniversal
 
@@ -99,11 +97,9 @@ experiments). MultiLBIC needs none of them.
   change, and it touches SMUniversal's drivers and their bench
   fingerprints, so it is not the first choice.
 
-**Python 3.14** is SMUniversal's floor and becomes MultiLBIC's.
-The Pi runs Ubuntu 24.04, which ships Python 3.12, so it gets a
-uv-managed 3.14. *As built:* the Pi uses deadsnakes' 3.14 instead, whose
-Tk draws smooth text (D21).
-Phase 0 confirms that it runs there and that Tk works under it.
+**Python 3.14** is SMUniversal's floor and MultiLBIC's. The Pi runs
+Ubuntu 24.04, which ships 3.12, so it uses deadsnakes' 3.14, whose Tk
+draws smooth text (D21).
 
 ## Position sync
 
@@ -111,9 +107,9 @@ This is the problem the old script stopped at. During a row the stage
 moves along A at constant speed while the SMU streams timestamped
 samples. Each sample needs a position.
 
-**Why it is manageable:** at 2 mm/s, **1 ms of timing error is 2 µm of
-position error**. A few milliseconds of error stays below any plausible
-spot size.
+**Why it is manageable:** at 4 mm/s, **1 ms of timing error is 4 µm of
+position error**, below the spots (35–100 µm) once the constant part is
+removed. What the bench measured is in [timing](hardware/timing.md).
 
 **Sources of error the old approach ignored:** acceleration, serial
 latency, Marlin's 100 ms first-move delay, the SMU's clock being set
@@ -131,10 +127,10 @@ from the host only once, and lead-screw backlash on reversal.
    run removes drift. `set_time()` is not relied on.
 3. **Row anchors.** Each row's end comes from the host timestamp of the
    `ok` to the `M400` after it; the start is the end minus the modelled
-   duration. Samples are put in host time through the clock mapping.
-   *As built:* the start of the move is not used, because the first-move
-   delay varies by about 20 ms on the bench, while the end is known to
-   about a millisecond ([scan](scan.md#position)).
+   duration. Samples are put in host time through the clock mapping,
+   and dated by count along the stream. The reply is the anchor except
+   where it comes late; then the send is, unless the row's move itself
+   started late ([scan](scan.md#position)).
 4. **Serpentine self-calibration** (serpentine is the default; scanning
    in one direction only is an option, D3). Any leftover constant delay, and
    backlash, shows up as a shift between forward and reverse rows.
@@ -142,12 +138,16 @@ from the host only once, and lead-screw backlash on reversal.
    corrects it, and writes it to the file header.
 5. **Reference check.** A step-and-measure mode on a small patch
    (about 1×1 mm) gives positions with no timing involved. Continuous
-   scans are validated against it during commissioning.
+   scans are validated against it: `multilbic sync-check`,
+   step-and-measure and rows at several speeds in one session, which
+   separates the timing error from the A backlash
+   ([diagnostics](diagnostics.md#sync-check-the-sync-error-on-one-edge)).
+   It agreed with the maps' alignment to 2–3 µm.
 
 Raw SMU timestamps are always stored alongside the computed positions,
 so a better calibration can re-map an old run without re-measuring.
 
-### Option C, hardware marker (designed in, built only if B falls short)
+### Option C, hardware marker (designed in, not needed so far)
 
 - Wire a spare SKR pin to a free laser-board pin.
 - Rebuild Marlin with its laser feature in inline mode, so the pin
@@ -161,9 +161,9 @@ so nothing above `scan/timing.py` changes.
 
 ### The channel-2 reference photodiode
 
-Mounted on a corner of the AB stage, outside the sample area (decided).
-It sees a laser only when the stage parks that corner under the beam.
-What it gives:
+Mounted on a corner of the AB stage, outside the sample area, under two
+blades ([photodiode](hardware/photodiode.md)). It sees a laser only when
+the stage parks that corner under the beam. What it gives:
 
 - **Comparable maps across wavelengths.** Photocurrent scales with
   laser power × the cell's quantum efficiency at that wavelength. The
@@ -171,51 +171,37 @@ What it gives:
   Dividing by the photodiode current, corrected by the photodiode's
   published spectral responsivity, gives a relative spectral response
   per pixel. A calibrated photodiode would make it absolute EQE.
-- **Drift during a map.** Measuring before and after each laser's map
-  shows whether power changed during the scan. The map can be corrected
-  linearly across rows, or flagged.
-- **A pre-flight check.** A near-zero reading before a long scan means
-  the wrong laser, a failed laser, or the servo didn't turn the barrel.
-  Better to know before a 2 h map than after.
-- **Laser positions, found automatically.** The photodiode is a fixed
-  point on the AB stage. Scanning it under each laser finds that beam's
-  position in machine coordinates. That fills in `LASER_POSITIONS`,
-  including laser 6, which no card shows.
-- **Spot size.** Scanning the photodiode's edge (or a razor blade over
-  it) across the beam is a knife-edge measurement of each laser's spot.
-- **Long-term laser health:** power per laser, logged run after run.
+- **Laser positions, found automatically**, in machine coordinates, and
+  each laser **located again at every run**, since the servo lands it
+  differently each time (built).
+- **Spot size** by knife edge across the blades, and **focus**, live
+  while the focus is turned (built).
+- **A pre-flight check**: a near-zero reading means the wrong laser, a
+  failed laser, or the servo didn't turn the barrel (the locate fails).
+- **Drift during a map**, measured before and after each laser's map,
+  and **long-term laser health**, logged run after run (not built).
 
 What it cannot give: continuous normalisation within a row, or row
 edges for option C. Those would need a pickoff at the laser exit.
 
-Requirements:
-
-- a silicon photodiode (covers 444–848 nm), with an active area larger
-  than the spot for the power readings;
-- a cable to channel 2 with enough slack to move with the stage;
-- a corner every laser can reach within XY + AB travel.
-
 ## Run time
 
-Rows cost time; resolution along a row is nearly free. The table below
-is for 2 mm/s. The A/B ceiling is now 6 mm/s (decision D9), which cuts
-these times by up to 3×. The scan speed is chosen per run, trading speed
-against samples per pixel, timestamp bunching and the drift band (D8):
-at 6 mm/s a 1 mm feature passes at about 6 Hz, clear of the 0.2–0.7 Hz
-drift. Along a row the
-resolution is sample rate × speed (about 2 µm at 1 kHz and 2 mm/s).
-Each extra row costs a full pass. Rough time per laser at 2 mm/s,
-including turnarounds:
+Rows cost time; resolution along a row is nearly free (sample rate ×
+speed: 5 µm at 800 Hz and 4 mm/s). Each extra row costs a full pass,
+run-up and run-out included, plus about 0.4 s at the turnaround (the B
+step and Marlin's first-move delays). Rough time per laser at the
+default 4 mm/s, rows only:
 
-| Sample | 10 µm rows | 50 µm rows | 100 µm rows |
+| Sample | 10 µm rows | 25 µm rows | 50 µm rows |
 |---|---|---|---|
-| 10 mm | ~1.5 h | ~18 min | ~9 min |
-| 20 mm | ~5.8 h | ~70 min | ~35 min |
-| 30 mm | ~13 h | ~2.6 h | ~1.3 h |
+| 2 mm | ~3.5 min | ~1.5 min | ~45 s |
+| 10 mm | ~50 min | ~20 min | ~10 min |
+| 20 mm | ~3 h | ~1.2 h | ~37 min |
 
-Row pitch can go down to one microstep (0.3125 µm), but the time
-estimate is shown before Start. A pitch below the spot size is allowed
-on purpose (oversampling).
+Each laser adds its locate (~40 s), warm-up (60 s) and baseline. Row
+pitch can go down to one microstep (0.3125 µm); the estimate is shown
+before Start, and a pitch below the spot size is allowed on purpose
+(oversampling).
 
 ## Run file
 
@@ -227,28 +213,18 @@ One CSV per run, using SMUniversal's convention:
 - then one row per raw sample: laser, row, direction, SMU timestamp,
   channel 1 current and voltage, channel 2 current, mapped X and Y.
 
-*As built* ([scan](scan.md#the-run-file)): one file per laser, one line
+As built ([scan](scan.md#the-run-file)): one file per laser, one line
 per streamed packet with a channel column (the two channels stream
-separate packets), and the host arrival time kept too. What is only
-known at the end goes in a trailer of the same `#` lines rather than
-rewriting the header.
+separate packets), every packet of the stream kept, and the host
+arrival time too. What is only known at the end goes in a trailer of
+the same `#` lines rather than rewriting the header.
 
 Per-row anchors go in as `#row` comment lines, so
 `pd.read_csv(path, comment="#")` still returns the plain sample table.
 
-**Mains pickup** (measured, see
-[hardware](hardware.md#streaming-measured-2026-10-19)): about 90 % of the
-0 V noise on open leads is at 50 Hz. Raw samples are kept with their
-timestamps, so the map can be cleaned afterwards with a notch at 50 Hz
-and its harmonics along each row, or by averaging each pixel over whole
-20 ms cycles. *As built:* a pixel lasts a few milliseconds, too short to
-average whole cycles, so each row has the best-fitting mains sines
-subtracted; `mains_hz` is in `machine.toml`.
-
-**Drift is the harder problem** (measured with a contacted cell in the
-dark: most of the noise is 0.2–0.7 Hz drift, where map features sit at
-2 mm/s). Decision D8 in the plan weighs a stable enclosure with baselines
-against chopping the laser and demodulating in software.
+**Mains and drift.** Mains pickup is removed along each row, fitted
+where the row is flat ([scan](scan.md#cleaning)); slow drift is the
+harder problem and is left in (D8).
 
 **A dark baseline in every scan.** A covered cell can't be measured
 while contacted, and room conditions vary anyway. So each laser's map
@@ -276,13 +252,16 @@ the same protocol parsing is exercised in tests as on the machine.
 - **Fake Marlin:** Marlin's move timing (trapezoid profile, 100 ms
   first-move delay, feedrate clamping, `busy`/`ok`, `M114`, `M400`,
   `M410`), plus injectable latency and backlash.
-- **Fake laser board:** the current firmware's protocol first, the new
-  one when it lands.
+- **Fake laser board:** firmware 2.1's protocol, with the servo's
+  landing scatter injectable.
 - **Fake SMU:** streams at the set rate with its own clock (offset,
   drift and jitter you can inject), reading current from the synthetic
   sample at the stage's simulated position.
+- **Fake photodiode:** the chip under its blades on channel 2, each
+  laser's spot and power from the bench.
 - **Synthetic sample:** a recognisable pattern (cells, fingers, a
-  defect, a known edge) with a response per wavelength.
+  defect, a known edge, a cell's corner) with a response per
+  wavelength.
 
 **The key test:** a full simulated scan with injected latency, backlash
 and clock drift must recover the pattern within a stated position

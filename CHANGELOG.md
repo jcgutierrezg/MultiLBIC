@@ -3,6 +3,634 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.55 - A commissioning test that held on Windows CI
+
+- `test_a_measured_corner_stays_and_the_reference_laser_moves` compares
+  two simulated commissioning runs; on Windows CI one put laser 3
+  12.5 um from the other, where the test allowed 3 um. A host stall of
+  a few ms becomes 50 times that in simulated time on the slow passes'
+  anchors. It now runs at 25x and allows 10 um between the runs (the
+  laser moved is 300 x 200 um); precision against the truth is still
+  checked to 3 um in the first commissioning test.
+
+## 0.6.54 - The lockfile follows the version
+
+- `uv.lock` had stayed at 0.6.17 while the version moved on, so CI's
+  `uv sync --locked` refused the branch. It is locked again and
+  committed; from now on it goes in with every version bump.
+
+## 0.6.53 - Docs as the machine is now
+
+- Every doc read again against the machine as it stands; what was no
+  longer true or useful is gone (git history and this changelog keep
+  it): the placeholder laser positions, the old stage's readings, the
+  first commissioning across the can's window, finished bench runbooks.
+- `docs/hardware.md` (1,473 lines) is now an overview with five pages
+  under `docs/hardware/`: lasers, motion, smu, photodiode, timing.
+- `docs/run.md` split: focus, commissioning and the line-up in
+  `docs/commissioning.md`; `read`, `sync-check`, `edges` and the device
+  probes in `docs/diagnostics.md`.
+- `docs/bench.md` is now working on the machine (safety, deploying,
+  results); SSH and Ubuntu setup moved to `deploy/pi/README.md`.
+- `docs/plan.md` keeps what is open; the decisions moved to
+  `docs/decisions.md`, with D6, D9, D14, D22 and D27 brought up to date
+  and D29 (each laser placed from the photodiode) written down.
+- Code comments that pointed at moved sections point at the new pages.
+
+## 0.6.52 - The second line-up, and Go to photodiode
+
+- **Go to photodiode** on the Lasers panel brings the middle of the
+  photodiode's open quarter under the laser that is on (homed, a laser
+  on, a photodiode in `machine.toml`).
+- Hardware notes: the second line-up, with the saved offsets. The
+  lasers spread 39 um along u and 29 um along v, from 86 and 116 um:
+  about their run-to-run scatter, so the offsets stay. Laser 2 gave
+  less light than the day before and needed the full sweeps to locate.
+
+## 0.6.51 - The first line-up, and rows that start late
+
+- The first line-up on the bench (`20261105T181317Z_lineup_test-lineup`):
+  every laser's two cell edges found, laser 2's too. Against laser 3,
+  the lasers sat 8-86 um off along X and up to 108 um along Y; the
+  offsets are saved in `machine.toml` (`cell_offset_xy_mm`).
+- Lasers 5 and 6 each had a row or two drawn 100-200 um off. Their
+  replies were 27-45 ms late, but these were single rows, and their
+  moves had started late too: placed from the send, as 0.6.47 does for
+  late replies, they were wrong; from the reply, right. A late row now
+  keeps whichever placement lines up with the on-time rows of its own
+  direction near it; with none to compare, the send, as before. Every
+  map of the day still aligns at +110 to +157 um, and the line-up's
+  offsets move by 1 um at most.
+- The simulator can take a line up late (`Faults.late_lines`); a test
+  shows such a row stays in place. Its beams land on the cell where
+  `machine.toml`'s offsets say, as they land on the photodiode where its
+  `xy_centre_mm` says.
+
+## 0.6.50 - The Maintenance window and the line-up
+
+- **Maintenance...**, at the window's bottom left, opens a window with
+  three tabs: **Focus** (focus assist, moved out of the Lasers panel),
+  **Photodiode** (commissioning, as `multilbic commission`) and
+  **Line-up**. Each shows what it found and writes `machine.toml` only
+  on Save.
+- **Line-up**: a run over a 1.2 mm square centred on the calibration's
+  corner (set on a cell's corner), every laser placed from the
+  photodiode; then each laser's two cell edges against the reference
+  laser's, and the offset that puts its map on the reference's
+  (`run/lineup.py`, also `multilbic lineup RUN [--write]`).
+- New per-laser `cell_offset_xy_mm` in `machine.toml` (optional, 0),
+  added wherever a laser is placed on a sample, and recorded in each
+  run file. In the simulator, which can now land a beam elsewhere on
+  the cell than on the photodiode (`Faults.cell_offset_xy_mm`), offsets
+  of 30-40 um are found within 5 um and, written, put the next
+  line-up's lasers within 6 um.
+- **The reference laser is laser 3** (was 2, the dim one). Calibrations
+  made under laser 2 stay right.
+- Re-read with the line-up's edge finding, the earlier six-laser runs
+  put laser 2 among the others along u (0.372-0.375 mm), and the
+  "laser 3 lowest along v" was an edge too close to those patches'
+  start to measure: the line-up centres its patch for that reason.
+
+## 0.6.49 - No mains put into the rows
+
+- Laser 6's alignment chose about 80 um where its edge says 120-137.
+  The mains removal did it: fitted over the whole row, the cell's 1 mA
+  edge leaked about 1 % into the 50 Hz sines, about 10 uA of ripple
+  subtracted *into* a row whose own mains was too small to show. The
+  ripple repeated row to row, and the fine-scale alignment locked onto
+  it one mains cycle (80 um at 4 mm/s) off.
+- The sines are now also fitted where the row is flat only, against a
+  one-cycle moving average that holds no mains; that fit is used unless
+  it is more than twice the whole row's (features shorter than a cycle,
+  which only the whole row's fit averages out). Beside a 1 mA edge the
+  mains now comes out to a tenth or better, where it was put in at 300
+  times its size.
+- All 30 maps of the day's five six-laser runs align at +110 to
+  +157 um; laser 6's at +115 to +132. In the last run, its edge spread
+  over rows halved (36 to 19 um).
+
+## 0.6.48 - Six lasers repeat within 20 um
+
+- Hardware notes: a third six-laser map (0.6.47). Every laser put the
+  cell's edge along B where it did in the second run, within 18 um;
+  five of the six within 16 um of each other, laser 4 35 um short of
+  them in both. Along A they spread 100 um, each laser where it was
+  before (laser 3 lowest), within 2-21 um.
+- Two of its maps had late replies throughout (lasers 1 and 4, 27 rows
+  each); placed from the send, their shifts were +120 and +133 um.
+  Laser 6's alignment chose +82 um where its edge says +137, as in the
+  first run: still to look at.
+
+## 0.6.47 - Late replies placed from the send
+
+- The serpentine shift's sign flips (3 of 12 maps on 2026-11-05, 4 of
+  24 in the day's four six-laser runs) were Marlin's `ok` to a row's
+  `M400` coming 20-40 ms late, for a stretch of rows or a whole map.
+  The rows were placed that much late: at 4 mm/s, a shift of +130 um
+  became -68 to -196 um. The samples' timing was clean.
+- Maps now place a row whose reply is late from when its `G1` was sent
+  instead (`scan.timing.settle_late_replies`): the send plus the usual
+  delay plus the move. The usual delay is the file's own, from its
+  quickest replies, or `[ab] row_reply_ms` (93.5 ms, new, optional)
+  if even those are late. All 24 maps of the day then give +110 to
+  +157 um, and their two directions meet on the cell's edge. Run files
+  record `row_reply_ms`; older ones are read with the bench's.
+- The simulator can answer `M400` late (`Faults.m400_late_s`); a test
+  shows the map unchanged by it.
+
+## 0.6.46 - Six lasers within 60 um
+
+- Hardware notes: two six-laser maps located on the photodiode with the
+  servo released. In the second, all six lasers put the cell's edge
+  along B within 57 um of each other (370 um in the last located run
+  with the servo powered). Along A, lasers 4-6 agree within 30 um and
+  laser 3 is 70-90 um off in both runs.
+- Between the two runs, lasers 1, 3, 5 and 6 repeated within 25 um.
+  Laser 4 moved 65 um and laser 2, the dim one, 160 um.
+- The serpentine shift came out negative for three of the twelve maps,
+  and each such map's two directions still agree: the timing changed
+  for that map, not just the alignment's choice.
+
+## 0.6.45 - The released servo holds
+
+- Hardware notes: with firmware 2.1.0 flashed and the servo released,
+  the spot stopped jumping. Laser 4 with the stage still held to 0.3 um
+  for 60 s and moved under 2 um in each 2 min after a swing (7-24 um
+  jumps before); laser 3 tracked by the stage moved 4-11 um in each
+  2 min after a swing (60-106 um before). Each selection still lands
+  the laser 7-42 um from the last, which locating on the photodiode
+  measures.
+- Firmware 2.1.0 is on the board (flashed 2026-11-05).
+
+## 0.6.44 - The servo released after each turn
+
+- Laser board firmware 2.1.0: once the servo has turned and settled it
+  is released (its control pulses stop), and attached again only for
+  the next turn. Held powered, it moved the beam in steps of 7-24 um at
+  random times, for minutes after a turn and with the stage still
+  (bench, 2026-11-05). `RELEASE?` and `RELEASE <0|1>` read and set it.
+  To be flashed and tried on the bench.
+- `[laser_board] release_servo` (optional, default true): the driver
+  sets it at every `open()`. 2.0.0 has no such command, and is still
+  accepted as it was.
+
+## 0.6.43 - Each laser placed from the photodiode
+
+- Runs locate each laser on the photodiode right after selecting it
+  (`run/locate.py`: its open quarter, the dark, a +-0.4 mm sweep and a
+  pass up and down across each blade edge, about 40 s) and place its
+  map from where it is, not from `xy_centre_mm`: the servo lands a laser
+  within about +-0.1 mm, differently every time. On by default where
+  `machine.toml` has a measured photodiode; `run --no-locate`, or the
+  window's "place from photodiode", to switch it off. The offset of
+  each laser is in its run file's header and `run.json`.
+- The simulator's servo can land lasers off at random
+  (`servo_scatter_mm`); three lasers 34-139 um off spread about 100 um
+  placed from `machine.toml` and under 25 um located.
+
+## 0.6.42 - The servo's repeatability, recorded
+
+- Hardware notes: the revolver's servo lands a laser within about
+  +-0.1 mm, differently each selection (laser 3 on a blade edge: 0.1 um
+  held still, 44 um spread along A and 20 um along B after each servo
+  return), which is the run-to-run scatter of every laser position.
+  A homes cleanly with a threshold of 135.
+
+## 0.6.41 - A homing threshold per axis
+
+- `[ab] stall_threshold` becomes `stall_threshold_a` and
+  `stall_threshold_b`, each optional: only the ones set are sent. A is
+  135; B is left at the board's 130. 150 on both (0.6.39) made both
+  axes find a stop at once.
+
+## 0.6.40 - The stream's last samples kept too
+
+- A run file now also keeps the samples that arrive after the last row
+  (as row -3), so it holds every sample the stream gave. On a busy Pi
+  more than 50 could be left out before.
+
+## 0.6.39 - A 5 mm/s ceiling, a homing threshold
+
+- `[ab] max_feed_mm_s` is 5 mm/s (was 6): across the whole travel A
+  vibrated at 6 mm/s and B struggled (2026-11-04). It goes to Marlin as
+  `M203` at every connect too, unsaved.
+- `[ab] stall_threshold` (new, optional, 0-255): the TMC2209s'
+  StallGuard threshold for sensorless homing, sent as `M914` at every
+  connect, unsaved. 150, up from the EEPROM's 130: A ground against the
+  stop.
+
+## 0.6.38 - Speed trials over the whole travel
+
+- `python -m multilbic.bench.marlin ... --speeds 3,4,5,6 --speed-span
+  1,39` runs the A/B speed trials across the whole travel instead of
+  10-30 mm, for the repeat after the coupling's flat and the grease.
+- Hardware notes: the flat is done, the rods are greased.
+
+## 0.6.37 - The sync check, dated by count
+
+- Hardware notes: the sync check with the stream kept whole
+  (2026-11-04): L 14.9 ms, backlash +4 um, the alignment within 2-3 um
+  of the edges; the stamps gave a negative backlash again. Count dating
+  stays; `ab_backlash_mm` 0 and 4 mm/s stay.
+
+## 0.6.36 - The count-dating map tests are timing tests
+
+- The two that measure a simulated map to a few um are marked
+  `sim_timing`: on the Pi the simulated scan's own timing jitters more
+  than that. The line-fitting tests still run there.
+
+## 0.6.35 - Samples dated by count, not by the SMU's stamps
+
+- The miniSMU measures evenly but its stamps saw-tooth (6 ms every
+  ~100 ms, bench 2026-11-03): samples sat up to ~12 um off along a row
+  at 4 mm/s and left empty pixels. Run files now keep every sample the
+  stream gives, those between rows too (row -3, `stream: continuous`),
+  and maps, the sync check and `edges` date each channel's samples by a
+  straight line of stamp against count (`scan.stamps`), split where the
+  stream breaks. Older files keep their stamps.
+- The simulated SMU can saw-tooth its stamps (`smu_stamp_saw_ms`); with
+  the bench's, the edge spread at 4 mm/s falls from 7.2 to 1.7 um and
+  the empty pixels from 5.9 % to none.
+- Hardware notes: the sync check on the new cell (2026-11-04).
+
+## 0.6.34 - Laser 2 warms up, recorded
+
+- Hardware notes: laser 2 read for 3 minutes on the photodiode rises
+  from -27.6 to -44.5 uA and is still climbing; the 60 s warm-up leaves
+  it at about 85 %.
+
+## 0.6.33 - The laser supply, recorded
+
+- Hardware notes: all six lasers share one LM317 off the SKR's 5 V,
+  too little headroom for green (laser 2) and blue (laser 1); turning
+  its trimmer up raised those two and left the red and infrared ones
+  within 5 % (a read of all six on the photodiode).
+
+## 0.6.32 - Commissioning and focus tests are timing tests
+
+- They run the simulated machine at 50x, and on the Pi, loaded by the
+  whole suite, one missed a reply deadline now and then (passing alone).
+  Marked `sim_timing`, so the Pi skips them as it skips the other
+  simulator-timing tests; they still run on every change elsewhere.
+
+## 0.6.31 - Maps without the stream's gaps, six lasers in the plan
+
+- Map pictures (PNGs, the window's live and finished maps) fill runs of
+  up to 4 empty pixels along a row from their neighbours: the miniSMU's
+  stream skips 7 ms about every 100 ms, 2-3 empty 10 um pixels at
+  4 mm/s, six times a row. The data keeps its gaps.
+- The Plan tab's close-ups go onto more rows, evenly, when they don't
+  fit side by side: six lasers were cut off.
+- The miniSMU's line in the Machine panel drops the maker and the
+  firmware's build hash: "MS01 v1.1, lunar-tuvok-7966, v1.4.6".
+
+## 0.6.30 - All six commissioned again
+
+- A six-laser map of the cell's corner (2026-11-03) had lasers 4-6
+  lined up and 1-3 off by up to 1 mm; commissioning all six again found
+  1-3 moved since 2026-10-30 by the same amounts. Written to
+  `machine.toml`, laser 2 included (the measured corner stays).
+- Bench notes: commission all six after any work in the box.
+- The window's focus test waits for a good pass.
+
+## 0.6.29 - Test windows off the screen
+
+- The window tests build their windows transparent and far off the
+  desktop, as SMUniversal's suite does, so they no longer cover what the
+  person running them is working on. `MULTILBIC_TEST_SHOW_WINDOWS=1`
+  shows them.
+- The last tests that expected laser 4 or 5 to be a placeholder make
+  one of their own.
+
+## 0.6.28 - Lasers 4-6 commissioned
+
+- `multilbic commission --lasers 4,5,6` (2026-10-30), written to
+  `machine.toml`: positions moved up to 0.9 mm from where they were
+  placed by eye, spots 98.4, 71.3 and 74.9 um, all `measured = true`.
+  All six lasers are now measured.
+- Tests that needed a placeholder laser make one.
+
+## 0.6.27 - Sweeps from both sides, each finer than the last
+
+- Each edge is swept coarse (±2 mm round where the light was found,
+  0.5 mm/s), medium (±0.6 mm, 0.15 mm/s), then fine up and down. The
+  coarse pass used to go one way from where the light was found, and
+  laser 4's light was found on the blade itself: no full light to fit.
+- Coarse and medium sweeps fit from their brightest point towards the
+  blade, so the can window's far edge is left out when crossed.
+- A pass that reaches the range's limit goes again one range up; an
+  edge's step need only go the light's way and be at least half the
+  light seen so far (the first reading may be a sliver of the spot).
+- Focus assist sweeps both edges roughly before its passes, so they run
+  through the open quarter's middle.
+
+## 0.6.26 - Lasers 5 and 6 placed by eye
+
+- `xy_centre_mm` for lasers 5 (48.4, 42.0) and 6 (49.4, 38.0) from
+  where an IR card showed them on the photodiode's open quarter
+  (2026-10-30); still `measured = false`. Laser 6 was 12 mm from its
+  placeholder, beyond the 8 mm search. Laser 4 lit the open quarter at
+  its own, which stays.
+
+## 0.6.25 - A failed commissioning run keeps its readings
+
+- `commission` writes `commission.json` when it fails too: the darks,
+  the first reading, the passes so far (with every reading) and why it
+  stopped. Laser 4 (2026-10-30) found light at its placeholder but no
+  edge, and that pass was lost.
+
+## 0.6.24 - The focus feed test is a timing test
+
+- It counts readings per pass, which follow the host's sleeps: marked
+  `sim_timing`, so the loaded Pi skips it as it skips the others.
+
+## 0.6.23 - Lasers 1-3 commissioned across the blades
+
+- `multilbic commission --lasers 1,2,3` with the open side fixed
+  (2026-10-30), written to `machine.toml`: the photodiode's corner
+  (58.568, 21.016), measured; laser 1 and 3 positions within 70 um of
+  the run before; spots 59.4, 39.3 and 30.9 um at the sample's height.
+- Tests that read those values follow them.
+
+## 0.6.22 - A steadier focus test
+
+- The test that focus assist follows a moving beam compares as many
+  passes up as down, so the reading lag cancels on the slower Pi too.
+
+## 0.6.21 - The open quarter's side, the right way round
+
+- Commissioning and focus assist passed away from the blades, into the
+  can's window edge, in A and in B: `open_a`/`open_b` say where the
+  open quarter is on the carriage as built, and in the carriage frame
+  that is the other way round. `Photodiode.open_signs` turns them now.
+  The simulator had the same convention, so it agreed.
+- `[photodiode] corner_ab_mm` is an estimate again, (58.44, 21.26),
+  `measured = false`: what 0.6.19 wrote was the window's corner. The
+  spots written then are that edge's. Commission lasers 1-3 again.
+- A pass or an open quarter beyond a laser's reach is a commissioning
+  error that says so, not a crash.
+
+## 0.6.20 - Focus assist, from a button in the window
+
+- **Focus...** in the Lasers panel opens focus assist (Phase 6 step 6):
+  pick a laser and the edges, Start, and turn the focus while the
+  stage passes across the blade's edge on the photodiode. Each pass's
+  10-90 % width, the best, and the last five's mean and scatter, with a
+  trace. Done measures the laser again; Save writes its position and
+  spot into `machine.toml`, and the window carries on with the new file.
+- Passes follow the edge as the beam moves and pick their feed for
+  about 10 readings across the edge, so about 3 s each at any focus.
+- `commission` keeps a measured corner: the laser that moved moves,
+  laser 2 too. `--new-corner` when the photodiode itself was moved.
+- A calibration loaded into the window, or open while machine.toml
+  changes, moves its corner XY with laser 2's position, so the sample
+  stays where it is on the carriage. Before, a calibration loaded after
+  laser 2 moved would have been off by that much.
+- The Cell and Photodiode readings sit one above the other at a fixed
+  width: a digit more no longer moves the machine column.
+
+## 0.6.19 - Lasers 1-3 commissioned
+
+- `multilbic commission --lasers 1,2,3` on the machine (2026-10-30),
+  written to `machine.toml`: the photodiode's corner (60.239, 23.062),
+  now measured; laser 1's and 3's `xy_centre_mm` against laser 2's
+  (laser 1 by -0.53, +1.28 mm); spots 238, 272 and 254 um along A.
+- Lasers 1 and 2 are out of focus (65 and 41 um on the old stage).
+- Tests that assumed an estimated corner or a 41 um spot say so.
+
+## 0.6.18 - X stops at 103
+
+- X's limit is 103, down from 104.5: at 104 the carriage just touches a
+  cable (the limit check at the machine, 2026-10-30). A/B checked: about
+  1 mm left at 1.0 and 39.0.
+- Laser 1 reaches 3.2 mm past the photodiode's corner, enough for
+  commissioning's passes (they stop at what each laser can reach).
+
+## 0.6.17 - Wider limits, without recompiling Marlin
+
+- At every connect MultiLBIC turns Marlin's software endstops off
+  (`M211 S0`) and sets the A/B home offset (`M206`, `[ab]
+  home_offset_mm` = 5): `machine.toml` holds the only limits. After
+  every home the driver checks A and B read the offset, and refuses to
+  move if not.
+- A/B: 0 is the hard stop, limits 0.5-39.5, centre 20 (the full 40 mm,
+  0.5 mm clear of each stop). X: to 104.5 (its stop is at 105).
+- **Every A/B coordinate is 5 mm more than before** for the same place.
+  The photodiode's corner moved with them. Calibrations now record the
+  offset, and one made before is refused: calibrate again.
+- Laser 1 reaches 4.7 mm past the photodiode's corner (was 0.7).
+
+## 0.6.16 - `multilbic commission`
+
+- Phase 6 step 5: for each laser, the photodiode's open quarter is put
+  under it (searching if there is no light), its power read and its
+  range chosen, and the two blade edges found with slow passes up and
+  down. The corner each laser sees gives its position against the
+  reference laser's; the edge widths give the spot. It proposes the
+  changes to `machine.toml` and writes them with `--write`
+  ([run](docs/run.md)). Simulation only so far.
+- `scan.photodiode.reach` takes the room per axis; `span` gives what a
+  laser can reach.
+
+## 0.6.15 - The photodiode in the simulator
+
+- `[photodiode]` in `machine.toml`: its channel, where the blades'
+  corner is on the carriage (estimated from the bench, not yet
+  measured), which quarter is open, the chip's size and the upper
+  blade's height. Optional; checked when loaded.
+- `scan/photodiode.py`: the X, Y, A and B that put a point on the
+  photodiode under a laser, and the room A and B have left. Laser 1
+  has 0.7 mm past the corner along A ([hardware](docs/hardware.md)).
+- The simulator's channel 2 is the chip under its blades, computed from
+  the spot exactly, each edge at its own height and a movable focus;
+  it replaces the fixed 40 uA stand-in.
+
+## 0.6.14 - Channel 2's offset went away
+
+- Hardware notes corrected: back on channel 2, the photodiode read like
+  channel 1 (laser 1 -739 uA against -733 uA, dark -0.5 nA at -0.3 mV).
+  The offset of the afternoon was a state, not channel 2's calibration;
+  its cause is unknown (not the cell). Laser 1 is about -735 uA, so the
+  afternoon's -466 uA was low.
+
+## 0.6.13 - The three lasers on channel 1
+
+- Hardware notes: with `read --at` on the machine, the photodiode on
+  channel 1 reads -733 uA, -6.46 uA and -1.211 mA under lasers 1, 2 and
+  3. Laser 3 agrees with channel 2 to 2 % on the same range; lasers 1
+  and 2 differ by more, most likely the lasers' own output.
+
+## 0.6.12 - `read` goes to each laser; channel 1 has no offset
+
+- `read --at N=X,Y,A,B`, once per laser: the stage homes, then goes to
+  each laser's place before lighting it. Without `--at` nothing moves.
+- `read --current-range` per laser (`1=650u,2=25u,3=15m`); a laser on a
+  range of its own gets its own dark on that range.
+- With the photodiode on channel 1, its dark offsets are about 250 times
+  smaller than on channel 2 and it holds its voltage to 0.5 mV: the
+  offset is channel 2's ([hardware](docs/hardware.md)).
+
+## 0.6.11 - Channel 2's offset
+
+- Hardware notes: channel 2 reads about 1.7 % of the range's full scale
+  high on every range, the same at 0 V and -5 V (+15.9 nA on 1 uA,
+  +10.8 uA on 650 uA, +271 uA on 15 mA), and reports its voltage
+  +0.27-0.29 V off; channel 1 shows neither. Laser 3 is -1.24 mA on the
+  15 mA range; `read`'s autorange "above dark" is high by the lit
+  range's offset, so lasers 1 and 2 are about -477 uA and -7.8 uA.
+
+## 0.6.10 - The photodiode in the window; first readings
+
+- The window shows the photodiode (channel 2) beside the cell, read
+  together twice a second while idle; it opens the SMU with both
+  channels. A reading at autorange's 1 mA limit is marked `(limit)`.
+- `read` records the voltage the SMU held with each reading.
+- First readings on the photodiode, no motion ([hardware](docs/hardware.md)):
+  lasers 1-3 reach the open quarter (A-/B- as built) at positions that
+  agree with `machine.toml` to 0.5 mm, so the CAD is the one that is
+  off; -466 uA, -7.4 uA and about -1 to -1.24 mA under lasers 1, 2
+  and 3; 0 V is fine for laser 1; the 15 mA range reads +271 uA dark.
+
+## 0.6.9 - `read` survives autorange's wild readings
+
+- `multilbic read` summarises by the median and a robust scatter, leaves
+  readings far from the median out of the mean (and says how many), and
+  keeps every value in its file: on the bench, laser 3 near -0.5 mA gave
+  one reading of +6.2 mA among fifty, which made the mean, the scatter
+  and both warnings wrong.
+- `--current-range` reads on a fixed range, its full scale the current
+  limit as in runs, for lasers near the top of autorange's 1 mA limit.
+
+## 0.6.8 - Reading the photodiode with no motion
+
+- `multilbic read` reads one SMU channel (2, the photodiode, by
+  default) with every laser off, then under each laser asked for, one
+  at a time, and prints the mean, scatter, current above dark, its sign
+  and the range a scan would pick. The stage doesn't home or move; it
+  asks before lighting a laser ([run](docs/run.md)). The machine can now
+  be opened with the SMU on channel 2.
+- The simulator's channel 2 reads a fixed 40 uA under any lit laser, a
+  stand-in until step 4 puts a chip on the plate.
+- The new stage is on the machine: lasers 1-3 just reach the
+  photodiode, it sits 1 cm lower (lasers 1-3 refocused, so `spot_um`
+  is out of date), and a new test cell is contacted with silver paint
+  underneath ([hardware](docs/hardware.md)). The bench runbook has the
+  photodiode's first reading.
+
+## 0.6.7 - Why zero is 5 mm off the stop
+
+- The hardware notes explain the builder's finding that A/B zero sits
+  about 5 mm from the hard stop: Marlin's homing bump (5 mm, then a slow
+  second approach) with sensorless homing, where the slow approach most
+  likely stalls at once. Possibly also the "back edge" past A/B 35. Not
+  changed now, since it would move every coordinate mid-commissioning.
+
+## 0.6.6 - The jog arrows move the stage
+
+- The window's jog arrows (and `w a s d`) now move **the stage** the way
+  they point, as the operator stands at the machine; they moved the spot
+  over the sample, which goes the opposite way and felt backwards (the
+  builder, 2026-10-28; D19 revised). The right arrow is now +A / +X, as
+  the command line's `d` always was.
+- The hardware notes say which way the stage itself moves (+A right, +B
+  up, as the operator stands) and that earlier notes on "the sample"
+  moving meant the spot.
+- The photodiode's reach: it is on the side that comes to the beam as A
+  rises. The CAD puts laser 1 about 12 mm lower in X than `machine.toml`
+  does, which decides how much X travel is left; to check at the
+  machine.
+
+## 0.6.5 - The new stage's photodiode mount; the back contact
+
+- The new stage's design, from the builder: the photodiode 35 mm from
+  the AB centre along A, two scalpel blades crossing over its chip with
+  the A+/B- quarter open, the B-parallel blade 0.4 mm lower and at the
+  sample's height ([hardware](docs/hardware.md)). Whether lasers 1-3
+  can reach it with AB centred depends on which side of the stage it
+  is, still to confirm.
+- The test cell's contact: its back contact loses pressure on the
+  backplate when the stage moves (held only by Kapton at its edges),
+  not just the clip leads. The bench runbook says to press it down.
+
+## 0.6.4 - Step-and-measure and the sync check
+
+Phase 6 step 2, in simulation.
+
+- **`multilbic sync-check`**: in one session (one homing, one XY
+  placement), step-and-measure over a patch with one edge, continuous
+  rows over it at several speeds, and step-and-measure again. Every
+  edge is fitted; against step-and-measure, forward and reverse rows at
+  two speeds or more give the timing error `L` and the A backlash
+  separately, which the serpentine alignment can't. Also the drift over
+  the session, and the spot's width. `sync.json` holds the result; each
+  pass is an ordinary run file. ([run](docs/run.md))
+- **Step-and-measure** (`run/steps.py`): each point reached moving up
+  along A, a settle, then the stream averaged over whole mains periods.
+  Its run file has `mode: steps` and no row anchors.
+- **Edge fits** (`scan/edges.py`): an error function with a leaning
+  background, fitted by Levenberg-Marquardt in numpy; the edge in every
+  row, refitted near the map's median edge so a noisy row can't wander.
+  The same fit will serve the photodiode's knife-edge scans.
+- **`multilbic edges`**: the edge in every row of a run file, the
+  forward/reverse shift from the edges and the alignment's; or a sync
+  check's result again from its folder.
+- On the maps made so far, the edges agree with the alignment on broad
+  spots and not on sharp ones (+19.9 against +9.4 um on the refocused
+  laser 2), which settles the open finding as the alignment's
+  ([hardware](docs/hardware/timing.md#the-serpentine-shift)).
+  Laser 3 fits 145 um wide against the 244 um in `machine.toml`.
+- Simulator: an SMU that stamps packets late (`Faults.smu_stamp_lag_s`),
+  a sample with one straight edge, and `open_sim(sample=)`. On it the
+  check recovers an injected 18.6 ms stamp lag and 20 um backlash to
+  1.5 ms and 3 um.
+- Bench runbook for step 3 in [diagnostics](docs/diagnostics.md#sync-check-the-sync-error-on-one-edge).
+
+## 0.6.3 - Phase 6's plan after current ranges
+
+- Step 5 picks channel 2's range with `run/ranges.py`'s choice, and
+  reads each laser's power after its warm-up and the relight wait.
+- Step 6 (focus assist) fits each pass with its own plateau, so power
+  drift isn't read as focus, and alternates direction so the stamp lag
+  cancels.
+- Step 8 is the new stage the user is designing and printing: the
+  photodiode, a blade, and soldered cell contacts. How the blade sits is
+  still being agreed.
+- D22 names the tab "Lasers", as the steps already did.
+
+## 0.6.2 - Current ranges merged in
+
+- main merged into Phase 6: current ranges per sample (PR #7,
+  0.5.16-0.5.27). Phase 6 now has per-laser ranges checked at
+  calibration, the step-up on a clip, 4 mm/s by default, and the laser
+  driver's 3 s relight wait (laser 1 relit sooner comes back at 40 %).
+- On the bench, nA on every laser means the test cell's crocodile clips
+  have lost contact (homing can do it): reseat them
+  ([hardware](docs/hardware/lasers.md#the-laser-supply)).
+
+## 0.6.1 - 5 mm/s in step 3
+
+- Step 3's bench session maps the test cell's edge at 5 mm/s too, to
+  decide whether the default speed can move from 4 to 5 mm/s: the
+  stream then runs at 1000 Hz and the serpentine shift is largest.
+  (Asked for 2026-10-27, while the default moved from 2 to 4 mm/s on
+  the current-ranges branch.)
+
+## 0.6.0 - Phase 6 planned: commissioning
+
+- Phase 6's plan in [plan](docs/plan.md#phase-6-commissioning), agreed
+  2026-10-27: step-and-measure and per-row edge fits first, then a bench
+  session that needs no photodiode (the sync error on the test cell's
+  straight edge, the open alignment finding); then the photodiode in
+  the simulator, `multilbic commission` and a Lasers tab to find each
+  laser, measure its spot and help focus it (passes across the
+  photodiode's edge, showing live whether a turn of the focus made the
+  spot sharper); then mounting and the bench with all six lasers.
+- D22: commissioning is both a command and a window tab. D24: focus
+  stays a hand adjustment, with the photodiode as its gauge. D23: results
+  go into `machine.toml`, shown first and written on the operator's
+  yes.
+- The Hamamatsu S1223-01 photodiode has arrived; not yet mounted.
+
 ## 0.5.27 - Two tests that raced on CI
 
 Tests only.

@@ -11,8 +11,9 @@ On start the stage homes, XY goes to the reference laser's position, AB
 to its centre, and the reference laser comes on. You jog **XY** until
 the laser spot sits on the sample's corner - the corner the sample
 extends from towards +A and +B, which on this machine is its top-right
-corner as you look at it (+A moves the sample up, +B right;
-docs/hardware.md) - then fine-tune with AB if you like,
+corner as you look at it (+A moves the stage right and the spot left,
++B the stage up and the spot down; docs/hardware.md) - then fine-tune
+with AB if you like,
 record it with `here`, give the size, and watch the laser trace the
 outline with `trace`. If the outline sits on the sample, `save`.
 
@@ -76,6 +77,7 @@ from multilbic.run.ranges import (
 )
 from multilbic.run.rows import ScanDevices, next_range
 from multilbic.scan.geometry import Calibration, place
+from multilbic.scan.photodiode import open_quarter_middle, reach
 from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid, axis_accel
 
 JOG_RE = re.compile(r"^([xyab])([+-])(\d*\.?\d*)$")
@@ -215,6 +217,16 @@ class Calibrator:
         self._halt.clear()
         return self._to_corner()
 
+    def to_photodiode(self, laser: int) -> dict[str, float]:
+        """Put the middle of the photodiode's open quarter under `laser`,
+        where all of its light lands on the chip (where a locate starts).
+        Raises `ValueError` without a photodiode, `OutOfReach` if the
+        laser can't get there."""
+        self._halt.clear()
+        x, y, a, b = reach(self.machine, laser,
+                           open_quarter_middle(self.machine)).xyab
+        return self._approach(x=x, y=y, a=a, b=b)
+
     # Only the public actions clear the halt; what they call inside
     # must not, or a halted trace would carry on to the corner.
 
@@ -262,13 +274,29 @@ class Calibrator:
     def adopt(self, calibration: Calibration,
               ranges: dict[int, RangeCheck] | None = None) -> None:
         """Take the corner and size of a saved calibration, and its
-        checked ranges if it has them, without moving."""
+        checked ranges if it has them, without moving. If the reference
+        laser has moved since (`xy_centre_mm`, refocused), the corner's
+        XY moves with it: the sample stays where it is on the carriage,
+        and XY is where it is under the beam now."""
         if ranges is not None:
             self.ranges = dict(ranges)
         self.sample = calibration.sample
-        self.corner_xy = calibration.corner_xy_mm
+        now = self.machine.laser(self.reference).xy_centre_mm
+        then = calibration.reference_xy_mm
+        x, y = calibration.corner_xy_mm
+        self.corner_xy = (x + now[0] - then[0], y + now[1] - then[1])
         self.corner_ab = calibration.corner_ab_mm
         self.size = (calibration.width_mm, calibration.height_mm)
+
+    def use_machine(self, machine: MachineConfig) -> None:
+        """A changed machine.toml (lasers commissioned or refocused),
+        keeping the sample where it is on the carriage, as `adopt`."""
+        then = self.machine.laser(self.reference).xy_centre_mm
+        now = machine.laser(self.reference).xy_centre_mm
+        if self.corner_xy is not None:
+            x, y = self.corner_xy
+            self.corner_xy = (x + now[0] - then[0], y + now[1] - then[1])
+        self.machine = machine
 
     def calibration(self) -> Calibration:
         if self.corner_xy is None or self.corner_ab is None:
@@ -280,7 +308,7 @@ class Calibrator:
             self.sample, self.reference,
             self.machine.laser(self.reference).xy_centre_mm,
             self.corner_xy, self.corner_ab, self.size[0], self.size[1],
-            g.x_along, g.y_along,
+            g.x_along, g.y_along, self.machine.ab.home_offset_mm,
         )
 
     def outline_ab(self) -> tuple[tuple[float, float], list[tuple[float, float]]]:
@@ -338,7 +366,7 @@ class Calibrator:
         try:
             for n in sorted(lasers):
                 placement = place(
-                    calibration, self.machine.laser(n).xy_centre_mm,
+                    calibration, self.machine.laser(n).on_cell_xy_mm,
                     self.machine.ab.centre_mm, n,
                 )
                 lines = grid_lines(placement.frame)
@@ -660,8 +688,24 @@ def load_ranges(path: str | Path) -> dict[int, RangeCheck]:
     return ranges_from_dict(data.get("current_ranges"))
 
 
-def load_calibration(path: str | Path) -> Calibration:
+class CalibrationMismatch(ValueError):
+    """A calibration recorded with A and B meaning other places."""
+
+
+def load_calibration(path: str | Path,
+                     machine: MachineConfig | None = None) -> Calibration:
+    """A saved calibration. With `machine`, refused if it was recorded
+    with another A/B home offset: its corner would be that far off."""
     data = json.loads(Path(path).read_text())
     if data.get("schema") != "multilbic-calibration/1":
         raise ValueError(f"{path}: not a MultiLBIC calibration file")
-    return Calibration.from_dict(data)
+    calibration = Calibration.from_dict(data)
+    if machine is not None:
+        then, now = calibration.ab_home_offset_mm, machine.ab.home_offset_mm
+        if abs(then - now) > 1e-9:
+            raise CalibrationMismatch(
+                f"{path} was recorded with A/B home offset {then:g} mm and "
+                f"machine.toml now has {now:g} mm: its A and B are "
+                f"{now - then:+g} mm off. Calibrate the sample again."
+            )
+    return calibration

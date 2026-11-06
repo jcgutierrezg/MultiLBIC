@@ -54,6 +54,20 @@ class AbStage:
     safe_max_mm: float
     max_feed_mm_s: float
     max_accel_mm_s2: float
+    #: Sent to Marlin as `M206 A.. B..` at every connect: what A and B
+    #: read once homed, so that 0 is the hard stop (homing stops this
+    #: far from it). 0 leaves Marlin's own zero.
+    home_offset_mm: float = 0.0
+    #: Sent as `M914 A..` / `M914 B..` at every connect: each axis's
+    #: TMC2209 StallGuard threshold for sensorless homing, 0-255, *higher
+    #: is more sensitive* (notices the stop sooner). None leaves the
+    #: board's own for that axis.
+    stall_threshold_a: int | None = None
+    stall_threshold_b: int | None = None
+    #: Marlin's `ok` to the `M400` after a row comes this long after the
+    #: row's `G1` was sent, beyond the move, when it is on time; late
+    #: ones are placed from the send (`scan.timing.settle_late_replies`).
+    row_reply_ms: float = 93.5
 
     @property
     def microstep_mm(self) -> float:
@@ -69,6 +83,11 @@ class XyStage:
     max_accel_mm_s2: float
 
 
+#: A laser's offset on the cell beyond this is a mistake, not a beam's
+#: tilt: the line-up measured 10-100 um (bench, 2026-11-05).
+MAX_CELL_OFFSET_MM = 0.5
+
+
 @dataclass(frozen=True)
 class Laser:
     number: int
@@ -81,6 +100,19 @@ class Laser:
     #: edge scanned through it (a knife edge, or a cell's edge). None
     #: until then. The window compares it with the row pitch.
     spot_um: float | None = None
+    #: Where the laser lands on a sample, against where the photodiode
+    #: puts it, in XY: each beam meets the blades a little higher than
+    #: the cell, at its own angle (`multilbic lineup`, the Maintenance
+    #: window's Line-up). 0 for the reference laser, by definition.
+    cell_offset_xy_mm: tuple[float, float] = (0.0, 0.0)
+
+    @property
+    def on_cell_xy_mm(self) -> tuple[float, float]:
+        """`xy_centre_mm` for a sample: where XY puts the AB centre
+        under this laser on the cell."""
+        x, y = self.xy_centre_mm
+        dx, dy = self.cell_offset_xy_mm
+        return x + dx, y + dy
 
 
 @dataclass(frozen=True)
@@ -105,6 +137,11 @@ class LaserBoardSettings:
     #: laser 1 relit sooner comes back at 40 % and stays there (bench,
     #: 2026-10-27). Optional in machine.toml.
     relight_ms: int = 3000
+    #: Release the servo once it has turned and settled (firmware 2.1:
+    #: `RELEASE 1`), so it stops correcting itself; held powered it moved
+    #: the beam in steps of 7-24 um (bench, 2026-11-05). Optional; the
+    #: driver applies it at every open(), and 2.0.0 can't.
+    release_servo: bool = True
 
 
 #: How an XY axis lines up with the raster stage: "+A" means moving that
@@ -133,6 +170,56 @@ class Geometry:
 #: Directions on the cell as the operator sees it.
 VIEW_DIRECTIONS = ("left", "right", "up", "down")
 
+#: Which side of a blade's edge the chip is open on.
+OPEN_SIDES = ("+", "-")
+
+
+@dataclass(frozen=True)
+class Photodiode:
+    """The reference photodiode under two blades (Phase 6).
+
+    Positions are on the carriage, in the frame calibration gives a
+    sample's corner: the AB position that would put a point under a
+    laser with XY at that laser's `xy_centre_mm`. The photodiode is
+    outside AB's travel, so XY makes up the rest (`scan.photodiode`)."""
+
+    #: The SMU channel it is wired to.
+    channel: int
+    #: Where the two blade edges cross: the edge along B (crossed by
+    #: rows along A) is at A = corner_ab_mm[0], the edge along A at
+    #: B = corner_ab_mm[1].
+    corner_ab_mm: tuple[float, float]
+    #: The side of each edge the chip is open on, as it sits on the
+    #: carriage: "-" means the open quarter lies towards the stage's A-
+    #: (`open_a`) or B- (`open_b`) of the corner, the way the carriage
+    #: goes when A or B decreases. `open_signs` turns that into the
+    #: carriage frame, where it is the other way round.
+    open_a: str
+    open_b: str
+    #: The chip's active area is a square this wide.
+    chip_mm: float
+    #: The blade whose edge runs along A sits this far above the one
+    #: along B, which is at the sample's height.
+    blade_a_above_mm: float
+    #: False until commissioning has found the corner with the beam.
+    measured: bool
+
+    @property
+    def open_signs(self) -> tuple[int, int]:
+        """+1 or -1 per axis: the open side of each edge in the carriage
+        frame, +1 where the open quarter is at larger A (B) than the
+        corner.
+
+        The carriage frame counts a point by the stage position that
+        puts it under the beam. A point lying further towards the
+        stage's A- on the carriage has to travel further towards A+ to
+        reach the fixed beam, so it is at *larger* A in this frame: a
+        quarter open towards A- as built (`open_a = "-"`) is +1. Read
+        the other way round until 0.6.21, every pass ran away from the
+        blades, into the can's window edge (bench, 2026-10-30)."""
+        return (-1 if self.open_a == "+" else 1,
+                -1 if self.open_b == "+" else 1)
+
 
 @dataclass(frozen=True)
 class Display:
@@ -160,6 +247,8 @@ class MachineConfig:
     mains_hz: float
     geometry: Geometry
     display: Display
+    #: None if machine.toml has no [photodiode] table.
+    photodiode: Photodiode | None = None
 
     def laser(self, number: int) -> Laser:
         for laser in self.lasers:
@@ -209,6 +298,8 @@ def parse(data: dict[str, Any], source: str = "<dict>") -> MachineConfig:
         mains_hz=top.read_positive_float("mains_hz"),
         geometry=_parse_geometry(top.table("geometry")),
         display=_parse_display(top.table("display")),
+        photodiode=(_parse_photodiode(top.table("photodiode"))
+                    if top.has("photodiode") else None),
     )
     top.done()
     _check_lasers(config.lasers, source)
@@ -230,8 +321,25 @@ def _parse_ab(t: _Table) -> AbStage:
         safe_max_mm=t.read_float("safe_max_mm"),
         max_feed_mm_s=t.read_positive_float("max_feed_mm_s"),
         max_accel_mm_s2=t.read_positive_float("max_accel_mm_s2"),
+        home_offset_mm=(t.read_float("home_offset_mm")
+                        if t.has("home_offset_mm") else 0.0),
+        stall_threshold_a=(int(t.read_float("stall_threshold_a"))
+                           if t.has("stall_threshold_a") else None),
+        stall_threshold_b=(int(t.read_float("stall_threshold_b"))
+                           if t.has("stall_threshold_b") else None),
+        row_reply_ms=(t.read_positive_float("row_reply_ms")
+                      if t.has("row_reply_ms") else 93.5),
     )
     t.done()
+    for key in ("stall_threshold_a", "stall_threshold_b"):
+        value = getattr(ab, key)
+        if value is not None and not 0 <= value <= 255:
+            raise t.error(f"{key} {value} must be 0-255 (TMC2209)")
+    if not 0.0 <= ab.home_offset_mm < ab.travel_mm:
+        raise t.error(
+            f"home_offset_mm {ab.home_offset_mm} must be >= 0 and below "
+            f"the travel, {ab.travel_mm} mm"
+        )
     if not 0.0 <= ab.safe_min_mm < ab.safe_max_mm <= ab.travel_mm:
         raise t.error(
             f"safe range {ab.safe_min_mm}..{ab.safe_max_mm} mm must lie "
@@ -268,8 +376,14 @@ def _parse_laser(t: _Table) -> Laser:
         measured=t.read_bool("measured"),
         spot_um=(t.read_positive_float("spot_um") if t.has("spot_um")
                  else None),
+        cell_offset_xy_mm=(t.read_pair("cell_offset_xy_mm")
+                           if t.has("cell_offset_xy_mm") else (0.0, 0.0)),
     )
     t.done()
+    if max(abs(v) for v in laser.cell_offset_xy_mm) > MAX_CELL_OFFSET_MM:
+        raise t.error(
+            f"cell_offset_xy_mm {list(laser.cell_offset_xy_mm)} is over "
+            f"{MAX_CELL_OFFSET_MM} mm: a line-up measures tens of um")
     if laser.number not in LASER_NUMBERS:
         raise t.error(
             f"laser number {laser.number} is not one of "
@@ -330,11 +444,36 @@ def _parse_display(t: _Table) -> Display:
     return display
 
 
+def _parse_photodiode(t: _Table) -> Photodiode:
+    photodiode = Photodiode(
+        channel=t.read_int("channel"),
+        corner_ab_mm=t.read_pair("corner_ab_mm"),
+        open_a=t.read_str("open_a"),
+        open_b=t.read_str("open_b"),
+        chip_mm=t.read_positive_float("chip_mm"),
+        blade_a_above_mm=t.read_float("blade_a_above_mm"),
+        measured=t.read_bool("measured"),
+    )
+    t.done()
+    if photodiode.channel not in (1, 2):
+        raise t.error(f"channel {photodiode.channel} is not 1 or 2")
+    for key in ("open_a", "open_b"):
+        value = getattr(photodiode, key)
+        if value not in OPEN_SIDES:
+            raise t.error(f"{key} {value!r} is not one of {OPEN_SIDES}")
+    if photodiode.blade_a_above_mm < 0:
+        raise t.error("blade_a_above_mm must not be negative")
+    return photodiode
+
+
 def _parse_laser_board(t: _Table) -> LaserBoardSettings:
     settle = t.read_int("settle_ms")
     relight = (t.read_int("relight_ms") if t.has("relight_ms")
                else DEFAULT_RELIGHT_MS)
-    settings = LaserBoardSettings(settle_ms=settle, relight_ms=relight)
+    release = (t.read_bool("release_servo") if t.has("release_servo")
+               else True)
+    settings = LaserBoardSettings(settle_ms=settle, relight_ms=relight,
+                                  release_servo=release)
     t.done()
     if not 0 <= relight <= MAX_RELIGHT_MS:
         raise t.error(f"relight_ms {relight} is outside 0..{MAX_RELIGHT_MS}")

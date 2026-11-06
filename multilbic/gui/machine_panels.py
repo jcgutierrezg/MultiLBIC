@@ -32,10 +32,15 @@ from multilbic.gui.worker import (
     State,
     StateChanged,
 )
+from multilbic.run.ranges import AT_LIMIT_SHARE
+from multilbic.run.rows import AUTORANGE_CURRENT_LIMIT_A as IDLE_LIMIT_A
 from multilbic.scan.mapping import BASELINE_ROW
 
 if TYPE_CHECKING:
     from multilbic.gui.app import App
+
+#: The widest live reading: "-1.234 mA (limit)".
+READOUT_CHARS = 17
 
 #: How the device rows are labelled, and their key in `Connected.firmware`.
 DEVICES = (("marlin", "Motion (SKR)"), ("laser", "Laser board"),
@@ -87,7 +92,8 @@ class ConnectionPanel:
                 ident = event.firmware.get(key)
                 look.set_lamp(self.lamps[key], self.app.theme,
                               "good" if ident else "bad")
-                self.ids[key].configure(text=ident or "no answer")
+                self.ids[key].configure(
+                    text=device_text(key, ident) if ident else "no answer")
         elif isinstance(event, StateChanged) and \
                 event.state is State.DISCONNECTED:
             for key, _ in DEVICES:
@@ -244,7 +250,8 @@ class StagePanel:
     # ---- actions ----
 
     def jog(self, direction: str, quiet: bool = False) -> None:
-        if not self.app.homed or self.app.state is State.RUNNING:
+        if not self.app.homed or self.app.state in (
+                State.RUNNING, State.FOCUSING, State.COMMISSIONING):
             return
         axis, sign = jog_for(direction, self.pair.get(), self.app.machine)
         if not self.app.worker.jog(axis, sign * self.step.get()) \
@@ -339,16 +346,43 @@ class LaserPanel:
                       text="* position not measured yet: maps from it "
                            "land in the wrong place").grid(
                 row=1, column=0, sticky="w", pady=(2, 0))
+        # The lit laser over the photodiode's open quarter: to see it
+        # land there, or to find it by hand (machine.toml's position).
+        self.photodiode_btn: ttk.Button | None = None
+        if app.machine.photodiode is not None:
+            self.photodiode_btn = ttk.Button(
+                self.frame, text="Go to photodiode",
+                command=self.to_photodiode)
+            self.photodiode_btn.grid(row=2, column=0, sticky="w",
+                                     pady=(6, 0))
+        # The readings one above the other, each as wide as the longest
+        # it can be ("-1.234 mA (limit)"), so a reading that gains a
+        # digit doesn't widen the column under everything else.
         reading = ttk.Frame(self.frame)
-        reading.grid(row=2, column=0, sticky="w", pady=(8, 0))
-        ttk.Label(reading, text="Photocurrent").pack(side="left")
-        self.current = ttk.Label(reading, text="-", style="Readout.TLabel")
-        self.current.pack(side="left", padx=(12, 0))
+        reading.grid(row=3, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(reading, text="Cell").grid(row=0, column=0, sticky="w")
+        self.current = ttk.Label(reading, text="-", style="Readout.TLabel",
+                                 width=READOUT_CHARS, anchor="w")
+        self.current.grid(row=0, column=1, sticky="w", padx=(12, 0))
+        ttk.Label(reading, text="Photodiode").grid(row=1, column=0,
+                                                   sticky="w")
+        self.photodiode = ttk.Label(reading, text="-",
+                                    style="Readout.TLabel",
+                                    width=READOUT_CHARS, anchor="w")
+        self.photodiode.grid(row=1, column=1, sticky="w", padx=(12, 0))
         self.lit = 0
 
     def select(self, number: int) -> None:
         if not self.app.worker.laser(number):
             self.app.refused("laser")
+
+    def to_photodiode(self) -> None:
+        if not self.lit:
+            self.app.status("go to photodiode: turn a laser on first",
+                            error=True)
+            return
+        if not self.app.worker.to_photodiode(self.lit):
+            self.app.refused("go to photodiode")
 
     def handle(self, event: Event) -> None:
         if isinstance(event, LaserChanged):
@@ -356,6 +390,7 @@ class LaserPanel:
             for n, button in self.buttons.items():
                 button.configure(style=f"Laser{n}.Lit.TButton"
                                  if n == event.laser else "TButton")
+            self.refresh()
         elif isinstance(event, RowEvent):
             # A run switches lasers without asking the panel: its
             # blocks say which is on (none during the baseline).
@@ -363,10 +398,14 @@ class LaserPanel:
             if lit != self.lit:
                 self.handle(LaserChanged(lit))
         elif isinstance(event, Reading):
-            self.current.configure(text=look.amps(event.current_a))
+            self.current.configure(text=reading_text(event.current_a))
+            self.photodiode.configure(
+                text=reading_text(event.photodiode_a))
         elif isinstance(event, StateChanged) and event.state in (
-                State.RUNNING, State.DISCONNECTED):
+                State.RUNNING, State.FOCUSING, State.COMMISSIONING,
+                State.DISCONNECTED):
             self.current.configure(text="-")
+            self.photodiode.configure(text="-")
             if event.state is State.DISCONNECTED:
                 self.handle(LaserChanged(0))
 
@@ -374,6 +413,34 @@ class LaserPanel:
         usable = self.app.state in (State.IDLE, State.MOVING)
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
+        if self.photodiode_btn is not None:
+            _enable(self.photodiode_btn,
+                    usable and self.app.homed and bool(self.lit))
+
+
+def device_text(key: str, ident: str) -> str:
+    """A device's identity, short enough for the machine column. The
+    miniSMU's reads "Undalogic Ltd,miniSMU MS01 v1.1,lunar-tuvok-7966,
+    v1.4.6(6b82396)": the maker is the row's label already, and the
+    bracket is the firmware's build hash. What stays: model, serial and
+    firmware version."""
+    if key != "smu":
+        return ident
+    parts = [p.strip() for p in ident.split(",")]
+    if len(parts) >= 4:
+        model = parts[1].removeprefix("miniSMU ").strip()
+        firmware = parts[3].split("(")[0].strip()
+        return ", ".join(p for p in (model, parts[2], firmware) if p)
+    return ident
+
+
+def reading_text(amps: float | None) -> str:
+    """A live reading, marked when it reaches the 1 mA limit the idle
+    readings are taken with: the truth may be larger (laser 3 on the
+    photodiode, bench 2026-10-29)."""
+    if amps is not None and abs(amps) >= AT_LIMIT_SHARE * IDLE_LIMIT_A:
+        return f"{look.amps(amps)} (limit)"
+    return look.amps(amps)
 
 
 def _enable(widget: ttk.Widget, on: bool) -> None:

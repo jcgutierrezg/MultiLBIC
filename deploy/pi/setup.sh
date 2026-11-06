@@ -6,7 +6,7 @@
 # Installs uv if missing, clones or updates ~/MultiLBIC on the branch,
 # installs Python 3.14 and the dependencies through uv, checks that the
 # user can open serial ports and that Tk imports, and runs the tests
-# (the hardware ones stay skipped; see docs/bench.md for those).
+# (the hardware ones stay skipped; see docs/diagnostics.md for those).
 #
 # The checkout is a deployment copy: it is reset to match GitHub, so
 # don't commit on the Pi.

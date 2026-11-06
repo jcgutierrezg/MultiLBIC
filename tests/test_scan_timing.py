@@ -7,10 +7,13 @@ import pytest
 from multilbic.scan.timing import (
     ClockMap,
     ClockTracker,
+    RowAnchor,
     RowMotion,
     Trapezoid,
     axis_accel,
     fit_clock,
+    reply_delays,
+    settle_late_replies,
 )
 from multilbic.sim import motion
 from multilbic.sim.motion import AxisLimits
@@ -18,7 +21,7 @@ from multilbic.sim.motion import AxisLimits
 
 @pytest.mark.parametrize(
     ("speed", "bench_model_s"),
-    # docs/hardware.md, A speed trials: "Model, without the 0.1 s
+    # docs/hardware/motion.md, the 20 mm A trials: "Model, without the 0.1 s
     # first-move delay", for 20 mm at 50 mm/s².
     [(3.0, 6.73), (4.0, 5.08), (5.0, 4.10), (6.0, 3.45)],
 )
@@ -64,6 +67,61 @@ def test_row_motion_runs_backwards_on_reverse_rows():
     # Before and after the move the stage is at rest at its ends.
     assert float(row.a_at(row.start_s - 1)) == pytest.approx(12.0)
     assert float(row.a_at(101.0)) == pytest.approx(10.0)
+
+
+def _rows(delays_s, usual_s=0.094, speed=4.0):
+    """Rows 1.5 mm long, one every second, each `ok` the given time
+    after the send plus the move."""
+    rows = []
+    for i, late in enumerate(delays_s):
+        a0, a1 = (0.0, 1.5) if i % 2 == 0 else (1.5, 0.0)
+        move = Trapezoid(1.5, speed, 50.0).duration_s
+        sent = float(i)
+        rows.append(RowAnchor(i, 0.05 * i, a0, a1, speed, 50.0, sent,
+                              sent + usual_s + late + move))
+    return rows
+
+
+def test_late_replies_are_placed_from_the_send():
+    # Four rows on time (to a fraction of a ms), then a streak 27 ms
+    # late, as on the bench (2026-11-05).
+    jitter = [0.0003, -0.0002, 0.0001, 0.0]
+    rows = _rows(jitter + [0.027] * 6)
+    settled = settle_late_replies(rows)
+    delays = reply_delays(settled)
+    assert delays == pytest.approx(0.094, abs=0.001)
+    # The rows on time are left exactly as they were.
+    assert [a.end_s for a in settled[:4]] == [a.end_s for a in rows[:4]]
+    # Only the end moves: the send and the move stay.
+    assert settled[6].sent_s == rows[6].sent_s
+    assert settled[6].a_to_mm == rows[6].a_to_mm
+
+
+def test_a_few_ms_of_jitter_is_not_late():
+    rows = _rows([0.0, 0.002, -0.001, 0.003, 0.0])
+    assert settle_late_replies(rows) == tuple(rows)
+
+
+def test_a_file_late_throughout_falls_back_on_the_machines_delay():
+    # Every row late, the quickest by 19 ms and the rest by 39-42 ms
+    # (bench, laser 1, 2026-11-05): no row to learn the file's own delay
+    # from, so the machine's on-time delay is used.
+    rows = _rows([0.019, 0.040, 0.039, 0.042], usual_s=0.0935)
+    delays = reply_delays(settle_late_replies(rows, on_time_s=0.0935))
+    assert delays == pytest.approx(0.0935, abs=1e-9)
+
+
+def test_the_files_own_delay_is_used_when_it_is_on_time():
+    # The simulator's on-time delay is 105.5 ms, and this file's a
+    # little more: only rows late against the file itself move.
+    rows = _rows([0.0015, 0.0013, 0.025, 0.0014], usual_s=0.1055)
+    settled = settle_late_replies(rows, on_time_s=0.1055)
+    assert reply_delays(settled) == pytest.approx(0.107, abs=0.0003)
+    assert [a.end_s for a in settled[:2]] == [a.end_s for a in rows[:2]]
+
+
+def test_no_rows_no_change():
+    assert settle_late_replies([]) == ()
 
 
 def _stream(offset_s, drift, seconds=60.0, rate=500.0, seed=0):

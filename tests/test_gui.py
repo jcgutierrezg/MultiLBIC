@@ -26,22 +26,24 @@ CORNER = (15.0, 16.0)
 # ---- which way the arrows jog: no window needed ----
 
 
-def test_arrows_move_the_spot_as_the_operator_sees_it(machine):
-    # Bench, 2026-10-23: +A moves the spot left, +B down; X goes with A.
-    assert jog_for("left", "ab", machine) == ("a", 1)
-    assert jog_for("right", "ab", machine) == ("a", -1)
-    assert jog_for("down", "ab", machine) == ("b", 1)
-    assert jog_for("up", "xy", machine) == ("y", -1)
-    assert jog_for("left", "xy", machine) == ("x", 1)
-    assert arrow_label("left", "ab", machine) == "+A"
+def test_arrows_move_the_stage_as_the_operator_sees_it(machine):
+    # Bench, 2026-10-23: +A moves the spot left, so the stage right; +B
+    # the spot down, the stage up. X goes with A. The builder, 2026-10-28:
+    # the right arrow should move the stage right.
+    assert jog_for("right", "ab", machine) == ("a", 1)
+    assert jog_for("left", "ab", machine) == ("a", -1)
+    assert jog_for("up", "ab", machine) == ("b", 1)
+    assert jog_for("down", "xy", machine) == ("y", -1)
+    assert jog_for("right", "xy", machine) == ("x", 1)
+    assert arrow_label("right", "ab", machine) == "+A"
 
 
 def test_arrows_follow_swapped_axes(machine):
     swapped = replace(machine, geometry=replace(
         machine.geometry, x_along="-B", y_along="+A"))
-    # Left is +A, which Y moves along; down is +B, which -X moves along.
-    assert jog_for("left", "xy", swapped) == ("y", 1)
-    assert jog_for("down", "xy", swapped) == ("x", -1)
+    # Right is +A, which Y moves along; up is +B, which -X moves along.
+    assert jog_for("right", "xy", swapped) == ("y", 1)
+    assert jog_for("up", "xy", swapped) == ("x", -1)
 
 
 # ---- the window ----
@@ -125,7 +127,7 @@ def window(machine, tk_root, monkeypatch):
     def connector():
         conn = open_sim(machine, clock=ScaledClock(20.0),
                         corner_carriage_mm=CORNER, size_mm=SIZE,
-                        faults=faults)
+                        faults=faults, smu_channels=(1, 2))
         holder["rig"] = conn.rig
         return conn
 
@@ -172,17 +174,37 @@ def test_connects_and_shows_the_devices(window):
     assert "disabled" not in app.stop_btn.state()
 
 
-def test_jogging_waits_for_home_then_moves_the_spot(window):
+def test_jogging_waits_for_home_then_moves_the_stage(window):
     app = window.app
     stage = app.stage
-    left = stage.arrows["left"]
-    assert "disabled" in left.state()
+    right = stage.arrows["right"]
+    assert "disabled" in right.state()
     assert stage.homed_label.cget("text") == "not homed"
     window.click(stage.home_btn)
     assert app.homed and stage.homed_label.cget("text") == ""
     x0 = float(stage.position["X"].cget("text"))
-    window.click(left)  # XY mode, 0.1 mm: +X
+    window.click(right)  # XY mode, 0.1 mm: +X, the stage to the right
     assert float(stage.position["X"].cget("text")) - x0 == pytest.approx(0.1)
+
+
+def test_go_to_photodiode_puts_the_lit_laser_on_it(window):
+    from multilbic.scan.photodiode import open_quarter_middle, reach
+
+    app = window.app
+    lasers = app.lasers
+    button = lasers.photodiode_btn
+    assert button is not None
+    # Neither homed nor a laser on: nowhere to go.
+    assert "disabled" in button.state()
+    window.click(app.stage.home_btn)
+    assert "disabled" in button.state()
+    window.click(lasers.buttons[3])
+    window.click(button)
+    want = reach(app.machine, 3, open_quarter_middle(app.machine)).xyab
+    got = tuple(float(app.stage.position[k].cget("text")) for k in "XYAB")
+    assert got == pytest.approx(want, abs=1e-3)
+    window.click(lasers.off_btn)
+    assert "disabled" in button.state()
 
 
 def test_keys_jog_only_while_the_pad_has_them(window):
@@ -199,16 +221,16 @@ def test_keys_jog_only_while_the_pad_has_them(window):
     assert stage.targets["X"].get() == "a"
     focus(window, stage.pad)
     assert stage.keys_label.cget("text") == "keys on"
-    stage.pad.event_generate("<KeyPress-Left>")
+    stage.pad.event_generate("<KeyPress-Right>")
     window.pump(lambda: float(stage.position["X"].cget("text")) != x0)
     window.ready()
     assert float(stage.position["X"].cget("text")) - x0 == pytest.approx(0.1)
-    # q to AB, e to the next step (1 mm), then down: +B by 1 mm.
+    # q to AB, e to the next step (1 mm), then up: +B by 1 mm.
     b0 = float(stage.position["B"].cget("text"))
     for key in ("q", "e"):
         stage.pad.event_generate(f"<KeyPress-{key}>")
     assert stage.pair.get() == "ab" and stage.step.get() == 1.0
-    stage.pad.event_generate("<KeyPress-Down>")
+    stage.pad.event_generate("<KeyPress-Up>")
     window.pump(lambda: float(stage.position["B"].cget("text")) != b0)
     window.ready()
     assert float(stage.position["B"].cget("text")) - b0 == pytest.approx(1.0)
@@ -243,6 +265,15 @@ def test_readings_show_once_homed(window):
     app = window.app
     window.click(app.stage.home_btn)
     window.pump(lambda: app.lasers.current.cget("text").endswith("A"))
+    window.pump(lambda: app.lasers.photodiode.cget("text").endswith("A"))
+
+
+def test_a_reading_at_the_limit_is_marked():
+    from multilbic.gui.machine_panels import reading_text
+
+    assert reading_text(-0.99e-3).endswith("(limit)")
+    assert reading_text(-466e-6) == "-466 uA"
+    assert reading_text(None) == "-"
 
 
 def test_closing_during_a_run_asks_then_stops_it(window, tmp_path,
@@ -287,7 +318,7 @@ def calibrate_through_the_panels(window, tmp_path, monkeypatch):
     cal = app.calibration_panel
     truth = window.rig.perfect_calibration("cell")
     window.click(cal.start_btn)
-    assert window.rig.fake_laser.active == 2
+    assert window.rig.fake_laser.active == app.machine.geometry.reference_laser
     cal.sample.set("cell")
     stage = app.stage
     for axis, value in zip("XYAB", (*truth.corner_xy_mm, *truth.corner_ab_mm),
@@ -492,7 +523,8 @@ def test_the_plan_tab_follows_the_setup(window, tmp_path, monkeypatch):
     texts = [w.cget("text") for w in view.table.winfo_children()]
     assert any("Laser 2 (519 nm)" in t for t in texts)
     assert any("Homing" in t for t in texts) and "Whole run" in texts
-    # Laser 2's spot is 41 um: a 50 um pitch leaves a strip, said so.
+    # Laser 2's spot is 39 um (commissioned): a 50 um pitch leaves a
+    # strip, said so.
     assert "rim" in view.notes.cget("text")
     # Editing a field brings the Plan tab to the front and re-plans.
     setup.fields["pitch_mm"].set("0.03")
@@ -593,3 +625,102 @@ def test_the_ranges_line_follows_the_ticked_lasers(window, tmp_path,
     assert setup._ranges_shown == [1, 2, 3]
     combos = [w for w in setup._range_widgets]
     assert len(combos) == 3
+
+
+def test_focus_assist_from_its_button(window, tmp_path):
+    from importlib import resources
+
+    app = window.app
+    path = tmp_path / "machine.toml"
+    path.write_text(resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
+        newline="")
+    app.worker.machine_path = path
+    window.click(app.maintenance_btn)
+    assert app.maintenance is not None
+    # Off the developer's screen; it is the main window's child, so it
+    # goes with it whatever happens.
+    app.maintenance.top.withdraw()
+    fw = app.maintenance.focus
+    assert "disabled" in fw.done_btn.state()
+    fw.laser.set(2)
+    fw.start_btn.invoke()
+    # A good pass last: the first may be short of readings at the
+    # simulator's coarse timing, before the feed has followed it.
+    window.pump(lambda: len(fw.passes) >= 2 and fw.passes[-1].good)
+    assert app.state is State.FOCUSING
+    assert "µm" in fw.width.cget("text")
+    assert "best" in fw.detail.cget("text")
+    assert len(fw.canvas.find_all()) > 5
+    # The main window's laser buttons wait while it focuses.
+    assert "disabled" in app.lasers.buttons[1].state()
+    fw.done_btn.invoke()
+    window.pump(lambda: "proposed" in fw.summary.cget("text")
+                and app.state is State.IDLE)
+    window.click(fw.save_btn)
+    window.pump(lambda: "saved:" in fw.summary.cget("text"))
+    assert "# focus " in path.read_text(encoding="utf-8")
+    assert "disabled" in fw.save_btn.state()
+    app.maintenance.close()
+    assert app.maintenance is None
+
+
+def test_the_smu_line_is_short():
+    from multilbic.gui.machine_panels import device_text
+
+    real = "Undalogic Ltd,miniSMU MS01 v1.1,lunar-tuvok-7966,v1.4.6(6b82396)"
+    assert device_text("smu", real) == "MS01 v1.1, lunar-tuvok-7966, v1.4.6"
+    assert device_text("smu", "something else") == "something else"
+    assert device_text("laser", "MultiLBIC-Laser,2.0.0") == \
+        "MultiLBIC-Laser,2.0.0"
+
+
+def test_the_maintenance_window(window, tmp_path, monkeypatch):
+    import json
+
+    from multilbic.run import lineup as lu
+
+    app = window.app
+    window.click(app.maintenance_btn)
+    m = app.maintenance
+    assert m is not None
+    m.top.withdraw()
+    tabs = [m.notebook.tab(t, "text") for t in m.notebook.tabs()]
+    assert tabs == ["Focus", "Photodiode", "Line-up"]
+    # Clicking again brings the open one forward, not a second one.
+    window.click(app.maintenance_btn)
+    assert app.maintenance is m
+
+    # Photodiode: every laser ticked, and how long that takes.
+    assert m.commission.chosen() == tuple(app.laser_numbers())
+    assert "about" in m.commission.estimate.cget("text")
+    for n, var in m.commission.lasers.items():
+        var.set(n == 3)
+    assert m.commission.request().lasers == (3,)
+
+    # Line-up: nothing to centre on before there is a calibration.
+    assert "No calibration" in m.lineup.calibration.cget("text")
+    assert m.lineup.plan() is None
+    truth = window.rig.perfect_calibration("cell")
+    path = tmp_path / "cell.json"
+    path.write_text(json.dumps(
+        {"schema": "multilbic-calibration/1", **truth.to_dict()}))
+    monkeypatch.setattr("multilbic.gui.sample_panels.filedialog"
+                        ".askopenfilename", lambda **k: str(path))
+    window.click(app.calibration_panel.load_btn)
+    window.pump(lambda: "Corner: cell" in m.lineup.calibration.cget("text"))
+    plan = m.lineup.plan()
+    assert plan is not None
+    r = plan.request
+    assert r.lasers == tuple(app.laser_numbers())
+    assert (r.pixel_mm, r.pitch_mm, r.speed_mm_s) == (
+        lu.PIXEL_MM, lu.PITCH_MM, lu.SPEED_MM_S)
+    assert r.locate
+    assert r.calibration == lu.centred_patch(truth)
+    # Without the reference laser it doesn't start.
+    m.lineup.lasers[app.machine.geometry.reference_laser].set(False)
+    m.lineup.start()
+    assert "reference" in app.status_label.cget("text")
+
+    m.close()
+    assert app.maintenance is None

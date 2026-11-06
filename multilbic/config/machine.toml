@@ -9,7 +9,7 @@
 
 name = "MultiLBIC"
 
-# Mains pickup is most of the noise on open leads (docs/hardware.md); the
+# Mains pickup is most of the noise on open leads (docs/hardware/smu.md); the
 # map's cleaning removes this frequency and its harmonics along each row.
 mains_hz = 50.0
 
@@ -17,21 +17,49 @@ mains_hz = 50.0
 # Raster stage: 1 mm lead screws, 16 microsteps.
 steps_per_mm = 3200
 travel_mm = 40.0
-centre_mm = [17.5, 17.5]
-# Near the back edge the motor struggles or the grub screw slips.
-safe_min_mm = 0.0
-safe_max_mm = 35.0
+# Sensorless homing stops 5 mm short of the hard stop (Marlin's 5 mm
+# homing bump, docs/hardware/motion.md), so Marlin's own zero is 5 mm in and its
+# far stop at 35. MultiLBIC sends M206 A5 B5 at every connect: once homed,
+# A and B read 5, and 0 is the hard stop (checked after every home). All
+# A/B coordinates moved by +5 mm with it (2026-10-29, 0.6.17).
+home_offset_mm = 5.0
+# Sensorless homing's StallGuard threshold for A on its TMC2209, sent
+# as M914 A at every connect (the EEPROM has 130 for both): 0-255,
+# higher notices the stop sooner. A ground against the stop before
+# giving up; 150 then "found" a stop at once, on both axes, when it was
+# sent to both (2026-11-04). B keeps the board's 130: no
+# stall_threshold_b. To be settled over a few homings, then saved to the
+# board's EEPROM.
+stall_threshold_a = 135
+centre_mm = [20.0, 20.0]
+# 40 mm between the hard stops (the builder, 2026-10-29); 0.5 mm kept
+# clear of each. Marlin's software endstops are off (M211 S0 at every
+# connect): these are the only limits.
+safe_min_mm = 0.5
+safe_max_mm = 39.5
 # The ceiling the software will ever command; the scan speed itself is
-# chosen per run. 6 mm/s matches the board's EEPROM, and A ran smoothly
-# at 3-6 mm/s on the bench (2026-10-20). A and B are mechanically
-# identical and share these limits. Compiled-in default: 2 mm/s.
-max_feed_mm_s = 6.0
+# chosen per run. 5 mm/s since 2026-11-04: across the whole travel, with
+# the rods greased and the coupling's flat done, A vibrated at 6 mm/s
+# moving back and B struggled both ways; 5 was fine on both. Sent to
+# Marlin as M203 at every connect (its EEPROM still has 6). A and B are
+# mechanically identical and share these limits.
+max_feed_mm_s = 5.0
 max_accel_mm_s2 = 50.0
+# From a row's G1 being sent to the ok of the M400 after it, beyond the
+# modelled move, when that ok is on time: 93-94 ms at 4-5 mm/s, 95.5 at
+# 1 mm/s, steady to half a millisecond (72 run files, 2026-10-23 to
+# 11-05). For a stretch of rows, in about one map in six, the ok comes
+# 20-40 ms late; those rows are placed from the send instead.
+row_reply_ms = 93.5
 
 [xy]
 # Carries the whole AB gantry: 2 mm lead screws, 16 microsteps.
 steps_per_mm = 400
-travel_mm = [100.0, 120.0]
+# X goes to 105 before its hard stop (the builder, 2026-10-29), but at
+# 104 the carriage just touches a cable (bench, 2026-10-30): 103 is the
+# limit. Marlin's compiled limit is 100; its software endstops are off,
+# so this is the only limit.
+travel_mm = [103.0, 120.0]
 max_feed_mm_s = 20.0
 max_accel_mm_s2 = 100.0
 
@@ -39,60 +67,88 @@ max_accel_mm_s2 = 100.0
 # 3/6 share an angle, and XY picks the group. xy_centre_mm is where XY
 # puts the AB centre under that beam.
 # spot_um: the spot's size, the 10-90 % width of an edge scanned through
-# it. Lasers 1-3 from the test cell's straight edge after refocusing by
-# eye (bench, 2026-10-23); the photodiode measures all six properly
-# (Phase 6). Left out where unknown. The window compares it with the
-# row pitch; nothing else uses it yet.
+# it, along A on the blade at the sample's height. All six from
+# `multilbic commission` again on 2026-11-03: lasers 1-3 had moved by up
+# to 1 mm since 2026-10-30 (a six-laser map showed it, the photodiode
+# agreed), 4-6 by under 0.07 mm. Commission all six after any work in
+# the box. Before that, from the run across the blades on 2026-10-30
+# (0.6.22), after the stage was lowered 1 cm and refocused by eye: lasers 1 and 2 were 65 and 41 um on the old stage
+# (the test cell's edge, 2026-10-23), laser 3 244 um. Each is narrower
+# on the upper blade, 0.4 mm higher (48, 22, 20 um): the waist is above
+# the sample's plane, or the spot is astigmatic. Left out where unknown.
+# The window compares it with the row pitch; nothing else uses it yet.
+# cell_offset_xy_mm (optional, 0 if missing): where the laser lands on a
+# cell against where the photodiode puts it, in XY, against the
+# reference laser; added wherever a run places it. From a line-up (the
+# Maintenance window, or `multilbic lineup RUN --write`).
 
 [[lasers]]
 number = 1
 wavelength_nm = 444
 servo_angle_deg = 150
-xy_centre_mm = [79.6, 71.3]
-measured = true
-spot_um = 65
+xy_centre_mm = [78.965, 72.094]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 67.5  # commission 2026-11-03
+cell_offset_xy_mm = [-0.021, -0.008]  # lineup 2026-11-05
 
 [[lasers]]
 number = 2
 wavelength_nm = 519
 servo_angle_deg = 90
-xy_centre_mm = [75.6, 71.7]
-measured = true
-spot_um = 41
+xy_centre_mm = [76.058, 72.604]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 41.7  # commission 2026-11-03
+cell_offset_xy_mm = [-0.008, 0.063]  # lineup 2026-11-05
 
 [[lasers]]
 number = 3
 wavelength_nm = 652
 servo_angle_deg = 30
-xy_centre_mm = [75.0, 70.0]
-measured = true
-spot_um = 244
+xy_centre_mm = [74.854, 70.383]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 35.1  # commission 2026-11-03
+cell_offset_xy_mm = [0.000, 0.000]  # lineup 2026-11-05
 
 [[lasers]]
 number = 4
 wavelength_nm = 676
 servo_angle_deg = 150
-xy_centre_mm = [49.4, 43.0]
-measured = false
+# Lasers 4-6 placed by eye on the photodiode's open quarter first (laser
+# 4 by sight, 5 and 6 with an IR card; laser 6 was 12 mm from its
+# placeholder), then commissioned across the blades (2026-10-30,
+# 0.6.27): moved by up to 0.9 mm from there. All three give 1.3-2.0 mA
+# on the photodiode, bright enough that its response may bend.
+xy_centre_mm = [48.921, 43.868]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 99.5  # commission 2026-11-03
+cell_offset_xy_mm = [-0.086, 0.080]  # lineup 2026-11-05
 
 [[lasers]]
 number = 5
 wavelength_nm = 785
 servo_angle_deg = 90
-xy_centre_mm = [49.4, 43.0]
-measured = false
+xy_centre_mm = [48.007, 42.217]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 71.7  # commission 2026-11-03
+cell_offset_xy_mm = [-0.014, 0.108]  # lineup 2026-11-05
 
 [[lasers]]
 number = 6
 wavelength_nm = 848
 servo_angle_deg = 30
-xy_centre_mm = [50.0, 50.0]
-measured = false
+xy_centre_mm = [49.501, 38.264]  # commission 2026-11-03
+measured = true  # commission 2026-11-03
+spot_um = 72.9  # commission 2026-11-03
+cell_offset_xy_mm = [-0.020, 0.059]  # lineup 2026-11-05
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's
-# position is taken relative to it (Phase 4).
-reference_laser = 2
+# position is taken relative to it (Phase 4), and so is each laser's
+# offset on the cell (cell_offset_xy_mm, 0 for this one). Laser 3 since
+# 2026-11-05: laser 2, the first reference, gives a twentieth of the
+# others' light (its supply). Calibrations made under laser 2 stay
+# right: each records its reference laser's position then.
+reference_laser = 3
 # XY carries the whole AB gantry, so moving XY moves the sample under the
 # beam like moving AB does. These say along which AB axis, and which way:
 # "+A" means X up moves the sample the same way as A up. Checked on the
@@ -122,6 +178,32 @@ ab_backlash_mm = 0.0
 u_points = "left"
 v_points = "down"
 
+[photodiode]
+# Hamamatsu S1223-01 (3.6 x 3.6 mm chip) under two scalpel blades whose
+# edges cross over it, one quarter of the chip left open
+# (docs/hardware/photodiode.md).
+channel = 2
+# Where the blade edges cross, on the carriage: the AB position that
+# would put it under a laser with XY at that laser's xy_centre_mm. Far
+# outside AB's travel along A; XY makes up the rest. Measured across
+# the blades by `multilbic commission` as laser 2 sees it (2026-10-30,
+# 0.6.22), 0.25 mm from the estimate (58.44, 21.26). The first run that
+# day passed away from the blades (the open side read the wrong way
+# round, fixed in 0.6.21) and found the can window's far corner at
+# (60.239, 23.062). Laser 1 reaches 4.9 mm past it along A with X to
+# 103 and A to 39.5.
+corner_ab_mm = [58.568, 21.016]  # commission 2026-10-30
+# The open quarter is towards A- and B- of the corner as it sits on the
+# carriage (as built): the way the carriage goes when A or B decreases.
+# In the carriage frame that is larger A and B (`Photodiode.open_signs`).
+open_a = "-"
+open_b = "-"
+chip_mm = 3.6
+# The blade along B is at the sample's height; the blade along A sits
+# on it, 0.4 mm higher (the blades' measured thickness).
+blade_a_above_mm = 0.4
+measured = true  # commission 2026-10-30
+
 [laser_board]
 # Wait after the servo turns, before the laser comes on. On the worst
 # 120-degree swing, 1000 ms was stable and 500 ms slid (bench,
@@ -133,6 +215,12 @@ settle_ms = 2000
 # relit after up to 1 s dark came back at 40 % and stayed there; 2 s or
 # more gave full power (bench, 2026-10-27). The driver waits out the rest.
 relight_ms = 3000
+# Release the servo once it has turned and settled (firmware 2.1.0), so
+# it stops correcting itself: held powered, it moved the beam in steps
+# of 7-24 um at random times, for minutes after a turn and with nothing
+# else moving (bench, 2026-11-05). The driver applies it at every
+# open(); 2.0.0 has no such command and keeps the servo powered.
+release_servo = true
 
 # Serial ports per platform (sys.platform). An empty string means "not
 # configured", which is normal for a development machine.

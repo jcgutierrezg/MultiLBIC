@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     from smuniversal_lab_suite.core.single_instance import SingleInstance
 
     from multilbic.sim.rig import Faults, SimRig
+    from multilbic.sim.sample import SyntheticSample
 
 #: Where a simulated machine hides its sample on the carriage, for an
 #: operator to find with the photocurrent (`calibrate --sim`, the GUI).
@@ -99,7 +100,11 @@ def open_real(
     clock: Clock = SYSTEM_CLOCK,
     *,
     lock_file: str | Path | None = None,
+    smu_channels: tuple[int, ...] = (1,),
 ) -> Connection:
+    """The machine, holding its lock. The SMU is set up on
+    `smu_channels` only (1, the cell, for maps); others are left as they
+    are."""
     from multilbic.hardware.laser import LaserBoard
     from multilbic.hardware.link import SerialLink
     from multilbic.hardware.marlin import Marlin
@@ -122,7 +127,7 @@ def open_real(
                            machine, clock)
         opened.append(board)
         board.open()
-        smu = open_smu(ports.smu, clock)
+        smu = open_smu(ports.smu, clock, smu_channels)
         opened.append(smu)
         smu.identify()
     except BaseException:
@@ -145,15 +150,20 @@ def open_sim(
     size_mm: tuple[float, float] = SIM_SAMPLE_MM,
     faults: Faults | None = None,
     clock: Clock | None = None,
+    sample: SyntheticSample | None = None,
+    smu_channels: tuple[int, ...] = (1,),
 ) -> Connection:
     """The simulated machine, with a synthetic sample whose corner is
-    at `corner_carriage_mm` on the carriage."""
+    at `corner_carriage_mm` on the carriage: `sample`, or the default
+    one of `size_mm`."""
     from multilbic.sim.rig import Faults, SimRig
     from multilbic.sim.sample import SyntheticSample
 
     clock = clock or ScaledClock(speed, precise=True)
-    rig = SimRig(machine, clock, SyntheticSample.default(*size_mm),
-                 corner_carriage_mm, faults or Faults())
+    rig = SimRig(machine, clock,
+                 sample or SyntheticSample.default(*size_mm),
+                 corner_carriage_mm, faults or Faults(),
+                 smu_channels=smu_channels)
     rig.open()
     return Connection(ScanDevices(rig.marlin, rig.laser, rig.smu), clock,
                       True, rig=rig)

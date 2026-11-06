@@ -29,6 +29,7 @@ from multilbic.config.machine import MachineConfig
 from multilbic.run.rows import ScanDevices
 from multilbic.run.session import RunRequest, Session
 from multilbic.scan.mapping import MapResult, build_map
+from multilbic.sim.fake_marlin import FIRST_MOVE_DELAY_S
 from multilbic.sim.rig import Faults, SimRig
 from multilbic.sim.sample import SyntheticSample
 from multilbic.store.image import save_png
@@ -104,7 +105,12 @@ def sim_machine(machine: MachineConfig, faults: Faults) -> MachineConfig:
         ab_backlash_mm=faults.backlash_mm,
         directions_measured=True,
     )
-    return replace(machine, geometry=geometry)
+    # The fake's on-time reply: its 100 ms first-move delay and the
+    # injected latency (the bench's is 93.5 ms).
+    ab = replace(machine.ab, row_reply_ms=(
+        (FIRST_MOVE_DELAY_S + faults.reply_latency_s
+         + faults.reply_jitter_s / 2) * 1000))
+    return replace(machine, geometry=geometry, ab=ab)
 
 
 @dataclass(frozen=True)

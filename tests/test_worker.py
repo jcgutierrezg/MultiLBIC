@@ -29,6 +29,10 @@ from multilbic.run.devices import (
 )
 from multilbic.run.session import RunRequest
 from multilbic.scan.mapping import BASELINE_ROW
+from multilbic.scan.photodiode import (
+    open_quarter_middle,
+    reach,
+)
 from multilbic.sim.rig import Faults
 from multilbic.sim.scan import sim_machine
 
@@ -372,3 +376,257 @@ def test_checking_ranges_through_the_worker(setup):
     assert change.ranges[2].range_a == 25e-6
     assert any("range 25 uA" in e.text for e in watch.of(Log))
     assert watch.of(LaserChanged)[-1].laser == machine.geometry.reference_laser
+
+
+def test_readings_include_the_photodiode_when_opened_with_it(machine):
+    def connector():
+        return open_sim(machine, clock=ScaledClock(20.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        assert worker.home()
+        watch.idle()
+        x, y, a, b = reach(machine, 3, open_quarter_middle(machine)).xyab
+        assert worker.move(x=x, y=y, a=a, b=b)
+        watch.idle()
+        assert worker.laser(3)
+        watch.idle()
+        # Laser 3 is beyond autorange's 1 mA limit, which the idle
+        # readings are held to: they read at the limit.
+        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a < -0.9e-3
+                               for r in watch.of(Reading)))
+        assert not watch.errors()
+    finally:
+        worker.close()
+
+
+def test_to_photodiode_puts_the_open_quarter_under_the_laser(machine):
+    def connector():
+        return open_sim(machine, clock=ScaledClock(20.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        # Not before homing: where the stage is isn't known.
+        assert worker.to_photodiode(5)
+        watch.idle()
+        assert "home the stage first" in watch.errors()[-1]
+        assert worker.home()
+        watch.idle()
+        assert worker.laser(5)
+        watch.idle()
+        assert worker.to_photodiode(5)
+        watch.idle()
+        want = reach(machine, 5, open_quarter_middle(machine)).xyab
+        got = watch.of(Position)[-1].xyab
+        assert tuple(got[k] for k in "XYAB") == pytest.approx(want,
+                                                              abs=1e-3)
+        # All of its light on the chip.
+        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a < -50e-6
+                               for r in watch.of(Reading)))
+    finally:
+        worker.close()
+
+
+# ---- focus assist ----
+
+
+def focus_worker(machine, tmp_path):
+    from importlib import resources
+
+    path = tmp_path / "machine.toml"
+    path.write_text(resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
+        newline="")
+
+    def connector():
+        return open_sim(machine, clock=ScaledClock(50.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05,
+                           machine_path=path)
+    watch = Watcher(worker)
+    worker.connect()
+    watch.idle()
+    return worker, watch, path
+
+
+def test_focus_through_the_worker_and_save(machine, tmp_path):
+    from multilbic.gui.worker import (
+        FocusEnded,
+        FocusPassed,
+        FocusStarted,
+        MachineChanged,
+    )
+    from multilbic.run.focus import FocusRequest
+
+    worker, watch, path = focus_worker(machine, tmp_path)
+    try:
+        assert worker.start_focus(FocusRequest(2, max_passes=3, read_s=0.3))
+        assert worker.state is State.FOCUSING
+        # Nothing else while it focuses.
+        assert not worker.jog("a", 0.1)
+        watch.wait(lambda: watch.of(FocusEnded))
+        watch.idle()
+        assert watch.of(FocusStarted)
+        assert len(watch.of(FocusPassed)) == 3
+        (ended,) = watch.of(FocusEnded)
+        assert ended.error is None and ended.result.proposal is not None
+        # Readings carry on afterwards, and the laser is off.
+        assert watch.of(LaserChanged)[-1].laser == 0
+        before = len(watch.of(Reading))
+        watch.wait(lambda: len(watch.of(Reading)) > before)
+
+        assert worker.save_focus()
+        watch.wait(lambda: watch.of(MachineChanged))
+        watch.idle()
+        text = path.read_text(encoding="utf-8")
+        assert "# focus " in text
+        assert worker.machine.laser(2).spot_um == pytest.approx(
+            ended.result.proposal.spot_um[2], abs=0.06)
+        # Saved once: nothing left to save.
+        assert worker.save_focus()
+        watch.idle()
+        assert any("nothing to save" in e for e in watch.errors())
+    finally:
+        worker.close()
+
+
+def test_done_and_stop_while_focusing(machine, tmp_path):
+    from multilbic.gui.worker import FocusEnded, FocusPassed
+    from multilbic.run.focus import FocusRequest
+
+    worker, watch, _ = focus_worker(machine, tmp_path)
+    try:
+        assert not worker.finish_focus()  # not focusing
+        assert worker.start_focus(FocusRequest(2, read_s=0.3))
+        watch.wait(lambda: len(watch.of(FocusPassed)) >= 2)
+        assert worker.finish_focus()
+        watch.wait(lambda: watch.of(FocusEnded))
+        watch.idle()
+        assert watch.of(FocusEnded)[-1].result.proposal is not None
+
+        assert worker.start_focus(FocusRequest(2, read_s=0.3))
+        watch.wait(lambda: len(watch.of(FocusPassed)) >= 4)
+        worker.stop()
+        watch.wait(lambda: len(watch.of(FocusEnded)) == 2)
+        watch.idle()
+        assert watch.of(FocusEnded)[-1].result is None
+        assert watch.of(LaserChanged)[-1].laser == 0
+        assert any("focus: stopped" in e.text for e in watch.of(Log))
+    finally:
+        worker.close()
+
+
+# ---- commissioning and the line-up (the Maintenance window) ----
+
+
+def test_commission_through_the_worker_and_save(machine, tmp_path):
+    from multilbic.gui.worker import CommissionEnded, MachineChanged
+    from multilbic.run.commission import CommissionRequest
+
+    worker, watch, path = focus_worker(machine, tmp_path)
+    try:
+        request = CommissionRequest((3,), warmup_s=0.0, read_s=0.3)
+        assert worker.start_commission(request, tmp_path / "runs",
+                                       {"commit": "test"})
+        assert worker.state is State.COMMISSIONING
+        assert not worker.jog("a", 0.1)
+        watch.wait(lambda: watch.of(CommissionEnded), timeout=180)
+        watch.idle()
+        (ended,) = watch.of(CommissionEnded)
+        assert ended.error is None, watch.errors()
+        assert ended.result.proposal is not None
+        assert ended.report is not None and ended.report.exists()
+        assert watch.of(LaserChanged)[-1].laser == 0
+        before = len(watch.of(Reading))
+        watch.wait(lambda: len(watch.of(Reading)) > before)
+
+        assert worker.save_commission()
+        watch.wait(lambda: watch.of(MachineChanged))
+        watch.idle()
+        assert "# commission " in path.read_text(encoding="utf-8")
+    finally:
+        worker.close()
+
+
+def test_stop_while_commissioning(machine, tmp_path):
+    from multilbic.gui.worker import CommissionEnded
+    from multilbic.run.commission import CommissionRequest
+
+    worker, watch, _ = focus_worker(machine, tmp_path)
+    try:
+        assert worker.start_commission(CommissionRequest((3,)),
+                                       tmp_path / "runs", {})
+        watch.wait(lambda: any("laser 3" in e.text for e in watch.of(Log)))
+        worker.stop()
+        watch.idle()
+        (ended,) = watch.of(CommissionEnded)
+        assert ended.error
+        assert watch.of(LaserChanged)[-1].laser == 0
+    finally:
+        worker.close()
+
+
+@pytest.mark.sim_timing
+def test_a_lineup_through_the_worker_and_save(machine, tmp_path):
+    import dataclasses
+    from importlib import resources
+
+    from multilbic.gui.worker import LineUpEnded, MachineChanged
+    from multilbic.run.lineup import centred_patch
+    from multilbic.sim.sample import SyntheticSample
+
+    faults = Faults(cell_offset_xy_mm=((1, 0.03, -0.02),))
+    machine = sim_machine(machine, faults)
+    path = tmp_path / "machine.toml"
+    path.write_text(resources.files("multilbic.config").joinpath(
+        "machine.toml").read_text(encoding="utf-8"), encoding="utf-8",
+        newline="")
+    holder = {}
+
+    def connector():
+        conn = open_sim(machine, clock=ScaledClock(5.0, precise=True),
+                        corner_carriage_mm=CORNER, faults=faults,
+                        sample=SyntheticSample.corner((0.5, 0.5)))
+        holder["rig"] = conn.rig
+        return conn
+
+    worker = MachineWorker(machine, connector, poll_s=0.05,
+                           machine_path=path)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        cal = holder["rig"].perfect_calibration("corner")
+        a, b = cal.corner_ab_mm
+        cal = dataclasses.replace(cal, corner_ab_mm=(a + 0.5, b + 0.5))
+        lineup = RunRequest(centred_patch(cal, 0.6), (1, 3), 0.01, 0.025,
+                            2.0, baseline_s=0.5, warmup_s=0.0)
+        assert worker.start_lineup(lineup, tmp_path / "runs", {})
+        watch.wait(lambda: watch.of(LineUpEnded), timeout=240)
+        watch.idle()
+        (ended,) = watch.of(LineUpEnded)
+        assert ended.error is None, watch.errors()
+        # The fault adds to the offset machine.toml already has.
+        x, y = machine.laser(1).cell_offset_xy_mm
+        expected = (x + 0.03, y - 0.02)
+        assert ended.lineup.proposal[1] == pytest.approx(expected, abs=0.005)
+        assert worker.save_lineup()
+        watch.wait(lambda: watch.of(MachineChanged))
+        watch.idle()
+        assert "# lineup " in path.read_text(encoding="utf-8")
+        assert worker.machine.laser(1).cell_offset_xy_mm == pytest.approx(
+            expected, abs=0.005)
+    finally:
+        worker.close()

@@ -5,11 +5,13 @@ title: "Running a map"
 
 # Running a map
 
-From a sample on the stage to its maps, from the command line (Phase 4).
-The window does the same with buttons ([gui](gui.md)); what is said here
+From a sample on the stage to its maps, from the command line. The
+window does the same with buttons ([gui](gui.md)); what is said here
 about placement, the options, Stop, faults and the run folder holds for
-both. How a map is computed is in [scan](scan.md); the bench steps that
-check all this on the machine are in [bench](bench.md#phase-4-first-maps).
+both. How a map is computed is in [scan](scan.md). Keeping the lasers
+where `machine.toml` says (commissioning, focus, the line-up) is in
+[commissioning](commissioning.md); one-off measurements (`read`,
+`sync-check`, `edges`) in [diagnostics](diagnostics.md).
 
 ```bash
 uv run multilbic calibrate --sample cell-7 --out ~/cal/cell-7.json
@@ -31,15 +33,16 @@ full range (up to about 34 mm, less the run-up).
 
 | Key | Meaning |
 |---|---|
-| `reference_laser` | the laser calibration is done under (2) |
-| `x_along`, `y_along` | which AB axis each XY axis moves the sample along, and which way: `"+A"` means X up moves it like A up. **Checked on the bench before any real run** (`directions_measured`) |
+| `reference_laser` | the laser calibration is done under (3; 2 before 2026-11-05), and each laser's offset on the cell is taken against |
+| `x_along`, `y_along` | which AB axis each XY axis moves the sample along, and which way: `"+A"` means X up moves it like A up. `run` refuses the machine until `directions_measured` |
 | `xy_take_up_mm`, `ab_take_up_mm` | every placing move ends moving up from at least this far below, so backlash is always taken up the same way (Marlin lists 0.2 mm on X/Y, uncorrected) |
-| `ab_backlash_mm` | A/B backlash once measured. Calibration reads AB after moving up, half the backlash above the stage; aligned maps are shifted by half of it to agree |
+| `ab_backlash_mm` | A/B backlash (0: the sync check found 4 µm). Calibration reads AB after moving up, half the backlash above the stage; aligned maps are shifted by half of it to agree |
 
-How well maps from different lasers line up rests on each laser's
-`xy_centre_mm`. Lasers 1–3 were measured once; 4–6 are placeholders, so
-`run` refuses them without `--allow-unmeasured`. The channel-2
-photodiode measures them properly in Phase 6.
+How well maps from different lasers line up rests on where each laser
+is placed: from the photodiode each run (below), plus its
+`cell_offset_xy_mm`. A laser whose position in `machine.toml` is not
+measured (`measured = false`) is refused without `--allow-unmeasured`;
+all six are measured.
 
 ## `calibrate`
 
@@ -76,13 +79,15 @@ AB centre and lights it, and gives you a prompt:
 
 It starts in XY at 0.1 mm. Keys pressed while the stage is moving are
 dropped, so holding a key jogs step by step rather than queueing moves.
-For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). Which
-way `w` moves the spot on the sample depends on the axis directions,
-which bench step 1 finds.
+For finer than 0.1 mm, leave key mode and type a jog (`a+0.01`). On
+this machine `d` (X up) moves the stage to the right as you stand at it,
+as the window's right arrow does; `w` (Y up) moves it away from you, up
+in the reference photo's view.
 
 **The corner** is the one the sample extends from towards +A and +B:
 on this machine, the sample's **top-right corner** as you look at the
-stage, since +A moves the sample up and +B moves it right
+stage: +A moves the stage right, so the spot runs left over the sample,
+and +B moves the stage up, so the spot runs down
 ([hardware](hardware.md#mechanics)).
 Every jog ends moving up, like every move a run makes. Jog XY to get
 close, fine-tune with XY or AB, `here`, `size`, `trace`; if the outline
@@ -106,14 +111,15 @@ board may have restarted since calibration.
 | `--lasers 1,2,3` | (required) | in this order |
 | `--pixel 0.01` | (required) | mm along A |
 | `--pitch 0.05` | (required) | mm between rows |
-| `--speed 4` | 4 mm/s | stay at 5 or below (D9); 4 is bench-proven (D27) |
+| `--speed 4` | 4 mm/s | at most 5, the A/B ceiling; 4 is the default (D27) |
 | `--bias 0` | 0 V | |
-| `--current-range 25u` | checked, else 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. **Without it, each laser uses the range checked for this sample at calibration** (`ranges` above), and 25 µA if it wasn't checked; the plan printed before the start says which. Given, it applies as written. Lasers can be 100x apart in brightness on one sample (on the test cell lasers 1 and 3 need 650 µA, laser 2 25 µA), so they need their own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a clipping range starts that laser again one range up (below) |
+| `--current-range 25u` | checked, else 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. **Without it, each laser uses the range checked for this sample at calibration** (`ranges` above), and 25 µA if it wasn't checked; the plan printed before the start says which. Given, it applies as written. Lasers can be 100x apart in brightness on one sample, so they need their own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a clipping range starts that laser again one range up (below) |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
 | `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |
-| `--allow-unmeasured` | | lasers with placeholder positions |
+| `--allow-unmeasured` | | lasers whose position isn't measured |
 | `--no-step-up` | | a laser whose range clips fails the run, instead of starting again one range up (below) |
+| `--no-locate` | | place each laser from `machine.toml`, not from the photodiode (below) |
 | `--note "room lights on"` | | free text in every file header and `run.json` |
 | `--out DIR` | `~/multilbic-runs` (`runs/` with `--sim`) | |
 | `--yes` | | don't ask; needed without a terminal |
@@ -151,6 +157,32 @@ machine lock before opening the real machine
 is in use by another MultiLBIC process" instead of fighting over the
 ports. The operating system drops the lock when the process ends, even
 by a crash. Simulated machines take no lock.
+
+### Placing each laser from the photodiode
+
+Where `machine.toml` has a measured `[photodiode]`, a run locates each
+laser on it right after selecting it, and places that laser's map from
+where it is, not from its `xy_centre_mm` (since 0.6.43; `--no-locate`,
+or untick "place from photodiode" in the window, to place from
+`machine.toml`). The revolver's servo lands a laser within about
+±0.1 mm, differently every time it turns
+([lasers](hardware/lasers.md#the-servo)), and it is released and
+doesn't turn again until the next laser, so the map uses the landing
+just measured.
+
+The locate (`run/locate.py`, about 40 s a laser): the photodiode's open
+quarter under the laser, the dark and its light, then each blade edge
+swept ±0.4 mm round where it should be and crossed once up and once
+down; the corner as the laser sees it, against the measured corner, is
+how far it is off. A laser further off than that gets the full
+commissioning sweeps. The run file's header and `run.json` record each
+laser's offset (`located`), and its XY as used (`xy_mm`). Nothing is
+written to `machine.toml`.
+
+Each laser's `cell_offset_xy_mm` is added on top, located or not: where
+the beam lands on the cell against where the photodiode puts it
+([line-up](commissioning.md#line-up)). Run files record the offset
+used.
 
 ## The run folder
 

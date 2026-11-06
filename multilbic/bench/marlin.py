@@ -5,6 +5,7 @@ Marlin on the bench: what it is really running, and how it really times.
     python -m multilbic.bench.marlin --real --home --motion      # + AB moves
     python -m multilbic.bench.marlin --real --home --speeds 3,4,5,6
     python -m multilbic.bench.marlin --real --home --speeds 3,4,5,6 --speed-axis b
+    python -m multilbic.bench.marlin --real --home --speeds 3,4,5,6 --speed-span 1,39
 
 Stages, each opted into:
 
@@ -26,7 +27,8 @@ Stages, each opted into:
    with `M203`, **for this power cycle only** (nothing is saved to
    EEPROM; the original value is restored at the end), and runs 20 mm
    back-and-forth moves at each speed on one axis: A by default, B with
-   `--speed-axis b`. Only that axis moves. Watch and listen: lost steps
+   `--speed-axis b`, between 10 and 30 mm, or across `--speed-span LO,HI`
+   (`1,39`: the whole travel, 2026-11-04). Only that axis moves. Watch and listen: lost steps
    don't show in the numbers, because there is no encoder. `M122` after
    each speed records driver flags.
 """
@@ -231,15 +233,19 @@ def _m203_ab(settings: list[str]) -> tuple[float, float] | None:
 
 
 def speeds(
-    marlin: Marlin, machine, clock, report: Report, values, axis: str = "a"
+    marlin: Marlin, machine, clock, report: Report, values, axis: str = "a",
+    span: tuple[float, float] | None = None,
 ) -> None:
     original = _m203_ab(report["m503"])
     if original is None:
         report.note("could not read M203 for A/B: speed test skipped")
         return
     base = BASE_A_MM if axis == "a" else BASE_B_MM
+    length = LONG_MOVE_MM
+    if span is not None:
+        base, length = span[0], span[1] - span[0]
     # Start every trial from the same place, so the first timed move is
-    # a full 20 mm like the rest.
+    # a full one like the rest.
     marlin.move_to(feed_mm_s=1.0, **{axis: base})
     marlin.wait_idle(timeout=60.0)
     rows = []
@@ -253,22 +259,24 @@ def speeds(
             marlin.use_limits(raised)
             say(
                 f"speed {speed:g} mm/s on {axis.upper()}: "
-                f"3 x {LONG_MOVE_MM:g} mm back and forth"
+                f"3 x {length:g} mm back and forth from {base:g}"
             )
             times = []
             for _ in range(3):
                 times.append(
                     timed_move(
-                        marlin, clock, speed, **{axis: base + LONG_MOVE_MM}
+                        marlin, clock, speed, **{axis: base + length}
                     )
                 )
                 times.append(timed_move(marlin, clock, speed, **{axis: base}))
-            predicted = model_duration(raised, LONG_MOVE_MM, speed)
+            predicted = model_duration(raised, length, speed)
             m122 = list(marlin.send("M122", timeout=10.0).lines)
             rows.append(
                 {
                     "axis": axis.upper(),
                     "speed_mm_s": speed,
+                    "from_mm": base,
+                    "length_mm": length,
                     "move_s": summary(times),
                     "model_s": predicted,
                     "m122": m122,
@@ -315,12 +323,23 @@ def main(argv: list[str] | None = None) -> int:
         default="a",
         help="which axis the speed trials move (default a)",
     )
+    parser.add_argument(
+        "--speed-span", default="",
+        help="LO,HI: the speed trials' moves, mm (default 10,30); 1,39 "
+        "is the whole travel",
+    )
     args = parser.parse_args(argv)
     if args.motion and not args.home:
         parser.error("--motion needs --home")
     if args.speeds and not args.home:
         parser.error("--speeds needs --home")
     speed_values = [float(v) for v in args.speeds.split(",") if v.strip()]
+    span = None
+    if args.speed_span:
+        lo, hi = (float(v) for v in args.speed_span.split(","))
+        if not lo < hi:
+            parser.error("--speed-span: LO must be below HI")
+        span = (lo, hi)
 
     machine, clock = setup(args)
     report = Report("marlin", args)
@@ -336,7 +355,8 @@ def main(argv: list[str] | None = None) -> int:
             keepalive(marlin, machine, clock, report)
         if speed_values:
             speeds(
-                marlin, machine, clock, report, speed_values, args.speed_axis
+                marlin, machine, clock, report, speed_values, args.speed_axis,
+                span,
             )
     except Exception as exc:
         report["error"] = f"{type(exc).__name__}: {exc}"
