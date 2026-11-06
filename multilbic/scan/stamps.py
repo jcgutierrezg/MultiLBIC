@@ -17,6 +17,16 @@ file, where the saw-tooth averages out. Where the line leaves the
 stamps by more than `BREAK_MS` the stream must have lost samples or
 restarted, and each stretch between such breaks gets its own line.
 Older files, with holes between rows, keep their stamps.
+
+**A stream that loses samples here and there keeps its stamps.** At
+1000 Hz, 30 minutes of a real run lost about 3 % of its samples in
+skips of up to 10 ms, none a break, and a line by count drifted from
+-320 to +775 ms off the stamps (bench, 2026-11-06): its map's two
+directions no longer met, and the alignment found no shift. So a line
+is kept only where it stays within `FIT_MS` of the stamps, as a stream
+with nothing lost does; a stretch it misses by more, with no step over
+`BREAK_MS` to split it at, keeps its stamps, good to the saw-tooth's
+few ms.
 """
 
 from __future__ import annotations
@@ -26,6 +36,10 @@ import numpy as np
 #: The saw-tooth spans about 6.5 ms around the line; a residual step
 #: bigger than this is a break in the stream, not the saw-tooth.
 BREAK_MS = 12.0
+#: A loss-free stretch stays this close to its line (the bench's 800 Hz
+#: stamps sat -1.7 to +4.7 ms off it, 2026-11-03). Further, and samples
+#: were lost inside it: counting them would date it worse than this.
+FIT_MS = 6.0
 #: No stretch shorter than this is fitted on its own.
 MIN_STRETCH = 50
 
@@ -50,7 +64,7 @@ def _line(stamps: np.ndarray) -> np.ndarray:
     index = np.arange(n, dtype=float)
     slope, offset = np.polyfit(index, stamps, 1)
     fitted = slope * index + offset
-    if np.max(np.abs(stamps - fitted)) <= BREAK_MS:
+    if np.max(np.abs(stamps - fitted)) <= FIT_MS:
         return fitted
     # A break: split where the stamps step furthest from the stretch's
     # usual pace (a loss or a restart jumps the stamps; the saw-tooth's
@@ -59,5 +73,7 @@ def _line(stamps: np.ndarray) -> np.ndarray:
     steps = np.diff(stamps) - np.median(np.diff(stamps))
     at = int(np.argmax(np.abs(steps))) + 1
     if abs(steps[at - 1]) <= BREAK_MS:
-        return fitted
+        # Off the line with no break to split at: samples lost a few at
+        # a time. Counting them would drift; the stamps don't.
+        return stamps.copy()
     return np.concatenate([_line(stamps[:at]), _line(stamps[at:])])

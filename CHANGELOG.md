@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.56 - Samples lost here and there keep their stamps
+
+- A six-laser run on an 18 x 20 mm cell at 5 mm/s (1000 Hz,
+  `20261106T145401Z_full_test`): laser 1's live map looked right, its
+  finished map came out combed, the cell's outline a circle, "serpentine
+  shift not found". The stream had lost about 3 % of its samples, a few
+  at a time, none long enough to count as a break, so dating them by
+  count drifted −320 to +775 ms over the 30 minutes. A stretch whose
+  line misses its stamps by more than 6 ms now keeps its stamps: that
+  map then aligns at +152 µm and is clean. 800 Hz maps lost nothing and
+  are dated by count as before (the line-up's shifts unchanged to 5 µm).
+
 ## 0.6.55 - A commissioning test that held on Windows CI
 
 - `test_a_measured_corner_stays_and_the_reference_laser_moves` compares
