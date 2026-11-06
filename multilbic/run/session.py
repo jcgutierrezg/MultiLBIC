@@ -63,7 +63,7 @@ if TYPE_CHECKING:
 
 
 #: The miniSMU's measurement ranges, as `--current-range` and the
-#: window name them: all five (docs/hardware.md). "auto" autoranges, and
+#: window name them: all five (docs/hardware/smu.md). "auto" autoranges, and
 #: drops samples while streaming (D15).
 CURRENT_RANGES: dict[str, float | None] = {
     "1u": 1e-6, "25u": 25e-6, "650u": 650e-6, "15m": 15e-3,

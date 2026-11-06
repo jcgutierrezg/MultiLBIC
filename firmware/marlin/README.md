@@ -21,4 +21,4 @@ with `M503`. After a reflash, `M502` then `M500` restores the compiled
 defaults.
 
 What the settings mean for the software is in
-[`docs/hardware.md`](../../docs/hardware.md#motion-controller-marlin).
+[`docs/hardware/motion.md`](../../docs/hardware/motion.md).

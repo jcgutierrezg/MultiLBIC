@@ -29,7 +29,7 @@ _HORIZONTAL = ("left", "right")
 CMAP = "inferno"
 #: Empty pixels along a row, up to this many in a run, are drawn filled
 #: in from their neighbours. The miniSMU's stream skips 5-8 ms of stamps
-#: about every 100 ms (docs/hardware.md): at 4 mm/s and 10 um pixels
+#: about every 100 ms (docs/hardware/smu.md): at 4 mm/s and 10 um pixels
 #: that is 2-3 empty pixels, six times a row, narrower than any spot.
 #: Only the picture is filled; the data keeps its gaps. A longer run
 #: stays blank, so a real dropout still shows.

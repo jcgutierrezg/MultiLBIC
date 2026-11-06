@@ -21,7 +21,7 @@ from multilbic.sim.motion import AxisLimits
 
 @pytest.mark.parametrize(
     ("speed", "bench_model_s"),
-    # docs/hardware.md, A speed trials: "Model, without the 0.1 s
+    # docs/hardware/motion.md, the 20 mm A trials: "Model, without the 0.1 s
     # first-move delay", for 20 mm at 50 mm/s².
     [(3.0, 6.73), (4.0, 5.08), (5.0, 4.10), (6.0, 3.45)],
 )

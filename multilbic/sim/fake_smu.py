@@ -16,7 +16,7 @@ drift and a rate error. The current is `signal(channel, t)` plus noise;
 the scan simulation (`multilbic.sim.rig`) plugs the stage position and a
 synthetic sample into `signal`.
 
-The noise can be shaped like the bench's (`docs/hardware.md`, contacted
+The noise can be shaped like the bench's (`docs/hardware/smu.md`, contacted
 cell at 0 V): white noise (`noise_a`), mains pickup at `mains_hz` and
 its odd harmonics (`mains_a`), and slow drift made of a few sine waves
 between 0.2 and 0.7 Hz (`drift_a`, RMS). Packets can also arrive in
@@ -24,7 +24,7 @@ bursts (`burst_s`): above 500 Hz the real one delivers about every
 100 ms, keeping the average rate. A burst delays arrival, never the
 timestamp. A stamp lag (`stamp_lag_s`) stamps each packet that long
 after its current was measured, as the bench suggests the real one does
-(stamped when sent, docs/hardware.md); it is what Phase 6's sync check
+(stamped when sent, docs/hardware/timing.md); it is what the sync check
 measures. A stamp saw-tooth (`stamp_saw_ms` every `stamp_saw_period_s`)
 is the real one's: its stamps fall behind for ~100 ms, then jump to
 catch up, while the measurements stay evenly spaced (bench, 2026-11-03).

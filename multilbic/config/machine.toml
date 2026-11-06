@@ -9,7 +9,7 @@
 
 name = "MultiLBIC"
 
-# Mains pickup is most of the noise on open leads (docs/hardware.md); the
+# Mains pickup is most of the noise on open leads (docs/hardware/smu.md); the
 # map's cleaning removes this frequency and its harmonics along each row.
 mains_hz = 50.0
 
@@ -18,7 +18,7 @@ mains_hz = 50.0
 steps_per_mm = 3200
 travel_mm = 40.0
 # Sensorless homing stops 5 mm short of the hard stop (Marlin's 5 mm
-# homing bump, docs/hardware.md), so Marlin's own zero is 5 mm in and its
+# homing bump, docs/hardware/motion.md), so Marlin's own zero is 5 mm in and its
 # far stop at 35. MultiLBIC sends M206 A5 B5 at every connect: once homed,
 # A and B read 5, and 0 is the hard stop (checked after every home). All
 # A/B coordinates moved by +5 mm with it (2026-10-29, 0.6.17).
@@ -180,7 +180,8 @@ v_points = "down"
 
 [photodiode]
 # Hamamatsu S1223-01 (3.6 x 3.6 mm chip) under two scalpel blades whose
-# edges cross over it, one quarter of the chip left open (docs/hardware.md).
+# edges cross over it, one quarter of the chip left open
+# (docs/hardware/photodiode.md).
 channel = 2
 # Where the blade edges cross, on the carriage: the AB position that
 # would put it under a laser with XY at that laser's xy_centre_mm. Far

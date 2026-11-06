@@ -60,8 +60,8 @@ uv run python -m multilbic.hardware.check --sim --home --move --lasers
 ```
 
 The window runs against it as well, with a synthetic 2 × 1 mm sample
-whose top-right corner is at A 15.2, B 16.1 with XY under laser 2
-([gui](gui.md)):
+whose top-right corner is at A 15.2, B 16.1 with XY at the reference
+laser's centre ([gui](gui.md)):
 
 ```bash
 uv run multilbic gui --sim
@@ -87,18 +87,22 @@ uv run python -m multilbic.sim.scan --height 0.4 --speedup 2
 ```
 
 Tests marked `hardware` are skipped unless pytest gets `--hardware`,
-which is only for the Pi. See [devices](devices.md). The bench probes
-(`multilbic/bench/`) also run with `--sim`; on the machine they follow
-[bench](bench.md).
+which is only for the Pi. See [devices](devices.md). The device probes
+(`multilbic/bench/`) also run with `--sim`
+([diagnostics](diagnostics.md#the-device-probes)); working on the
+machine is [bench](bench.md).
 
 ## Workflow
 
 - Work on a branch. The PR is merged on GitHub; nothing is merged to
   `main` locally.
-- Versions are MAJOR.SESSION.PUSH. The version in `pyproject.toml` is
-  bumped in the commit that is pushed, and `CHANGELOG.md` gets an entry
-  for it.
-- Plan and decisions: [plan](plan.md). Design: [architecture](architecture.md).
+- Versions are MAJOR.SESSION.PUSH; from Phase 4 on the middle number is
+  the phase. The version in `pyproject.toml` is bumped in each commit
+  that is pushed, and `CHANGELOG.md` gets an entry for it.
+- Code that drives the machine stays on its branch, with no PR, until it
+  has passed on the machine.
+- Plan: [plan](plan.md). Decisions: [decisions](decisions.md). Design:
+  [architecture](architecture.md).
 
 ## Moving the SMUniversal pin
 
@@ -122,8 +126,9 @@ in the code.
 missing keys and impossible values are refused with the key named, so
 a typo can't silently fall back to a default.
 
-Where the Pi's own calibrated copy lives is decided at commissioning
-(Phase 6).
+Commissioning, focus and the line-up write into the Pi's copy, which is
+the repository's own file: copy it back and commit it before the next
+deploy, which resets it ([bench](bench.md#deploying-a-branch)).
 
 ## The window's tests
 

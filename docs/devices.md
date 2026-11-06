@@ -113,9 +113,8 @@ the next turn; the gearbox holds the revolver. The driver sets it from
 a power-up forgets it. 2.0.0 answers `RELEASE?` with `ERR UNKNOWN`: the
 driver accepts it, and its servo stays powered.
 
-Firmware 2.1.0 is on the board (flashed 2026-11-05; 2.0.0 since
-2026-10-19). 1.x firmware answers in free text, and
-the driver refuses it at `open()`.
+Firmware 2.1.0 is on the board (since 2026-11-05). 1.x firmware
+answered in free text, and the driver refuses it at `open()`.
 
 ## miniSMU
 
@@ -126,7 +125,8 @@ Two layers over one `minismu_py.SMU` object:
   One driver per channel.
 - **Streaming** straight through the library (`SmuStream`). Each sample
   keeps the instrument's own timestamp (`device_ms`) *and* the host's
-  receipt time (`host_s`). Mapping one clock onto the other is Phase 3.
+  receipt time (`host_s`); mapping one onto the other is in
+  [scan](scan.md#position).
 
 While streaming, the port carries nothing but data packets, so setup
 commands are refused until the stream stops. `output_off()` is the
@@ -143,8 +143,7 @@ two-channel tests catch a regression.
 
 **Reading speed.** On the Pi, the library's per-line read (pyserial's
 `readline()`, one byte per system call) cannot keep up with streaming,
-while a bulk read can (measured in
-[hardware](hardware.md#streaming-measured-2026-10-19)). So `SmuStream`
+while a bulk read can ([smu](hardware/smu.md#streaming)). So `SmuStream`
 reads the library's serial port itself: everything waiting in one call,
 split into lines, parsed by `parse_packet()`. Every sample in one read
 shares its `host_s`. Fields after the fourth are kept in `extra`. The
@@ -170,10 +169,11 @@ names.
 uv run python -m multilbic.hardware.check --sim --home --move --lasers
 ```
 
-On the Pi, `--real` (with `--smu-port` until the miniSMU has a fixed
-name). It identifies each device, prints Marlin's live settings (EEPROM
-can override the compiled ones), streams two seconds, and turns the
-lasers off. Homing, motion and lighting lasers need the explicit flags.
+On the Pi, `--real`, with the ports from `machine.toml`. It identifies
+each device, prints Marlin's live settings (EEPROM can override the
+compiled ones), streams two seconds, and turns the lasers off. Homing,
+motion and lighting lasers need the explicit flags. The other probes
+are in [diagnostics](diagnostics.md#the-device-probes).
 
 Tests marked `hardware` (`tests/test_hardware.py`) run the same checks
 under pytest, never moving the stage:

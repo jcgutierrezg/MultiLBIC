@@ -49,7 +49,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-#: Marlin's DEFAULT_ACCELERATION on this machine (docs/hardware.md). The
+#: Marlin's DEFAULT_ACCELERATION on this machine (docs/hardware/motion.md). The
 #: acceleration of a move is the lower of this and each axis's own limit.
 MARLIN_DEFAULT_ACCEL_MM_S2 = 100.0
 #: Marlin waits this long before starting a move into an empty planner

@@ -5,9 +5,9 @@ title: "Scan"
 
 # Scan
 
-How a map is made from a run, as built in Phase 3. The design it
-follows is in [architecture](architecture.md#position-sync); decisions
-are in [plan](plan.md#decisions).
+How a map is made from a run. The design it follows is in
+[architecture](architecture.md#position-sync), what the bench measured
+in [timing](hardware/timing.md), decisions in [decisions](decisions.md).
 
 | Module | Job |
 |---|---|
@@ -54,8 +54,7 @@ shift flipped sign (bench, 2026-11-05). So a row whose reply is more
 than 4 ms later than its file's usual delay is placed from its send
 plus that delay (`scan.timing.settle_late_replies`). The usual delay
 is the file's quickest replies', or `row_reply_ms` when even those are
-late. (The 113–135 ms "first-move delay" spread once given as the
-reason to anchor on the end was most likely these late replies.)
+late.
 
 **Rows that start late.** A single row's reply can come late because
 its move started late, the board having taken its `G1` up late; then
@@ -110,6 +109,11 @@ corrected. The shift and its quality go into the run's trailer.
 the same way for every row; the stage then sits half the backlash
 behind B's commanded value throughout. Corner calibration (Phase 4)
 has to approach the corner the same way, and then the offset cancels.
+
+**Each laser's placement** comes from the photodiode where the run
+located it, plus its `cell_offset_xy_mm`
+([run](run.md#placing-each-laser-from-the-photodiode)); both are in the
+file's header.
 
 ## Cleaning
 
@@ -226,9 +230,3 @@ moment; device tests keep the plain one.
 under laser 3 (652 nm), dark fingers, the defect as a dimmer block in
 the right cell's upper half, and the rows outside the cells near zero
 give or take the drift.
-
-## Not done here
-
-Phase 4: homing and corner calibration as steps of a run, the loop over
-lasers, Stop, fault handling beyond "laser off, stream stopped, output
-off, file marked", and running a real map off the machine.

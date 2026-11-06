@@ -3,6 +3,24 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.53 - Docs as the machine is now
+
+- Every doc read again against the machine as it stands; what was no
+  longer true or useful is gone (git history and this changelog keep
+  it): the placeholder laser positions, the old stage's readings, the
+  first commissioning across the can's window, finished bench runbooks.
+- `docs/hardware.md` (1,473 lines) is now an overview with five pages
+  under `docs/hardware/`: lasers, motion, smu, photodiode, timing.
+- `docs/run.md` split: focus, commissioning and the line-up in
+  `docs/commissioning.md`; `read`, `sync-check`, `edges` and the device
+  probes in `docs/diagnostics.md`.
+- `docs/bench.md` is now working on the machine (safety, deploying,
+  results); SSH and Ubuntu setup moved to `deploy/pi/README.md`.
+- `docs/plan.md` keeps what is open; the decisions moved to
+  `docs/decisions.md`, with D6, D9, D14, D22 and D27 brought up to date
+  and D29 (each laser placed from the photodiode) written down.
+- Code comments that pointed at moved sections point at the new pages.
+
 ## 0.6.52 - The second line-up, and Go to photodiode
 
 - **Go to photodiode** on the Lasers panel brings the middle of the
@@ -543,13 +561,13 @@ Phase 6 step 2, in simulation.
 - On the maps made so far, the edges agree with the alignment on broad
   spots and not on sharp ones (+19.9 against +9.4 um on the refocused
   laser 2), which settles the open finding as the alignment's
-  ([hardware](docs/hardware.md#edge-fits-on-these-maps-2026-10-28)).
+  ([hardware](docs/hardware/timing.md#the-serpentine-shift)).
   Laser 3 fits 145 um wide against the 244 um in `machine.toml`.
 - Simulator: an SMU that stamps packets late (`Faults.smu_stamp_lag_s`),
   a sample with one straight edge, and `open_sim(sample=)`. On it the
   check recovers an injected 18.6 ms stamp lag and 20 um backlash to
   1.5 ms and 3 um.
-- Bench runbook for step 3 in [bench](docs/bench.md#phase-6-the-sync-check).
+- Bench runbook for step 3 in [diagnostics](docs/diagnostics.md#sync-check-the-sync-error-on-one-edge).
 
 ## 0.6.3 - Phase 6's plan after current ranges
 
@@ -571,7 +589,7 @@ Phase 6 step 2, in simulation.
   driver's 3 s relight wait (laser 1 relit sooner comes back at 40 %).
 - On the bench, nA on every laser means the test cell's crocodile clips
   have lost contact (homing can do it): reseat them
-  ([hardware](docs/hardware.md#current-ranges-on-the-test-cell-2026-10-27)).
+  ([hardware](docs/hardware/lasers.md#the-laser-supply)).
 
 ## 0.6.1 - 5 mm/s in step 3
 

@@ -18,7 +18,7 @@ backlash, through a dead band: on a reversal the motor turns through
 the whole backlash before the stage moves again. `stage_position()`
 reports where the stage is, which is what a laser spot sees. Marlin's
 own backlash compensation is effectively off on this machine (correction
-0, `docs/hardware.md`), so nothing here undoes it.
+0, `docs/hardware/motion.md`), so nothing here undoes it.
 
 Simulated time comes from the clock passed to `attach()`, so a
 `ScaledClock` makes moves complete faster than real time while every

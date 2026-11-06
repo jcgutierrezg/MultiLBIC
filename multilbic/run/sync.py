@@ -5,7 +5,7 @@ one session (Phase 6, steps 2 and 3).
     home -> XY under the laser -> steps -> rows at each speed -> steps
 
 Homing is done once and XY placed once, because homing is only known to
-repeat to about 0.1 mm over days (docs/hardware.md): two sessions could
+repeat to about 0.1 mm over days (docs/hardware/motion.md): two sessions could
 differ by more than the error being measured. For the same reason every
 pass covers the same patch (`window`, in the sample's frame) and the
 continuous rows sit at the same B as the step rows. Step-and-measure

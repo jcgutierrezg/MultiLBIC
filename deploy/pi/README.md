@@ -4,13 +4,59 @@ Kept here so the Pi can be rebuilt if its microSD card fails.
 
 The Pi is a Raspberry Pi 4 running **Ubuntu 24.04** (not Raspberry Pi
 OS), with a monitor attached. It is reached over SSH as `multilbic`;
-setting that up is in [`docs/bench.md`](../../docs/bench.md).
+working on it day to day is in [`docs/bench.md`](../../docs/bench.md).
+
+## SSH
+
+Ubuntu has no default `pi` user: use the account created at install.
+**`sudo` needs that account's password**, so every `sudo` step here is
+done at the Pi.
+
+1. On the Pi, install and start the SSH server:
+   ```bash
+   sudo apt install openssh-server
+   ```
+   ```bash
+   sudo systemctl enable --now ssh
+   ```
+   Address the Pi by name: `hostname` prints it, and `<name>.local`
+   finds it on any network while `avahi-daemon` runs (it does on Ubuntu
+   Desktop). Use an IP (`hostname -I`) only if `.local` fails.
+2. On Windows, make a key if there isn't one (PowerShell), pressing
+   Enter for the default file and twice for an empty passphrase (Claude
+   connects without a terminal to type one into; the trade is that
+   anyone who can read your Windows user folder can reach the Pi):
+   ```powershell
+   ssh-keygen -t ed25519
+   ```
+3. Copy the public key to the Pi (the first connection asks to confirm
+   the fingerprint, then for the Ubuntu password, the last time):
+   ```powershell
+   type $env:USERPROFILE\.ssh\id_ed25519.pub | ssh <user>@<name>.local "mkdir -p ~/.ssh && cat >> ~/.ssh/authorized_keys"
+   ```
+4. Add a short name in `C:\Users\<you>\.ssh\config`:
+   ```
+   Host multilbic
+       HostName <name>.local
+       User <user>
+   ```
 
 ## Install
 
-`setup.sh` does all of the steps below and is safe to re-run; the bench
-runbook ([`docs/bench.md`](../../docs/bench.md)) shows how to fetch and
-run it. By hand:
+The first time, clone and run the script (it downloads well over
+100 MB: uv, Python and the packages, so give the Pi a good connection):
+
+```bash
+git clone --branch <branch> https://github.com/jcgutierrezg/MultiLBIC.git ~/MultiLBIC
+```
+
+```bash
+bash ~/MultiLBIC/deploy/pi/setup.sh <branch>
+```
+
+After that, `setup.sh <branch>` updates the checkout to the branch's
+latest commit. It does all of the steps below and is safe to re-run.
+By hand:
 
 Ubuntu 24.04 ships Python 3.12, older than 3.14. Python 3.14 comes from
 the deadsnakes PPA, whose `python3.14-tk` uses Ubuntu's Tk 8.6, built
@@ -82,9 +128,9 @@ What it did at each boot (runs by hand only print to the terminal):
 journalctl -t multilbic-usb-check
 ```
 
-Verified 2026-10-20: installed and enabled; a forced cycle dropped every
-USB device and the Xiao was back 7 s later. The real "missing at boot"
-path has not been exercised yet, because the failure has not recurred.
+Verified 2026-10-20: a forced cycle dropped every USB device and the
+Xiao was back 7 s later. The real "missing at boot" path has not been
+exercised, because the failure has not recurred.
 
 ## Serial devices
 
@@ -101,11 +147,23 @@ path has not been exercised yet, because the failure has not recurred.
 - The user running the app needs to be in the `dialout` group to open
   serial ports. Ubuntu does not add it by default; `setup.sh` does.
 - **ModemManager** probes every new `/dev/ttyACM*` device (the SKR, the
-  Xiao and the miniSMU all are), and **brltty** claims CH340/CH341
-  USB-serial adapters. Both are covered in
-  [`docs/bench.md`](../../docs/bench.md#before-the-first-session).
+  Xiao and the miniSMU all are) with modem commands, which can hold a
+  port or garble its first seconds. Nothing on the Pi needs a modem
+  (`setup.sh` reports it, and changes nothing):
+  ```bash
+  sudo systemctl disable --now ModemManager
+  ```
+- **brltty** claims CH340/CH341 USB-serial adapters. The TFT35's adapter
+  is an FTDI, which it leaves alone; only a CH340 device added later
+  would need `sudo apt remove brltty`.
 - **The miniSMU has its own power switch.** Switch it on before starting
   the software; switched off, it is simply absent from USB.
+
+## Remote desktop
+
+GNOME's Desktop Sharing shares the Pi's own screen, where the window
+opens; how to connect is in
+[`docs/bench.md`](../../docs/bench.md#seeing-the-pis-screen).
 
 ## Owed
 
