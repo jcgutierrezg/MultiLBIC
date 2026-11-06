@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.55 - A commissioning test that held on Windows CI
+
+- `test_a_measured_corner_stays_and_the_reference_laser_moves` compares
+  two simulated commissioning runs; on Windows CI one put laser 3
+  12.5 um from the other, where the test allowed 3 um. A host stall of
+  a few ms becomes 50 times that in simulated time on the slow passes'
+  anchors. It now runs at 25x and allows 10 um between the runs (the
+  laser moved is 300 x 200 um); precision against the truth is still
+  checked to 3 um in the first commissioning test.
+
 ## 0.6.54 - The lockfile follows the version
 
 - `uv.lock` had stayed at 0.6.17 while the version moved on, so CI's

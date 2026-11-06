@@ -42,8 +42,8 @@ def machine_text():
 
 
 def rig_for(machine, *, offsets=None, corner_shift=(0.0, 0.0),
-            faults=None, spot_sigma=None):
-    clock = ScaledClock(50.0, precise=True)
+            faults=None, spot_sigma=None, speedup=50.0):
+    clock = ScaledClock(speedup, precise=True)
     laser_xy = {
         n: (machine.laser(n).xy_centre_mm[0] + dx,
             machine.laser(n).xy_centre_mm[1] + dy)
@@ -154,17 +154,23 @@ def measured(machine):
 def test_a_measured_corner_stays_and_the_reference_laser_moves(machine):
     # Laser 2's beam moved (refocused): the photodiode did not, so laser
     # 2's position follows, against a run before it moved.
+    # Two runs compared, each with its own timing scatter: a host stall
+    # of a few ms is that times the speed-up in simulated time, on the
+    # slow passes' anchors (12.5 um once at 50x on Windows CI). Slower,
+    # and to 10 um; the move is 300 x 200 um. Precision against the
+    # truth is the first test's.
     machine = measured(machine)
-    _, before = commission(machine, (2, 3))
-    _, after = commission(machine, (2, 3), offsets={2: (0.3, -0.2)})
+    _, before = commission(machine, (2, 3), speedup=25.0)
+    _, after = commission(machine, (2, 3), offsets={2: (0.3, -0.2)},
+                          speedup=25.0)
     p0, p1 = before.proposal, after.proposal
     assert p1.reference == 0
     assert p1.corner_ab_mm == machine.photodiode.corner_ab_mm
     dx = p1.xy_centre_mm[2][0] - p0.xy_centre_mm[2][0]
     dy = p1.xy_centre_mm[2][1] - p0.xy_centre_mm[2][1]
-    assert (dx, dy) == pytest.approx((0.3, -0.2), abs=0.003)
+    assert (dx, dy) == pytest.approx((0.3, -0.2), abs=0.010)
     # Laser 3 did not move.
-    assert p1.xy_centre_mm[3] == pytest.approx(p0.xy_centre_mm[3], abs=0.003)
+    assert p1.xy_centre_mm[3] == pytest.approx(p0.xy_centre_mm[3], abs=0.010)
     assert any("stays" in line for line in p1.lines(machine))
 
 
