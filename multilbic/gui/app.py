@@ -47,6 +47,7 @@ from multilbic.gui.worker import (
     Log,
     MachineChanged,
     MachineWorker,
+    NotLocated,
     State,
     StateChanged,
 )
@@ -305,6 +306,8 @@ class App:
         elif isinstance(event, MachineChanged):
             self.machine = event.machine
             self.setup.replan()
+        elif isinstance(event, NotLocated):
+            self.worker.answer_not_located(self.ask_not_located(event))
         for panel in self.panels:
             panel.handle(event)
         if self.maintenance is not None:
@@ -336,6 +339,20 @@ class App:
         self._console("".join(traceback.format_exception(kind, value, tb)),
                       error=True)
         self.status(f"window error: {kind.__name__}: {value}", error=True)
+
+    def ask_not_located(self, event: NotLocated) -> str:
+        """A laser the run couldn't find on the photodiode, twice: place
+        it from machine.toml, skip it, or stop the run."""
+        answer = messagebox.askyesnocancel(
+            f"Laser {event.laser} not located",
+            f"Laser {event.laser} couldn't be found on the photodiode, "
+            f"even with broader sweeps:\n\n{event.why}\n\n"
+            "Yes: map it anyway, placed from machine.toml (the servo's "
+            "landing can put it 0.1-0.4 mm off).\n"
+            "No: skip it and go on with the next laser.\n"
+            "Cancel: stop the run.",
+            parent=self.root, icon="warning")
+        return {True: "place", False: "skip"}.get(answer, "stop")
 
     # ---- closing ----
 

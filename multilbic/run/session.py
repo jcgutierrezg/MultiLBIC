@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, Any
 
 from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
+from multilbic.run.commission import CommissionError
 from multilbic.run.locate import LOCATE_S, LaserFix, Locator
 from multilbic.run.motion import approach
 from multilbic.run.rows import (
@@ -116,6 +117,10 @@ class RunRequest:
     #: lands it within about +-0.1 mm, differently each time
     #: (`run.locate`). Needs a measured [photodiode] on an opened channel.
     locate: bool = False
+    #: A laser that can't be located, after a second, broader try:
+    #: "ask" (the session's `ask_not_located`; with none, the run fails),
+    #: "place" (from machine.toml, as without locating) or "skip".
+    if_not_located: str = "ask"
 
     def range_for(self, laser: int) -> float | None:
         """The measurement range laser `laser` maps with."""
@@ -143,6 +148,9 @@ class LaserOutcome:
     clipped_attempts: list[str] = field(default_factory=list)
     #: Where it was located on the photodiode, if it was.
     fix: LaserFix | None = None
+    #: Why it couldn't be located, if it couldn't (then placed from
+    #: machine.toml, or skipped).
+    not_located: str | None = None
 
 
 @dataclass
@@ -158,6 +166,10 @@ def plan_run(request: RunRequest, machine: MachineConfig) -> list[LaserPlan]:
         raise RunPlanError("no lasers requested")
     if len(set(request.lasers)) != len(request.lasers):
         raise RunPlanError(f"a laser is listed twice: {request.lasers}")
+    if request.if_not_located not in NOT_LOCATED_CHOICES:
+        raise RunPlanError(
+            f"if_not_located {request.if_not_located!r}: one of "
+            f"{', '.join(NOT_LOCATED_CHOICES)}")
     stray = sorted(set(request.laser_ranges_a) - set(request.lasers))
     if stray:
         raise RunPlanError(
@@ -320,6 +332,14 @@ def _slug(text: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]+", "-", text).strip("-")[:60] or "sample"
 
 
+#: What a run does with a laser it can't locate (`if_not_located`).
+NOT_LOCATED_CHOICES = ("ask", "place", "skip")
+
+
+class _Skipped(Exception):
+    """A laser not located, and skipped: the run goes on."""
+
+
 class Session:
     def __init__(
         self,
@@ -335,7 +355,11 @@ class Session:
         home: bool = True,
         on_row: Callable[[RowDone], None] | None = None,
         on_map: Callable[[LaserOutcome, MapResult], None] | None = None,
+        ask_not_located: Callable[[int, str], str] | None = None,
     ):
+        """`ask_not_located(laser, why)`, for `if_not_located = "ask"`:
+        "place", "skip" or "stop", called on the run's thread, which
+        waits for it."""
         self.devices = devices
         self.machine = machine
         self.clock = clock
@@ -347,6 +371,7 @@ class Session:
         self.home = home
         self.on_row = on_row
         self.on_map = on_map
+        self.ask_not_located = ask_not_located
         self.stop = threading.Event()
         self._locator: Locator | None = None
         if request.locate:
@@ -421,9 +446,9 @@ class Session:
         result.current_range_a = range_a
         try:
             x, y = plan.placement.xy_mm
-            if self._locator is not None:
-                # Selects the laser: the servo lands it here for its map.
-                fix = self._locator.locate(n)
+            fix = self._locate(n, result) if self._locator else None
+            if fix is not None:
+                # It selected the laser: the servo landed it here.
                 result.fix = fix
                 x, y = x + fix.offset_xy_mm[0], y + fix.offset_xy_mm[1]
                 xy_lo = self.machine.geometry.xy_take_up_mm
@@ -451,6 +476,9 @@ class Session:
                 header["xy_mm"] = [x, y]
                 if result.fix is not None:
                     header["located"] = result.fix.as_dict()
+                if result.not_located is not None:
+                    header["not_located"] = result.not_located
+                    header["placed_from"] = "machine.toml"
                 header["calibration"] = self.request.calibration.to_dict()
                 if result.clipped_attempts:
                     header["clipped_attempts"] = result.clipped_attempts
@@ -480,6 +508,8 @@ class Session:
                     continue
                 break
             result.status = "complete"
+        except _Skipped:
+            result.status = f"skipped: not located ({result.not_located})"
         except RunStopped:
             result.status = "stopped"
             raise
@@ -490,6 +520,47 @@ class Session:
             self._event("laser_end", laser=n, status=result.status)
             if path.exists():
                 self._map(result)
+
+    def _locate(self, n: int, result: LaserOutcome) -> LaserFix | None:
+        """Where laser `n` landed, trying a second time with broader
+        sweeps. If neither finds it: None to place it from machine.toml,
+        `_Skipped` to skip it, or `RunStopped`, as `if_not_located` (or
+        the operator, asked) says."""
+        assert self._locator is not None
+        try:
+            return self._locator.locate(n)
+        except CommissionError as first:
+            self._stopped()
+            self.say(f"laser {n}: not located ({first}); once more, with "
+                     "broader sweeps")
+            self._event("laser_locate_retry", laser=n, reason=str(first))
+        try:
+            return self._locator.locate(n, broad=True)
+        except CommissionError as second:
+            self._stopped()
+            why = str(second)
+        choice = self.request.if_not_located
+        if choice == "ask":
+            if self.ask_not_located is None:
+                raise CommissionError(f"laser {n}: not located: {why}")
+            self.say(f"laser {n}: not located ({why}); asking what to do")
+            choice = self.ask_not_located(n, why)
+        self._event("laser_not_located", laser=n, reason=why, choice=choice)
+        if choice == "place":
+            result.not_located = why
+            self.say(f"laser {n}: not located; its map placed from "
+                     "machine.toml, which the servo's landing can put "
+                     "0.1-0.4 mm off")
+            return None
+        if choice == "skip":
+            result.not_located = why
+            self.say(f"laser {n}: not located; skipped")
+            raise _Skipped(why)
+        raise RunStopped("stopped by the operator")
+
+    def _stopped(self) -> None:
+        if self.stop.is_set():
+            raise RunStopped("stopped by the operator")
 
     def _step_up(
         self, laser: int, path: Path, clip: RangeClipped, bigger: float,
@@ -591,6 +662,7 @@ class Session:
                                    for n, v in r.laser_ranges_a.items()},
                 "step_up": r.step_up,
                 "locate": r.locate,
+                "if_not_located": r.if_not_located,
             },
             "plans": [
                 {
@@ -618,6 +690,7 @@ class Session:
                     "current_range_a": o.current_range_a,
                     "clipped_attempts": o.clipped_attempts,
                     "located": o.fix.as_dict() if o.fix else None,
+                    "not_located": o.not_located,
                 }
                 for o in outcome.lasers
             ],

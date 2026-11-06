@@ -468,6 +468,9 @@ class Commissioner:
         self.halt = threading.Event()
         self._range: float | None = None
         self._bias = 0.0
+        #: The coarse sweeps' half-span (`COARSE_HALF_MM`); a locate's
+        #: second, broader try widens it.
+        self.coarse_half_mm = COARSE_HALF_MM
 
     def partial(self, error: str) -> CommissionResult | None:
         """What a run that failed had measured, with why it failed;
@@ -601,8 +604,9 @@ class Commissioner:
         for k in sorted(set(axes) | ({0} if 1 in axes else set())):
             other = (found[1 - k] if k == 0
                      else self._rough(r, 0) + signs[0] * quarter)
-            start = self._clip(n, k, found[k] + signs[k] * COARSE_HALF_MM)
-            wanted = found[k] - signs[k] * COARSE_HALF_MM
+            start = self._clip(n, k,
+                               found[k] + signs[k] * self.coarse_half_mm)
+            wanted = found[k] - signs[k] * self.coarse_half_mm
             end = self._clip(n, k, wanted)
             p = self._ranged_pass(r, k, start, end, other,
                                   request.coarse_feed_mm_s, light * signs[k],
