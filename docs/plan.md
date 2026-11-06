@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 2: a run folder as one set of maps, on the PC from existing run files. |
+| next | Step 3: the viewer, one map. Step 2 (a run folder as one set of maps) is done. |
 
 ## Phases
 
@@ -63,10 +63,12 @@ current only.
 Steps:
 
 1. **The plan** (0.7.0): this section and D30–D33.
-2. **A run folder as one set of maps** (`store/`): every laser's map
-   rebuilt from its file (`scan.mapping`) and put on one shared u, v
-   grid; the run's lasers, wavelengths, ranges and calibration from the
-   headers. Tested on the simulator's runs and on real run folders.
+2. **A run folder as one set of maps** (`store/runfolder.py`, done
+   0.7.1): every laser's map rebuilt from its file (`scan.mapping`) and
+   put on one shared u, v grid; the run's lasers, wavelengths, ranges and
+   calibration from the headers. Clipped attempts are listed, unreadable
+   files reported, a run still going opens. Two real six-laser runs open
+   in about 1.3 s each.
 3. **The viewer, one map**: open a folder, pick a laser; the map drawn
    as the window draws it (`store/image.draw_map`, `[display]`), colour
    limits, the value under the cursor, a line profile along a drawn

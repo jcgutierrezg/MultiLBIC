@@ -56,7 +56,7 @@ Flat layout, one namespace, matching SMUniversal:
 | `multilbic/scan/binning.py` | Raw samples → pixel grid, for the live heatmap and the end-of-run plot. |
 | `multilbic/scan/alignment.py` | Estimate the forward/reverse row shift from data (the serpentine self-calibration). |
 | `multilbic/run/` | Calibration, runs (home, then per laser: locate on the photodiode, rows), Stop and faults, incremental file writing; commissioning, focus, the line-up, the sync check. |
-| `multilbic/store/` | The run file format: writer and reader, shared with the viewer (`multilbic view`, Phase 7, D30). |
+| `multilbic/store/` | The run file format: writer and reader; a run folder as one set of maps on one grid (`runfolder.py`), what the viewer opens (`multilbic view`, Phase 7, D30). |
 | `multilbic/sim/` | Fake Marlin, fake laser board, fake streaming SMU, synthetic sample. |
 | `multilbic/gui/` | Tk window: connection, jog, calibration, run setup, live map, console, the Maintenance window. `gui/worker.py` (no Tk) is the thread that owns the devices. Opening the machine, real (under the machine lock) or simulated, is `run/devices.py`, shared with the command line. |
 | `multilbic/bench/` | Device probes, run on the Pi over SSH ([diagnostics](diagnostics.md#the-device-probes)). |

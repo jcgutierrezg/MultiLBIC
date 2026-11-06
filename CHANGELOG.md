@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.1 - A run folder as one set of maps
+
+- Phase 7 step 2: `multilbic/store/runfolder.py`, `read_folder(folder)`.
+  Every laser's map in a run folder is built again from its file and
+  put on one grid in the sample's u, v, with the run's details from
+  `run.json`, `calibration.json` and the file headers (wavelength,
+  status, range, where each laser was located, alignment, noise floor).
+  A run's lasers share the frame, so their grids are used as they are;
+  grids that differ are resampled, nearest pixel, onto the finest.
+- Clipped attempts are listed and not mapped; a file that can't be read
+  is reported and the rest still open; a run still being written opens
+  with the rows it has. Reads only.
+- On two real six-laser runs copied from the Pi (2026-11-05 corner,
+  2026-11-06 line-up): all six maps on one grid, about 1.3 s a folder.
+- `runfolder.py` is on mypy's list; tests in `tests/test_runfolder.py`.
+
 ## 0.7.0 - Phase 7's plan: the viewer and spectral response
 
 - `docs/plan.md`: Phase 6 closed (PR #8); Phase 7 planned with nine
