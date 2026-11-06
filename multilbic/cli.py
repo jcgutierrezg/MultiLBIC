@@ -197,6 +197,9 @@ def run(args: argparse.Namespace) -> int:
         # measured one (the servo lands each within +-0.1 mm).
         locate=(not args.no_locate and machine.photodiode is not None
                 and machine.photodiode.measured),
+        if_not_located=(args.if_not_located
+                        if args.if_not_located != "ask" or sys.stdin.isatty()
+                        else "skip"),
     )
     try:
         plans = plan_run(request, machine)
@@ -222,6 +225,9 @@ def run(args: argparse.Namespace) -> int:
     if request.locate:
         say("each laser located on the photodiode first, its map placed "
             "from that (--no-locate: from machine.toml)")
+        if request.if_not_located != "ask":
+            say(f"a laser that can't be located: {request.if_not_located}"
+                " (--if-not-located)")
     say(f"about {duration(estimate.total_s)} in all, homing included")
     if not args.yes:
         if not sys.stdin.isatty():
@@ -254,6 +260,7 @@ def run(args: argparse.Namespace) -> int:
     session = Session(
         conn.devices, machine, conn.clock, request, out,
         simulated=args.sim, provenance=provenance(), say=say,
+        ask_not_located=lambda n, why: _ask_not_located(session, n, why),
     )
     try:
         outcome = run_until_done(session)
@@ -266,6 +273,24 @@ def run(args: argparse.Namespace) -> int:
         )
         say(f"  laser {result.laser}: {result.status}{shift}")
     return 0 if outcome.status == "complete" else 1
+
+
+def _ask_not_located(session: Session, laser: int, why: str) -> str:
+    """On the terminal: place laser `laser` from machine.toml, skip it,
+    or stop the run."""
+    say(f"laser {laser} couldn't be located on the photodiode, twice: {why}")
+    while True:
+        try:
+            answer = input("[p]lace it from machine.toml (maybe 0.1-0.4 mm "
+                           "off), [s]kip it, or [x] stop the run? ")
+        except EOFError:
+            return "stop"
+        if session.stop.is_set():
+            return "stop"
+        choice = {"p": "place", "s": "skip", "x": "stop"}.get(
+            answer.strip().lower()[:1])
+        if choice:
+            return choice
 
 
 def run_until_done(session: Session | SyncCheck):
@@ -818,6 +843,12 @@ def main(argv: list[str] | None = None) -> int:
     go.add_argument("--no-locate", action="store_true",
                     help="place each laser from machine.toml, without "
                     "locating it on the photodiode first")
+    go.add_argument("--if-not-located", choices=("ask", "place", "skip"),
+                    default="ask",
+                    help="a laser the photodiode can't find, after a "
+                    "second, broader try: ask (the default; without a "
+                    "terminal, skip), place it from machine.toml, or "
+                    "skip it")
     go.add_argument("--no-step-up", action="store_true",
                     help="a laser whose range clips fails the run, instead "
                     "of starting again one range up (D26)")

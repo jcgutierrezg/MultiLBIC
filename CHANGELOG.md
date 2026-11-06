@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.57 - A laser that can't be located: again, then ask
+
+- The same six-laser run stopped at laser 2: its locate failed, and
+  with it the run, so lasers 3-6 never ran. Laser 2 gives a fifth of
+  its light of yesterday (7.9 µA on the photodiode), a hardware matter.
+- A laser the locate can't find now gets a second try with broader
+  sweeps (±0.8 mm round each edge, ±3 mm for the full sweeps). If that
+  fails too, the run asks: place it from `machine.toml`, skip it and go
+  on, or stop. The window asks in a dialog; `run` on the terminal, or
+  as `--if-not-located place|skip` says (without a terminal it skips).
+  The choice is in the event log, `run.json` and the laser's header.
+
 ## 0.6.56 - Samples lost here and there keep their stamps
 
 - A six-laser run on an 18 x 20 mm cell at 5 mm/s (1000 Hz,

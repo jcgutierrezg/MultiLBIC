@@ -236,7 +236,10 @@ keeps the gaps.
 **place from photodiode** in Run setup (on by default, where
 `machine.toml` has a photodiode): each laser is located on the
 photodiode before its map and its map placed from that, about 40 s a
-laser ([run](run.md#placing-each-laser-from-the-photodiode)).
+laser ([run](run.md#placing-each-laser-from-the-photodiode)). A laser it
+can't find, even on a second, broader try, stops the run at a dialog:
+**Yes** maps it placed from `machine.toml`, **No** skips it and goes on,
+**Cancel** stops the run.
 
 ### Maintenance
 

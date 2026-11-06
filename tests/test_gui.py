@@ -724,3 +724,19 @@ def test_the_maintenance_window(window, tmp_path, monkeypatch):
 
     m.close()
     assert app.maintenance is None
+
+
+def test_a_laser_not_located_is_asked_about(window, monkeypatch):
+    import tkinter.messagebox
+
+    from multilbic.gui.worker import NotLocated
+
+    asked = []
+    for answer, choice in ((True, "place"), (False, "skip"), (None, "stop")):
+        monkeypatch.setattr(
+            tkinter.messagebox, "askyesnocancel",
+            lambda title, text, answer=answer, **kw: asked.append(text)
+            or answer)
+        assert window.app.ask_not_located(
+            NotLocated(2, "no edge along A")) == choice
+    assert "no edge along A" in asked[0] and "machine.toml" in asked[0]

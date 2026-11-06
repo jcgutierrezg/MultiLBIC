@@ -137,3 +137,137 @@ def test_locating_needs_the_photodiode_channel(machine):
                     provenance={})
     finally:
         rig2.close()
+
+
+def test_the_broader_try_sweeps_wider(machine):
+    # 0.6 mm off along X: past the quick sweep's 0.4 mm, inside the
+    # broader try's 0.8, which then needs no full sweeps.
+    rig, machine = rig_for(machine)
+    x, y = rig.laser_xy_mm[3]
+    rig.laser_xy_mm[3] = (x + 0.6, y)
+    rig.open()
+    try:
+        rig.marlin.home()
+        locator = Locator(ScanDevices(rig.marlin, rig.laser, rig.smu),
+                          machine, rig.clock, say=lambda _: None)
+        fix = locator.locate(3, broad=True)
+    finally:
+        rig.close()
+    assert fix.quick
+    half = rig.faults.xy_backlash_mm / 2
+    assert fix.offset_xy_mm[0] == pytest.approx(0.6 + half, abs=0.005)
+    # Back to the usual sweeps for the next laser.
+    assert locator.quick_half_mm == pytest.approx(0.4)
+    assert locator.coarse_half_mm == pytest.approx(2.0)
+
+
+def run_failing(tmp_path, machine, monkeypatch, *, if_not_located="ask",
+                ask=None, fail_broad=True):
+    """Lasers 1 and 3, laser 1 never located (or only on the broader
+    try, `fail_broad=False`). Returns the outcome, the locate calls made,
+    and the events."""
+    from multilbic.run.commission import CommissionError
+
+    calls = []
+    original = Locator.locate
+
+    def locate(self, laser, *, broad=False):
+        calls.append((laser, broad))
+        if laser == 1 and (fail_broad or not broad):
+            raise CommissionError("no edge along A (planted)")
+        return original(self, laser, broad=broad)
+
+    monkeypatch.setattr(Locator, "locate", locate)
+    rig, machine = rig_for(machine)
+    request = RunRequest(
+        rig.perfect_calibration("synthetic"), (1, 3), 0.01, 0.1, 2.0,
+        baseline_s=0.5, warmup_s=0.0, locate=True,
+        if_not_located=if_not_located)
+    rig.open()
+    try:
+        session = Session(ScanDevices(rig.marlin, rig.laser, rig.smu),
+                          machine, rig.clock, request, tmp_path,
+                          simulated=True, provenance=provenance(),
+                          ask_not_located=ask)
+        outcome = session.run()
+    finally:
+        rig.close()
+    import json
+
+    events = [json.loads(line) for line in
+              (outcome.folder / "events.jsonl").read_text().splitlines()]
+    return outcome, calls, events, session
+
+
+def test_a_laser_not_located_twice_is_skipped_and_the_run_goes_on(
+        tmp_path, machine, monkeypatch):
+    outcome, calls, events, _ = run_failing(tmp_path, machine, monkeypatch,
+                                            if_not_located="skip")
+    assert calls[:2] == [(1, False), (1, True)]
+    assert outcome.status == "complete"
+    one, three = outcome.lasers
+    assert one.status.startswith("skipped: not located")
+    assert not one.path.exists()
+    assert three.status == "complete" and three.fix is not None
+    kinds = [e["event"] for e in events]
+    assert "laser_locate_retry" in kinds
+    (asked,) = [e for e in events if e["event"] == "laser_not_located"]
+    assert asked["choice"] == "skip" and "planted" in asked["reason"]
+    import json
+
+    summary = json.loads((outcome.folder / "run.json").read_text())
+    assert "planted" in summary["lasers"][0]["not_located"]
+
+
+def test_placed_from_machine_toml_it_still_maps(tmp_path, machine,
+                                                monkeypatch):
+    asked = []
+
+    def ask(laser, why):
+        asked.append((laser, why))
+        return "place"
+
+    outcome, _, _, session = run_failing(tmp_path, machine, monkeypatch,
+                                         ask=ask)
+    assert asked and asked[0][0] == 1
+    assert outcome.status == "complete"
+    one = outcome.lasers[0]
+    assert one.status == "complete" and one.fix is None
+    header = read_run(one.path).header
+    assert header["placed_from"] == "machine.toml"
+    assert "planted" in header["not_located"]
+    assert header["xy_mm"] == pytest.approx(
+        list(session.plans[0].placement.xy_mm))
+
+
+def test_asked_to_stop_it_stops(tmp_path, machine, monkeypatch):
+    outcome, _, _, _ = run_failing(tmp_path, machine, monkeypatch,
+                                   ask=lambda laser, why: "stop")
+    assert outcome.status == "stopped"
+    assert [o.laser for o in outcome.lasers] == [1]
+
+
+def test_with_nobody_to_ask_the_run_fails_as_before(tmp_path, machine,
+                                                    monkeypatch):
+    outcome, _, _, _ = run_failing(tmp_path, machine, monkeypatch)
+    assert outcome.status.startswith("failed: CommissionError")
+
+
+def test_found_on_the_broader_try_it_is_located(tmp_path, machine,
+                                                monkeypatch):
+    outcome, calls, events, _ = run_failing(tmp_path, machine, monkeypatch,
+                                            fail_broad=False)
+    assert calls[:2] == [(1, False), (1, True)]
+    assert outcome.status == "complete"
+    assert outcome.lasers[0].fix is not None
+    assert not any(e["event"] == "laser_not_located" for e in events)
+
+
+def test_an_unknown_choice_is_refused(machine):
+    rig, machine = rig_for(machine)
+    request = RunRequest(rig.perfect_calibration("synthetic"), (3,), 0.01,
+                         0.1, 2.0, locate=True, if_not_located="guess")
+    from multilbic.run.session import plan_run
+
+    with pytest.raises(RunPlanError, match="if_not_located"):
+        plan_run(request, machine)

@@ -437,6 +437,51 @@ def test_to_photodiode_puts_the_open_quarter_under_the_laser(machine):
         worker.close()
 
 
+def test_a_laser_not_located_waits_for_the_window(machine, monkeypatch,
+                                                   tmp_path):
+    from multilbic.gui.worker import NotLocated
+    from multilbic.run.commission import CommissionError
+    from multilbic.run.locate import Locator
+
+    original = Locator.locate
+
+    def locate(self, laser, *, broad=False):
+        if laser == 2:
+            raise CommissionError("planted")
+        return original(self, laser, broad=broad)
+
+    monkeypatch.setattr(Locator, "locate", locate)
+    machine = sim_machine(machine, Faults())
+
+    def connector():
+        return open_sim(machine, clock=ScaledClock(20.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        cal = worker._conn.rig.perfect_calibration("cell")
+        request = RunRequest(cal, (2, 3), 0.01, 0.1, 2.0, baseline_s=0.5,
+                             warmup_s=0.0, locate=True)
+        assert worker.start_run(request, tmp_path, {"commit": "test"})
+        watch.wait(lambda: watch.of(NotLocated), timeout=120)
+        (asked,) = watch.of(NotLocated)
+        assert asked.laser == 2 and "planted" in asked.why
+        # The run waits: nothing after it until answered.
+        assert not watch.of(RunEnded)
+        worker.answer_not_located("skip")
+        watch.wait(lambda: watch.of(RunEnded), timeout=120)
+        (ended,) = watch.of(RunEnded)
+        assert ended.outcome.status == "complete"
+        assert ended.outcome.lasers[0].status.startswith("skipped")
+        assert ended.outcome.lasers[1].status == "complete"
+    finally:
+        worker.close()
+
+
 # ---- focus assist ----
 
 

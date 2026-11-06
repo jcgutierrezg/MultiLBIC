@@ -120,6 +120,7 @@ board may have restarted since calibration.
 | `--allow-unmeasured` | | lasers whose position isn't measured |
 | `--no-step-up` | | a laser whose range clips fails the run, instead of starting again one range up (below) |
 | `--no-locate` | | place each laser from `machine.toml`, not from the photodiode (below) |
+| `--if-not-located skip` | ask | a laser the photodiode can't find, after a second, broader try: `ask` on the terminal, `place` it from `machine.toml`, or `skip` it (below). Without a terminal, `ask` skips |
 | `--note "room lights on"` | | free text in every file header and `run.json` |
 | `--out DIR` | `~/multilbic-runs` (`runs/` with `--sim`) | |
 | `--yes` | | don't ask; needed without a terminal |
@@ -178,6 +179,23 @@ how far it is off. A laser further off than that gets the full
 commissioning sweeps. The run file's header and `run.json` record each
 laser's offset (`located`), and its XY as used (`xy_mm`). Nothing is
 written to `machine.toml`.
+
+**A laser it can't find** gets a second try with broader sweeps (±0.8 mm
+round each edge, ±3 mm for the full ones). If that fails too, the run
+asks (the window shows a dialog; `run` asks on the terminal, or does
+what `--if-not-located` says):
+
+- **place it from `machine.toml`**: its map is made as without locating,
+  which the servo's landing can put 0.1–0.4 mm off; its header says
+  `placed_from: machine.toml` and why (`not_located`);
+- **skip it**: no map, status `skipped: not located (...)`, and the run
+  goes on with the next laser;
+- **stop the run.**
+
+The event log has `laser_locate_retry` and `laser_not_located` (with the
+choice). A dim laser is the usual cause: laser 2, on its starved
+supply, failed this way on 2026-11-06
+([lasers](hardware/lasers.md#the-laser-supply)).
 
 Each laser's `cell_offset_xy_mm` is added on top, located or not: where
 the beam lands on the cell against where the photodiode puts it
