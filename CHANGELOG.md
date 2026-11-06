@@ -3,6 +3,12 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.54 - The lockfile follows the version
+
+- `uv.lock` had stayed at 0.6.17 while the version moved on, so CI's
+  `uv sync --locked` refused the branch. It is locked again and
+  committed; from now on it goes in with every version bump.
+
 ## 0.6.53 - Docs as the machine is now
 
 - Every doc read again against the machine as it stands; what was no
