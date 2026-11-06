@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.0 - Phase 7's plan: the viewer and spectral response
+
+- `docs/plan.md`: Phase 6 closed (PR #8); Phase 7 planned with nine
+  steps, ending in a bench run and one PR. The viewer, `multilbic view`,
+  is its own window for run folders on the PC and the Pi: one map
+  explored, the lasers compared, EQE maps and the spectrum at a pixel.
+  Runs will read each laser's power on the photodiode before and after
+  its map, warming up on the photodiode.
+- Decisions D30 (the viewer), D31 (power before and after each map,
+  interpolated in time), D32 (EQE from the S1223-01's datasheet curve),
+  D33 (option C dropped).
+- Tiling, exports, laser health, the TFT35 pendant, Pi polish and Phase
+  6's leftovers are under "Later".
+
 ## 0.6.55 - A commissioning test that held on Windows CI
 
 - `test_a_measured_corner_stays_and_the_reference_laser_moves` compares

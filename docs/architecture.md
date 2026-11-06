@@ -56,7 +56,7 @@ Flat layout, one namespace, matching SMUniversal:
 | `multilbic/scan/binning.py` | Raw samples → pixel grid, for the live heatmap and the end-of-run plot. |
 | `multilbic/scan/alignment.py` | Estimate the forward/reverse row shift from data (the serpentine self-calibration). |
 | `multilbic/run/` | Calibration, runs (home, then per laser: locate on the photodiode, rows), Stop and faults, incremental file writing; commissioning, focus, the line-up, the sync check. |
-| `multilbic/store/` | The run file format: writer and reader, shared later by the viewer. |
+| `multilbic/store/` | The run file format: writer and reader, shared with the viewer (`multilbic view`, Phase 7, D30). |
 | `multilbic/sim/` | Fake Marlin, fake laser board, fake streaming SMU, synthetic sample. |
 | `multilbic/gui/` | Tk window: connection, jog, calibration, run setup, live map, console, the Maintenance window. `gui/worker.py` (no Tk) is the thread that owns the devices. Opening the machine, real (under the machine lock) or simulated, is `run/devices.py`, shared with the command line. |
 | `multilbic/bench/` | Device probes, run on the Pi over SSH ([diagnostics](diagnostics.md#the-device-probes)). |
@@ -147,7 +147,10 @@ from the host only once, and lead-screw backlash on reversal.
 Raw SMU timestamps are always stored alongside the computed positions,
 so a better calibration can re-map an old run without re-measuring.
 
-### Option C, hardware marker (designed in, not needed so far)
+### Option C, hardware marker (dropped)
+
+Dropped (D33): dated by count, maps agree with their own edges to
+2–3 µm. The design is kept here in case that changes.
 
 - Wire a spare SKR pin to a free laser-board pin.
 - Rebuild Marlin with its laser feature in inline mode, so the pin
@@ -169,8 +172,9 @@ the stage parks that corner under the beam. What it gives:
   laser power × the cell's quantum efficiency at that wavelength. The
   lasers' powers differ, so raw maps from two lasers can't be compared.
   Dividing by the photodiode current, corrected by the photodiode's
-  published spectral responsivity, gives a relative spectral response
-  per pixel. A calibrated photodiode would make it absolute EQE.
+  published spectral responsivity, gives EQE per pixel against the
+  datasheet's typical curve (D32, Phase 7). A calibrated photodiode
+  would make it absolute.
 - **Laser positions, found automatically**, in machine coordinates, and
   each laser **located again at every run**, since the servo lands it
   differently each time (built).
@@ -178,8 +182,9 @@ the stage parks that corner under the beam. What it gives:
   while the focus is turned (built).
 - **A pre-flight check**: a near-zero reading means the wrong laser, a
   failed laser, or the servo didn't turn the barrel (the locate fails).
-- **Drift during a map**, measured before and after each laser's map,
-  and **long-term laser health**, logged run after run (not built).
+- **Drift during a map**, measured before and after each laser's map
+  (D31, Phase 7), and **long-term laser health**, logged run after run
+  (later).
 
 What it cannot give: continuous normalisation within a row, or row
 edges for option C. Those would need a pickoff at the laser exit.

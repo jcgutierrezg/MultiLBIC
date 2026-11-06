@@ -167,4 +167,4 @@ opens; how to connect is in
 
 ## Owed
 
-- A desktop launcher (Phase 7).
+- A desktop launcher (later: [plan](../../docs/plan.md#later)).

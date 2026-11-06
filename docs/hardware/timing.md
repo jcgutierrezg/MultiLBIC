@@ -41,7 +41,7 @@ laser 3, 2026-11-04 (`20261104T135122Z_sync_std_test_v2-corner`):
   backlash came out negative (impossible) both times.
 - **Decided**: `ab_backlash_mm` stays 0 (4 µm is within the noise), the
   default speed stays 4 mm/s (rows scatter more at 5), and no hardware
-  marker (option C) for now.
+  marker: option C dropped (D33).
 - Step-and-measure itself drifted 9–18 µm over a 16-minute session.
 
 ## Row replies

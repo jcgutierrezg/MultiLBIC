@@ -111,4 +111,4 @@ signal lines. Install steps: [`deploy/pi/`](../deploy/pi/README.md).
 ## TFT35
 
 Wired over USB-TTL, with no role. Its backlight could reach the sample:
-cover it during maps. It may become a jog pendant later (Phase 7).
+cover it during maps. It may become a jog pendant someday ([plan](plan.md#later)).

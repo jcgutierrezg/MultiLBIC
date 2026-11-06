@@ -5,10 +5,12 @@ mapper. A Raspberry Pi drives a Marlin-controlled XY + AB stage, six
 lasers on a servo revolver, and an Undalogic miniSMU that measures the
 photocurrent while the sample is rastered under the beam.
 
-**Status: commissioning (Phase 6).** The rewrite runs the machine from
-the command line and from a window (`multilbic gui`). All six lasers
-are commissioned on a reference photodiode, every map is placed from
-it, and maps from the six lasers line up to within a few tens of µm.
+**Status: the viewer and spectral response (Phase 7), planned.** The
+rewrite runs the machine from the command line and from a window
+(`multilbic gui`). All six lasers are commissioned on a reference
+photodiode, every map is placed from it, and maps from the six lasers
+line up to within a few tens of µm. Next: `multilbic view`, and maps
+as EQE.
 See [docs/plan.md](docs/plan.md).
 
 | To find | Go to |

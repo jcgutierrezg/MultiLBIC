@@ -11,8 +11,8 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 
 | | |
 |---|---|
-| status | Phases 0–5 and current ranges per sample merged. **Phase 6 (commissioning) on the bench**, branch `phase-6-commissioning`: all six lasers commissioned and placed from the photodiode at every run, two line-ups done (lasers within 39 µm along u, 29 µm along v). |
-| next | Close Phase 6: its docs, then the PR. |
+| status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
+| next | Step 2: a run folder as one set of maps, on the PC from existing run files. |
 
 ## Phases
 
@@ -24,43 +24,92 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | 4: runs from the command line | a real map comes off the machine without the window | PR #5, 0.4.13: `calibrate`, `run` ([run](run.md)) |
 | 5: the window | a full run driven from the window, which also works on the simulator on Windows | PR #6, 0.5.15 ([gui](gui.md)) |
 | current ranges per sample | a mixed-range run of lasers 1–3 completes, and a clipping laser steps up | PR #7, 0.5.27 (D25–D27) |
-| 6: commissioning | maps from all six lasers line up, and the sync error is measured | below |
-| 7: later | | below |
+| 6: commissioning | maps from all six lasers line up, and the sync error is measured | PR #8, 0.6.55 ([commissioning](commissioning.md), [timing](hardware/timing.md)): lasers within 39 µm along u and 29 µm along v, `L` = 15 ms, D28–D29 |
+| 7: the viewer and spectral response | a real six-laser run, with power read before and after each map, opens in `multilbic view` on the PC and on the Pi, as current and as EQE, with a spectrum at any pixel | below |
+| later | | below |
 
-## Phase 6: commissioning
+## Phase 7: the viewer and spectral response
 
-What it built, and where it stands:
+One branch, `phase-7-viewer`; one bench session at the end, then one PR.
+Decisions D30–D33.
 
-- **The sync error, measured**: `sync-check` and `edges`, step-and-measure
-  against continuous rows. Dated by count, `L` = 15 ms and an A backlash
-  of +4 µm; `ab_backlash_mm` stays 0, the default speed 4 mm/s, no
-  hardware marker ([timing](hardware/timing.md#the-sync-check)).
-- **The photodiode**: mounted on the new stage under two blades,
-  simulated on channel 2, read with `read`
-  ([photodiode](hardware/photodiode.md)).
-- **Commissioning and focus assist**: `commission`, and the Maintenance
-  window's Photodiode and Focus tabs ([commissioning](commissioning.md)).
-  All six lasers commissioned (2026-11-03).
-- **Wider limits**: Marlin's endstops off, a 5 mm home offset, X to 103
-  ([motion](hardware/motion.md#what-multilbic-changes-at-every-connect)).
-- **The A/B speed test repeated** after the shafts' flats: 5 mm/s is
-  the ceiling.
-- **Every map placed from the photodiode**, the servo released after
-  each turn: the servo landed each laser differently every selection
-  ([lasers](hardware/lasers.md#the-servo)).
-- **Timing fixes from six-laser maps**: samples dated by count, late row
-  replies and late-starting rows placed right, mains fitted where rows
-  are flat ([timing](hardware/timing.md)).
-- **The line-up**: each laser's offset on the cell against laser 3, the
-  reference since 2026-11-05 (D28). Spread 86/116 µm before the offsets,
-  39/29 µm after: about each laser's run-to-run scatter.
+**What it gives.** A run's maps compared across wavelengths: each laser's
+map as photocurrent or as EQE, the lasers side by side on one grid, the
+ratio of any two, and the six-point spectrum at a pixel or over an area.
 
-Open before the PR:
+**The viewer** (D30) is its own window, `multilbic view [FOLDER]`, on
+the same Tk look as `multilbic gui`. It runs on the PC and on the Pi and
+opens a run folder wherever it is: folders are copied from the Pi by
+hand (USB stick or `scp`). It reads files only: no devices, no lock.
 
-- Phase 6's docs, and the PR description.
+**Power** (D31). The laser warms up on the photodiode, where it was just
+located, and the end of the warm-up is its power before the map. After
+the map the stage goes back to the open quarter for a second reading.
+EQE divides each row by the power at that row's time, interpolated
+between the two readings.
 
-Open, not blocking:
+**EQE** (D32). EQE of the cell = EQE of the photodiode × cell current ÷
+photodiode current, both lit by the same beam. The photodiode's EQE at
+each wavelength comes from the S1223-01's typical responsivity curve in
+Hamamatsu's datasheet, so the viewer labels it "EQE (datasheet
+photodiode)". A calibrated photodiode later makes it absolute with only
+its curve changed.
 
+Already in place: the line-up's offsets are applied when the stage
+places each map, so a run's lasers share u and v and the viewer shifts
+nothing. Runs made before Phase 7 have no power readings and open as
+current only.
+
+Steps:
+
+1. **The plan** (0.7.0): this section and D30–D33.
+2. **A run folder as one set of maps** (`store/`): every laser's map
+   rebuilt from its file (`scan.mapping`) and put on one shared u, v
+   grid; the run's lasers, wavelengths, ranges and calibration from the
+   headers. Tested on the simulator's runs and on real run folders.
+3. **The viewer, one map**: open a folder, pick a laser; the map drawn
+   as the window draws it (`store/image.draw_map`, `[display]`), colour
+   limits, the value under the cursor, a line profile along a drawn
+   line.
+4. **Lasers compared**: all of a run's lasers side by side on the shared
+   grid with one colour scale or each its own; the ratio of any two.
+5. **Power in runs** (simulator first): the laser-off baseline taken at
+   the sample before the laser is located, so the laser stays lit from
+   its warm-up to the end of its map; the warm-up on the photodiode,
+   channel 2 recorded as the warm-up row; the power before (the end of
+   the warm-up) and after (back on the open quarter) in the file's
+   header and trailer; the extra time in the estimate and the Plan tab.
+   A failed power reading leaves the map without EQE, never stops the
+   run. The simulator's photodiode drifts on request, so the test can
+   check the interpolation.
+6. **EQE**: the S1223-01's typical curve in the repository with its
+   source; EQE per pixel from the power interpolated in time; the
+   viewer switches any map, the comparison and the ratio between current
+   and EQE, and shows each map's power drift.
+7. **The spectrum**: click a pixel or drag an area, and the EQE at the
+   six wavelengths (444–848 nm) is plotted, with the spread over the
+   area.
+8. **Docs** (`docs/viewer.md`; run file and run order in `scan.md` and
+   `run.md`) and **the viewer on the Pi's screen** (fonts, speed).
+9. **Bench**: a six-laser run on a cell with the power readings (ask
+   before motion and lasers); the drift between readings, laser 2's
+   included; EQE below 1 everywhere and a plausible spectrum for the
+   cell; the run opened on the PC and on the Pi. Then the PR.
+
+What to watch:
+
+- The datasheet curve is typical: this photodiode may differ from it by
+  some percent, more at 444 and 848 nm.
+- Laser 2 is weak and fading, so its EQE is the noisiest.
+- At 1.3–2.0 mA with small spots, the cell or the photodiode may not be
+  linear ([photodiode](hardware/photodiode.md#readings)); that would bend
+  EQE for the bright lasers.
+
+## Later
+
+- **Tiling** samples larger than AB's range with XY.
+- **The viewer's exports**: figures and gridded maps as CSV or TIFF.
+- **Laser health**: each run's power readings logged run after run.
 - **Laser 2 is weak and fading** (−47 to −9 µA on the photodiode over a
   week): its supply (lasers 1 and 2 are starved by the 5 V LM317) or its
   cable ([lasers](hardware/lasers.md#the-laser-supply)). A hardware fix.
@@ -69,14 +118,8 @@ Open, not blocking:
   threshold of 135, with the home offset put back to 0 first.
 - **A plain error when a device's port is missing**, instead of a
   traceback.
-
-## Phase 7: later
-
-- The viewer app: heatmaps, comparing wavelengths, spectral-response
-  maps normalised by the photodiode.
-- Tiling samples larger than AB's range with XY.
-- The TFT35 as a jog pendant, dark during scans.
-- Option C (a hardware row marker), only if timing falls short.
 - A proper dark enclosure, and with it D8 (slow drift).
 - Pi polish: udev rules in the repository, a desktop launcher; the
   Zensical docs site.
+- Someday: the TFT35 as a jog pendant (until then, covered during maps).
+  Option C (the hardware row marker) is dropped (D33).
