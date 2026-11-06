@@ -65,6 +65,25 @@ def test_a_break_near_the_start_keeps_the_few_samples_before_it():
     assert np.max(np.abs(dated[5:] - true[5:])) < 0.6
 
 
+def test_a_stream_losing_samples_here_and_there_keeps_its_stamps():
+    # As at 1000 Hz on the bench (2026-11-06): a few samples lost at a
+    # time, about 3 % of them, no loss long enough to be a break. The
+    # count would drift by tens of ms; the stamps stay within the
+    # saw-tooth.
+    true, stamps = sawtooth_stamps(20000)
+    rng = np.random.default_rng(1)
+    keep = np.ones(20000, bool)
+    for start in rng.choice(20000 - 10, 120, replace=False):
+        keep[start:start + rng.integers(1, 8)] = False
+    assert 0.01 < 1 - keep.mean() < 0.05
+    dated = date_by_count(stamps[keep], np.ones(keep.sum(), int))
+    # Within the saw-tooth and what a short stretch's line may keep.
+    assert np.max(np.abs(dated - true[keep])) < 5
+    one = np.polyval(np.polyfit(np.arange(keep.sum()), stamps[keep], 1),
+                     np.arange(keep.sum()))
+    assert np.max(np.abs(one - true[keep])) > BREAK_MS
+
+
 # ---- in runs ----
 
 

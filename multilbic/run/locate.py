@@ -18,6 +18,11 @@ slowly; the mean of those two is the edge. About 30-40 s a laser. If a
 sweep misses (the laser further off than the servo moves it), the full
 commissioning sweeps take over.
 
+**Broader, once.** If those fail too, a run tries once more with the
+sweeps widened (`locate(broad=True)`): laser 2, dim and drifting, failed
+twice on 2026-11-06 with its edge along B outside the quick sweep. If
+that fails, the run asks what to do (`Session`).
+
 **The answer** is the corner as the laser sees it, against the measured
 corner: the laser is that much off its `xy_centre_mm`, and its map's XY
 moves by as much (`propose`'s arithmetic, for this run only).
@@ -30,6 +35,7 @@ from typing import Any
 
 from multilbic.run.commission import (
     AXES,
+    COARSE_HALF_MM,
     FINE_HALF_MIN_MM,
     FINE_WIDTHS,
     Commissioner,
@@ -43,6 +49,10 @@ from multilbic.scan.geometry import ab_to_xy
 #: more than the servo's landing scatter.
 QUICK_HALF_MM = 0.4
 QUICK_FEED_MM_S = 0.15
+#: The second, broader try: the quick sweeps and the coarse ones span
+#: this either side instead.
+BROAD_QUICK_HALF_MM = 0.8
+BROAD_COARSE_HALF_MM = 3.0
 #: The up and down passes across each edge.
 CHECK_FEED_MM_S = 0.1
 #: Dark and light readings, s: short, the range is all they decide.
@@ -88,7 +98,22 @@ class Locator(Commissioner):
     """Locates one laser at a time; the laser is left lit (selected), so
     the map that follows uses this landing."""
 
-    def locate(self, laser: int) -> LaserFix:
+    quick_half_mm = QUICK_HALF_MM
+
+    def locate(self, laser: int, *, broad: bool = False) -> LaserFix:
+        """Where `laser` landed. `broad`: the sweeps widened, for a
+        second try. Raises `CommissionError` if it isn't found."""
+        if not broad:
+            return self._locate(laser)
+        self.quick_half_mm = BROAD_QUICK_HALF_MM
+        self.coarse_half_mm = BROAD_COARSE_HALF_MM
+        try:
+            return self._locate(laser)
+        finally:
+            self.quick_half_mm = QUICK_HALF_MM
+            self.coarse_half_mm = COARSE_HALF_MM
+
+    def _locate(self, laser: int) -> LaserFix:
         pd = self.pd
         request = CommissionRequest((laser,), warmup_s=0.0, read_s=READ_S)
         r = LaserCommission(laser)
@@ -134,15 +159,17 @@ class Locator(Commissioner):
         widths, splits = [0.0, 0.0], [0.0, 0.0]
         for k in (0, 1):
             other = edge[1 - k] + signs[1 - k] * quarter
-            start = self._clip(n, k, expected[k] + signs[k] * QUICK_HALF_MM)
-            end = self._clip(n, k, expected[k] - signs[k] * QUICK_HALF_MM)
+            start = self._clip(n, k,
+                               expected[k] + signs[k] * self.quick_half_mm)
+            end = self._clip(n, k,
+                             expected[k] - signs[k] * self.quick_half_mm)
             sweep = self._ranged_pass(r, k, start, end, other,
                                       QUICK_FEED_MM_S, light * signs[k],
                                       blade_side=-signs[k])
             if sweep.fit is None:
                 raise CommissionError(
                     f"no edge along {AXES[1 - k]} within "
-                    f"{QUICK_HALF_MM:g} mm of where it should be "
+                    f"{self.quick_half_mm:g} mm of where it should be "
                     f"({sweep.error})")
             seen = sweep.fit.step_a * signs[k]
             if abs(seen) > abs(light):

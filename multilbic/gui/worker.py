@@ -205,6 +205,14 @@ class RunEnded:
 
 
 @dataclass(frozen=True)
+class NotLocated:
+    """A run couldn't locate `laser`, twice, and waits for
+    `answer_not_located`: place it from machine.toml, skip it, or stop."""
+    laser: int
+    why: str
+
+
+@dataclass(frozen=True)
 class FocusStarted:
     request: FocusRequest
 
@@ -250,6 +258,7 @@ Event = (
     StateChanged | Log | Connected | Homed | Position | Reading
     | LaserChanged
     | CalibrationChanged | RunStarted | RowEvent | MapEvent | RunEnded
+    | NotLocated
     | FocusStarted | FocusPassed | FocusEnded | MachineChanged
     | CommissionEnded | LineUpEnded
 )
@@ -289,6 +298,8 @@ class MachineWorker:
         self._conn: Connection | None = None
         self._cal: Calibrator | None = None
         self._session: Session | None = None
+        #: Where the window's answer goes while a run waits on it.
+        self._answer: queue.Queue[str] | None = None
         self._focus: FocusAssist | None = None
         #: The last focus assist's result, until saved.
         self._focused: FocusResult | None = None
@@ -736,6 +747,7 @@ class MachineWorker:
             simulated=conn.simulated, provenance=provenance, say=self._log,
             on_row=lambda row: self._emit(RowEvent(row)),
             on_map=lambda laser, result: self._emit(MapEvent(laser, result)),
+            ask_not_located=self._ask_not_located,
         )
         with self._lock:
             if self._state is State.STOPPING:
@@ -757,6 +769,36 @@ class MachineWorker:
         # A laser was started only after homing finished.
         self._set_homed(bool(outcome.lasers))
         self._position()
+
+    def _ask_not_located(self, laser: int, why: str) -> str:
+        """On the run's thread: ask the window, and wait for its answer
+        or for Stop."""
+        answer: queue.Queue[str] = queue.Queue(maxsize=1)
+        self._answer = answer
+        self._emit(NotLocated(laser, why))
+        try:
+            while True:
+                session = self._session
+                if session is not None and session.stop.is_set():
+                    return "stop"
+                try:
+                    return answer.get(timeout=0.1)
+                except queue.Empty:
+                    continue
+        finally:
+            self._answer = None
+
+    def answer_not_located(self, choice: str) -> None:
+        """From the window: "place", "skip" or "stop", for the run
+        waiting on a laser it couldn't locate."""
+        if choice not in ("place", "skip", "stop"):
+            raise ValueError(f"not a choice: {choice!r}")
+        answer = self._answer
+        if answer is not None:
+            try:
+                answer.put_nowait(choice)
+            except queue.Full:
+                pass
 
     def _run_focus(self, request: FocusRequest) -> None:
         conn = self._conn

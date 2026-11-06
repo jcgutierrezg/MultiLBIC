@@ -20,6 +20,16 @@ pixels. **Since 0.6.35 each run file keeps the whole stream, and
 samples are dated by count**: a straight line of stamp against sample
 number over the whole file.
 
+**Only where no samples were lost.** At 1000 Hz (5 mm/s, 10 µm pixels)
+a 30-minute map lost about 3 % of its samples, in skips of up to 10 ms,
+none long enough to count as a break (`20261106T145401Z_full_test`,
+laser 1). Counted, its samples drifted −320 to +775 ms off their
+stamps: rows were drawn up to millimetres off, the cell's outline
+combed into a circle, and the alignment found no shift. By stamps, its
+shift is +152 µm and the map is clean. Since 0.6.56 a stretch whose line
+misses its stamps by more than 6 ms keeps its stamps; every 800 Hz map
+so far lost nothing and is still dated by count.
+
 ## The sync check
 
 `multilbic sync-check` ([diagnostics](../diagnostics.md#sync-check-the-sync-error-on-one-edge))

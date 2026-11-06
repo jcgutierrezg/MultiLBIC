@@ -64,6 +64,10 @@ the bulk reader:
   samples themselves are all there and evenly spaced (2026-11-03: 480
   samples in 599 ms every row). So samples are dated by count, not by
   stamp ([timing](timing.md#dating-samples)).
+- **At 1000 Hz a real run loses samples**: about 3 %, a few at a time
+  (2026-11-06, one channel, 30 minutes), where 800 Hz maps lose none.
+  Those samples' stretches keep their stamps, and the gaps over 4
+  pixels show as empty pixels in the picture.
 - **The instrument's clock runs +306 ppm** against the Pi's (18 ms a
   minute). Arrival latency: median 52 ms, at most 109 ms, not growing.
 - **Two channels** stream separate packets. Stopping one while the other

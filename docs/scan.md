@@ -92,8 +92,12 @@ saw-tooth averages out. The line is split where the stamps step more
 than 12 ms off its pace (a lost stretch or a restart). In the simulator
 with the bench's saw-tooth, the edge's row-to-row spread at 4 mm/s
 falls from 7.2 to 1.7 um and the empty pixels from 5.9 % to none.
-Files from before keep their stamps; `RunFile.scan_data(stamps=True)`
-gives the stamps for comparison.
+**A stretch whose line misses its stamps by more than 6 ms keeps its
+stamps** (since 0.6.56): samples were lost inside it a few at a time,
+and counting them would drift (a 1000 Hz run, 2026-11-06, drifted
+hundreds of ms and lost its serpentine shift). Files from before keep
+their stamps; `RunFile.scan_data(stamps=True)` gives the stamps for
+comparison.
 
 **The serpentine shift.** Everything left is constant: the `ok`'s
 latency, the stream's smallest delay, backlash on A. Each puts forward
