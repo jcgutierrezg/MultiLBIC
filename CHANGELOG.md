@@ -3,6 +3,16 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.6.52 - The second line-up, and Go to photodiode
+
+- **Go to photodiode** on the Lasers panel brings the middle of the
+  photodiode's open quarter under the laser that is on (homed, a laser
+  on, a photodiode in `machine.toml`).
+- Hardware notes: the second line-up, with the saved offsets. The
+  lasers spread 39 um along u and 29 um along v, from 86 and 116 um:
+  about their run-to-run scatter, so the offsets stay. Laser 2 gave
+  less light than the day before and needed the full sweeps to locate.
+
 ## 0.6.51 - The first line-up, and rows that start late
 
 - The first line-up on the bench (`20261105T181317Z_lineup_test-lineup`):

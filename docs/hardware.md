@@ -989,6 +989,35 @@ responsivities (about 0.3 A/W at 444 nm, 0.35 at 519, 0.45 at 652).
     as in every run. Lasers 5 and 6 had single rows drawn 100-200 um
     off: their moves had started late, not just their replies (0.6.51,
     [scan](scan.md#position)).
+  - **The second line-up** (2026-11-06, 0.6.51,
+    `20261106T115355Z_lineup_test-lineup`, `multilbic run` on the same
+    patch, `~/cal/lineup_test-patch.json` on the Pi), with the saved
+    offsets:
+
+    | Laser | Edge u, mm | Edge v, mm | Proposed change, um (X, Y) |
+    |---|---|---|---|
+    | 1 | 0.537 | 0.132 | -35, -5 |
+    | 2 | 0.576 | 0.145 (6 rows) | +4, +8 |
+    | 3 | 0.572 | 0.137 | 0, 0 (reference) |
+    | 4 | 0.559 | 0.161 | -13, +24 |
+    | 5 | 0.557 | 0.161 | -15, +24 |
+    | 6 | 0.548 | 0.147 | -24, +10 |
+
+    The spread fell from 86 to 39 um along u and from 116 to 29 um
+    along v: about what each laser repeats run to run (within ~20 um,
+    above). Part of the proposal is laser 3 itself: the other five moved
+    against it by about -17, +12 um together. **Not written**: one run's
+    proposal would chase that scatter; averaging several line-ups would
+    do better.
+  - **Laser 2 is dimming.** A first try at the second line-up
+    (`20261106T114619Z_lineup_test-lineup`) stopped at laser 2: 26 uA
+    in the open quarter on the first range, where the day before it gave
+    41 uA, and its locate found the edge along B only as an 8 uA step.
+    The retry located it, but by the full sweeps, its largest step
+    9 uA (measured as the step, not as the first reading). It sat
+    0.18, 0.38 mm from `machine.toml` on the photodiode, the furthest of
+    the six again (0.22, 0.35 mm the day before). Check its power
+    before relying on it.
   - **Laser 3 "lowest along v" was not real** (0.6.50). Measured again
     with the line-up's edge finding (`run/lineup.py`), the edge along A
     of lasers 1-3 sits 0.05-0.07 mm into these patches, one or two

@@ -76,6 +76,7 @@ from multilbic.run.ranges import (
 )
 from multilbic.run.rows import ScanDevices, next_range
 from multilbic.scan.geometry import Calibration, place
+from multilbic.scan.photodiode import open_quarter_middle, reach
 from multilbic.scan.timing import FIRST_MOVE_DELAY_S, Trapezoid, axis_accel
 
 JOG_RE = re.compile(r"^([xyab])([+-])(\d*\.?\d*)$")
@@ -214,6 +215,16 @@ class Calibrator:
         """Put the recorded corner back under the reference laser."""
         self._halt.clear()
         return self._to_corner()
+
+    def to_photodiode(self, laser: int) -> dict[str, float]:
+        """Put the middle of the photodiode's open quarter under `laser`,
+        where all of its light lands on the chip (where a locate starts).
+        Raises `ValueError` without a photodiode, `OutOfReach` if the
+        laser can't get there."""
+        self._halt.clear()
+        x, y, a, b = reach(self.machine, laser,
+                           open_quarter_middle(self.machine)).xyab
+        return self._approach(x=x, y=y, a=a, b=b)
 
     # Only the public actions clear the halt; what they call inside
     # must not, or a halted trace would carry on to the corner.

@@ -387,6 +387,14 @@ class MachineWorker:
         return self._move("to corner",
                           lambda: self._calibrator().to_corner())
 
+    def to_photodiode(self, laser: int) -> bool:
+        """The photodiode's open quarter under `laser` (the one lit)."""
+        def work() -> None:
+            self._require_homed()
+            self._emit(Position(self._calibrator().to_photodiode(laser)))
+            self._log(f"laser {laser} over the photodiode's open quarter")
+        return self._moving("to photodiode", work)
+
     def laser(self, number: int) -> bool:
         def work() -> None:
             self._calibrator().laser(number)

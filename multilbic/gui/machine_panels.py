@@ -346,11 +346,20 @@ class LaserPanel:
                       text="* position not measured yet: maps from it "
                            "land in the wrong place").grid(
                 row=1, column=0, sticky="w", pady=(2, 0))
+        # The lit laser over the photodiode's open quarter: to see it
+        # land there, or to find it by hand (machine.toml's position).
+        self.photodiode_btn: ttk.Button | None = None
+        if app.machine.photodiode is not None:
+            self.photodiode_btn = ttk.Button(
+                self.frame, text="Go to photodiode",
+                command=self.to_photodiode)
+            self.photodiode_btn.grid(row=2, column=0, sticky="w",
+                                     pady=(6, 0))
         # The readings one above the other, each as wide as the longest
         # it can be ("-1.234 mA (limit)"), so a reading that gains a
         # digit doesn't widen the column under everything else.
         reading = ttk.Frame(self.frame)
-        reading.grid(row=2, column=0, sticky="w", pady=(8, 0))
+        reading.grid(row=3, column=0, sticky="w", pady=(8, 0))
         ttk.Label(reading, text="Cell").grid(row=0, column=0, sticky="w")
         self.current = ttk.Label(reading, text="-", style="Readout.TLabel",
                                  width=READOUT_CHARS, anchor="w")
@@ -367,12 +376,21 @@ class LaserPanel:
         if not self.app.worker.laser(number):
             self.app.refused("laser")
 
+    def to_photodiode(self) -> None:
+        if not self.lit:
+            self.app.status("go to photodiode: turn a laser on first",
+                            error=True)
+            return
+        if not self.app.worker.to_photodiode(self.lit):
+            self.app.refused("go to photodiode")
+
     def handle(self, event: Event) -> None:
         if isinstance(event, LaserChanged):
             self.lit = event.laser
             for n, button in self.buttons.items():
                 button.configure(style=f"Laser{n}.Lit.TButton"
                                  if n == event.laser else "TButton")
+            self.refresh()
         elif isinstance(event, RowEvent):
             # A run switches lasers without asking the panel: its
             # blocks say which is on (none during the baseline).
@@ -395,6 +413,9 @@ class LaserPanel:
         usable = self.app.state in (State.IDLE, State.MOVING)
         for button in (*self.buttons.values(), self.off_btn):
             _enable(button, usable)
+        if self.photodiode_btn is not None:
+            _enable(self.photodiode_btn,
+                    usable and self.app.homed and bool(self.lit))
 
 
 def device_text(key: str, ident: str) -> str:

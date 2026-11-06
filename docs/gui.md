@@ -27,7 +27,7 @@ a second window or a `multilbic run` stops with "the machine is in use"
 | | |
 |---|---|
 | header | name, version, SIMULATED, what the machine is doing; Light/Dark, Console, **STOP** |
-| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; the cell's and the photodiode's current now |
+| machine column | **Machine**: a lamp and firmware per device, Connect/Disconnect. **Stage**: Home, Centre AB, Motors off; X Y A B; the jog pad; go to a position. **Lasers**: 1-6 and Off, the one that is on filled in; Go to photodiode; the cell's and the photodiode's current now |
 | sample column | **Calibration**: the sample's name, the three steps, Save/Load/Go to corner, and a drawing of the sample and the spot. **Run setup**: lasers, pixel, pitch, speed, bias, baseline, warm-up, range, serpentine, note, folder; the plan and estimate; **Start run** |
 | run column | what the run is doing, a progress bar and the time left; the **Plan** tab (the run as set up, drawn and timed); a tab per laser with its map, live and then finished; Open run file..., Open folder |
 | footer | the last thing that happened; everything is in the Console |
@@ -216,6 +216,12 @@ A laser button lights that laser; Off turns them all off. Lasers whose
 position in `machine.toml` is still a placeholder are marked `*`.
 During a run the buttons are locked, and the one the run has lit is
 filled.
+
+**Go to photodiode** (0.6.52, where `machine.toml` has a photodiode)
+brings the middle of the photodiode's open quarter under the laser that
+is on, where all of its light lands on the chip: the place a locate
+starts from, from `machine.toml`'s position for that laser. It needs
+the stage homed and a laser on.
 
 Once homed, the photocurrent is read twice a second while the machine
 is idle: in the dark, an edge is where it halves. A run ends with the

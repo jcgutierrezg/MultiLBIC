@@ -187,6 +187,26 @@ def test_jogging_waits_for_home_then_moves_the_stage(window):
     assert float(stage.position["X"].cget("text")) - x0 == pytest.approx(0.1)
 
 
+def test_go_to_photodiode_puts_the_lit_laser_on_it(window):
+    from multilbic.scan.photodiode import open_quarter_middle, reach
+
+    app = window.app
+    lasers = app.lasers
+    button = lasers.photodiode_btn
+    assert button is not None
+    # Neither homed nor a laser on: nowhere to go.
+    assert "disabled" in button.state()
+    window.click(app.stage.home_btn)
+    assert "disabled" in button.state()
+    window.click(lasers.buttons[3])
+    window.click(button)
+    want = reach(app.machine, 3, open_quarter_middle(app.machine)).xyab
+    got = tuple(float(app.stage.position[k].cget("text")) for k in "XYAB")
+    assert got == pytest.approx(want, abs=1e-3)
+    window.click(lasers.off_btn)
+    assert "disabled" in button.state()
+
+
 def test_keys_jog_only_while_the_pad_has_them(window):
     app = window.app
     stage = app.stage

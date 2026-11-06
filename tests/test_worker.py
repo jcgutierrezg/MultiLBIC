@@ -405,6 +405,38 @@ def test_readings_include_the_photodiode_when_opened_with_it(machine):
         worker.close()
 
 
+def test_to_photodiode_puts_the_open_quarter_under_the_laser(machine):
+    def connector():
+        return open_sim(machine, clock=ScaledClock(20.0),
+                        corner_carriage_mm=CORNER, size_mm=SIZE,
+                        smu_channels=(1, 2))
+
+    worker = MachineWorker(machine, connector, poll_s=0.05)
+    watch = Watcher(worker)
+    try:
+        worker.connect()
+        watch.idle()
+        # Not before homing: where the stage is isn't known.
+        assert worker.to_photodiode(5)
+        watch.idle()
+        assert "home the stage first" in watch.errors()[-1]
+        assert worker.home()
+        watch.idle()
+        assert worker.laser(5)
+        watch.idle()
+        assert worker.to_photodiode(5)
+        watch.idle()
+        want = reach(machine, 5, open_quarter_middle(machine)).xyab
+        got = watch.of(Position)[-1].xyab
+        assert tuple(got[k] for k in "XYAB") == pytest.approx(want,
+                                                              abs=1e-3)
+        # All of its light on the chip.
+        watch.wait(lambda: any(r.photodiode_a and r.photodiode_a < -50e-6
+                               for r in watch.of(Reading)))
+    finally:
+        worker.close()
+
+
 # ---- focus assist ----
 
 
