@@ -3,6 +3,29 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.3 - The viewer, one map
+
+- Phase 7 step 3: `multilbic view [FOLDER]` (`gui/viewer.py`,
+  [viewer](docs/viewer.md)), its own window on the PC and the Pi,
+  reading run folders only. Open a folder (read on a thread, the footer
+  saying which file), pick a laser (or keys 1-6), and its map is drawn
+  as the machine window draws it, with matplotlib's zoom and pan.
+  Colour limits auto (1-99 %), full or typed; the value under the
+  cursor; a line profile dragged across the map, kept when another
+  laser is picked. Reload reads a run still going again.
+- `gui/viewtools.py`: the viewer's arithmetic without Tk (plot point to
+  u, v, the pixel and value there, profiles, colour limits, the unit a
+  map suits), on mypy's list.
+- `store/image.draw_map` and `image_data` take the unit to draw in
+  (`per_unit_a`, nA by default, as before): a 1 mA cell is drawn in mA,
+  not as -1000000 nA. `RunFolder.started`.
+- The simulated two-laser run the tests open is made once per session
+  (`conftest.run_folder`).
+- On three real runs from the Pi: the 2026-11-05 corner and 2026-11-06
+  line-up runs open in under 2 s; `20261106T163140Z_full_test` (lasers
+  1, 3, 6, 18 x 20 mm) in 80 s on the PC, 85 % of it the serpentine
+  alignment's pair shifts.
+
 ## 0.7.2 - The fix for count-dating merged in
 
 - main merged into Phase 7: PR #9 (0.6.56-0.6.57). Samples lost here

@@ -67,12 +67,13 @@ def draw_map(
     width_mm: float,
     height_mm: float,
     view: tuple[str, str] = DEFAULT_VIEW,
+    per_unit_a: float = 1e-9,
     **imshow: Any,
 ) -> AxesImage:
-    """Draw `values_a[v, u]` (amps) in nA over the sample's true size,
-    turned to `view`, with the corner marked. Returns the image, whose
-    data a live display can replace (`image_data` gives it the right
-    way round)."""
+    """Draw `values_a[v, u]` (amps) over the sample's true size, in units
+    of `per_unit_a` (nA by default), turned to `view`, with the corner
+    marked. Returns the image, whose data a live display can replace
+    (`image_data` gives it the right way round)."""
     u_points, v_points = view
     if u_points in _HORIZONTAL:
         x_size, y_size = width_mm, height_mm
@@ -83,7 +84,7 @@ def draw_map(
         x_dir, y_dir = v_points, u_points
         x_label, y_label = "v (mm, along B)", "u (mm, along A: the rows)"
     shown = axes.imshow(
-        image_data(values_a, view),
+        image_data(values_a, view, per_unit_a),
         origin="lower",
         extent=(0.0, x_size, 0.0, y_size),
         aspect="equal",
@@ -112,10 +113,12 @@ def draw_map(
     return shown
 
 
-def image_data(values_a: np.ndarray, view: tuple[str, str]) -> np.ndarray:
-    """`values_a[v, u]` in nA, short gaps along the rows filled
-    (`fill_short_gaps`), transposed when u runs up or down."""
-    values = fill_short_gaps(np.asarray(values_a)) * 1e9
+def image_data(values_a: np.ndarray, view: tuple[str, str],
+               per_unit_a: float = 1e-9) -> np.ndarray:
+    """`values_a[v, u]` in units of `per_unit_a` (nA by default), short
+    gaps along the rows filled (`fill_short_gaps`), transposed when u
+    runs up or down."""
+    values = fill_short_gaps(np.asarray(values_a)) / per_unit_a
     return values if view[0] in _HORIZONTAL else values.T
 
 

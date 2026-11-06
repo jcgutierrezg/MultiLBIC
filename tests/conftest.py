@@ -87,3 +87,35 @@ def machine():
 @pytest.fixture
 def clock():
     return ScaledClock(SIM_SPEED)
+
+
+@pytest.fixture(scope="session")
+def run_folder(tmp_path_factory):
+    """A finished two-laser run on the simulator, made once for the whole
+    session: the run folder tests and the viewer's open it."""
+    from multilbic.run.rows import ScanDevices
+    from multilbic.run.session import RunRequest, Session
+    from multilbic.sim.rig import Faults, SimRig
+    from multilbic.sim.sample import SyntheticSample
+    from multilbic.sim.scan import sim_machine
+
+    clock = ScaledClock(SIM_SPEED)
+    faults = Faults()
+    machine = sim_machine(load(), faults)
+    rig = SimRig(machine, clock, SyntheticSample.default(0.3, 0.15),
+                 (15.0, 16.0), faults)
+    rig.open()
+    try:
+        request = RunRequest(
+            rig.perfect_calibration("two lasers"), (1, 2),
+            pixel_mm=0.01, pitch_mm=0.05, speed_mm_s=2.0,
+            baseline_s=0.5, warmup_s=0.0, note="runfolder test")
+        session = Session(ScanDevices(rig.marlin, rig.laser, rig.smu),
+                          machine, clock, request,
+                          tmp_path_factory.mktemp("runs"), simulated=True,
+                          provenance={"commit": "test"})
+        outcome = session.run()
+    finally:
+        rig.close()
+    assert outcome.status == "complete"
+    return outcome.folder

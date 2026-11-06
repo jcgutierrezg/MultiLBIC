@@ -6,15 +6,9 @@ import shutil
 import numpy as np
 import pytest
 
-from multilbic.clock import ScaledClock
 from multilbic.config import load
-from multilbic.run.rows import ScanDevices
-from multilbic.run.session import RunRequest, Session
 from multilbic.scan.binning import Grid
 from multilbic.scan.mapping import build_map
-from multilbic.sim.rig import Faults, SimRig
-from multilbic.sim.sample import SyntheticSample
-from multilbic.sim.scan import sim_machine
 from multilbic.store.runfile import read_run
 from multilbic.store.runfolder import (
     RunFolderError,
@@ -23,34 +17,8 @@ from multilbic.store.runfolder import (
     shared_grid,
 )
 
-CORNER = (15.0, 16.0)
-#: As conftest.SIM_SPEED: simulated seconds per real second.
-SIM_SPEED = 20.0
-
-
-@pytest.fixture(scope="module")
-def run_folder(tmp_path_factory):
-    """A finished two-laser run on the simulator, made once."""
-    clock = ScaledClock(SIM_SPEED)
-    faults = Faults()
-    machine = sim_machine(load(), faults)
-    rig = SimRig(machine, clock, SyntheticSample.default(0.3, 0.15), CORNER,
-                 faults)
-    rig.open()
-    try:
-        request = RunRequest(
-            rig.perfect_calibration("two lasers"), (1, 2),
-            pixel_mm=0.01, pitch_mm=0.05, speed_mm_s=2.0,
-            baseline_s=0.5, warmup_s=0.0, note="runfolder test")
-        session = Session(ScanDevices(rig.marlin, rig.laser, rig.smu),
-                          machine, clock, request,
-                          tmp_path_factory.mktemp("runs"), simulated=True,
-                          provenance={"commit": "test"})
-        outcome = session.run()
-    finally:
-        rig.close()
-    assert outcome.status == "complete"
-    return outcome.folder
+# `run_folder`, a finished two-laser simulated run, is in conftest.py:
+# the viewer's tests open it too.
 
 
 def copy_of(folder, tmp_path):

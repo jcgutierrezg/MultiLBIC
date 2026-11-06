@@ -183,6 +183,11 @@ class RunFolder:
                 else "incomplete")
 
     @property
+    def started(self) -> str:
+        """When the first laser's map began (ISO time, UTC), or ''."""
+        return str(self._any_header().get("started", ""))
+
+    @property
     def simulated(self) -> bool:
         return bool(self._any_header().get("simulated", False))
 

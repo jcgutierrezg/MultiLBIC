@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "multilbic"
-version = "0.7.2"
+version = "0.7.3"
 description = "MultiLBIC - multi-wavelength laser beam induced current mapper"
 # Matches SMUniversal's floor, which this project imports from. It must
 # agree with `.python-version` and the CI matrix;
@@ -114,6 +114,8 @@ files = [
     "multilbic/store/runfile.py",
     # a run folder as one set of maps: what the viewer opens (D30)
     "multilbic/store/runfolder.py",
+    # the viewer's arithmetic, without Tk
+    "multilbic/gui/viewtools.py",
     "multilbic/run/rows.py",
     # Phase 4: placement, the run, the command line
     "multilbic/scan/geometry.py",

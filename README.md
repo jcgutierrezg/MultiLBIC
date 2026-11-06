@@ -21,6 +21,7 @@ See [docs/plan.md](docs/plan.md).
 | How a map is made: position, cleaning, the run file | [docs/scan.md](docs/scan.md) |
 | Calibrating a sample and running its maps | [docs/run.md](docs/run.md) |
 | The window | [docs/gui.md](docs/gui.md) |
+| The viewer: a run's maps, from its folder | [docs/viewer.md](docs/viewer.md) |
 | Focus, commissioning and the line-up | [docs/commissioning.md](docs/commissioning.md) |
 | `read`, `sync-check`, `edges`, the device probes | [docs/diagnostics.md](docs/diagnostics.md) |
 | Working on the machine: SSH, deploying, safety | [docs/bench.md](docs/bench.md) |

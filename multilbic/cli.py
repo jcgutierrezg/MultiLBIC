@@ -805,6 +805,12 @@ def gui(args: argparse.Namespace) -> int:
                   machine_path=machine_file(args.machine))
 
 
+def view(args: argparse.Namespace) -> int:
+    from multilbic.gui.viewer import launch_viewer
+
+    return launch_viewer(load(args.machine), args.folder)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="multilbic", description=__doc__.split("\n\n")[0]
@@ -946,6 +952,12 @@ def main(argv: list[str] | None = None) -> int:
     window.add_argument("--speedup", type=float, default=SIM_SPEED,
                         help="simulated seconds per real second (--sim)")
     window.set_defaults(func=gui)
+
+    look = commands.add_parser(
+        "view", help="the viewer: a run's maps, from its folder")
+    look.add_argument("folder", nargs="?", default=None,
+                      help="a run folder (or one of its laser files)")
+    look.set_defaults(func=view)
 
     draw = commands.add_parser("map", help="rebuild and draw a run file's map")
     draw.add_argument("runfile", help="a laser's .csv from a run folder")

@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 3: the viewer, one map. Step 2 (a run folder as one set of maps) is done. |
+| next | Step 4: lasers compared. Steps 2-3 (a run folder as one set of maps, the viewer with one map) are done. |
 
 ## Phases
 
@@ -69,10 +69,12 @@ Steps:
    calibration from the headers. Clipped attempts are listed, unreadable
    files reported, a run still going opens. Two real six-laser runs open
    in about 1.3 s each.
-3. **The viewer, one map**: open a folder, pick a laser; the map drawn
-   as the window draws it (`store/image.draw_map`, `[display]`), colour
-   limits, the value under the cursor, a line profile along a drawn
-   line.
+3. **The viewer, one map** (done 0.7.3, [viewer](viewer.md)): open a
+   folder, pick a laser; the map drawn as the window draws it
+   (`store/image.draw_map`, `[display]`), colour limits, the value under
+   the cursor, a line profile along a drawn line that stays when the
+   laser changes. A full-size run opens slowly (80 s on the PC for three
+   18 x 20 mm maps), nearly all of it the serpentine alignment.
 4. **Lasers compared**: all of a run's lasers side by side on the shared
    grid with one colour scale or each its own; the ratio of any two.
 5. **Power in runs** (simulator first): the laser-off baseline taken at
