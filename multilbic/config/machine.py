@@ -105,6 +105,12 @@ class Laser:
     #: the cell, at its own angle (`multilbic lineup`, the Maintenance
     #: window's Line-up). 0 for the reference laser, by definition.
     cell_offset_xy_mm: tuple[float, float] = (0.0, 0.0)
+    #: The photodiode's response to this laser, A/W, measured with a
+    #: power meter (D32 revised: photodiode, meter at the sample's place,
+    #: photodiode again; the Maintenance window's Power tab), and the
+    #: date it was. None until then: EQE uses the datasheet's curve.
+    pd_response_a_w: float | None = None
+    pd_response_date: str | None = None
 
     @property
     def on_cell_xy_mm(self) -> tuple[float, float]:
@@ -378,6 +384,10 @@ def _parse_laser(t: _Table) -> Laser:
                  else None),
         cell_offset_xy_mm=(t.read_pair("cell_offset_xy_mm")
                            if t.has("cell_offset_xy_mm") else (0.0, 0.0)),
+        pd_response_a_w=(t.read_positive_float("pd_response_a_w")
+                         if t.has("pd_response_a_w") else None),
+        pd_response_date=(t.read_str("pd_response_date")
+                          if t.has("pd_response_date") else None),
     )
     t.done()
     if max(abs(v) for v in laser.cell_offset_xy_mm) > MAX_CELL_OFFSET_MM:

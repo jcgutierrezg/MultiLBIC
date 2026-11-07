@@ -33,12 +33,14 @@ import json
 import math
 import re
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
+from multilbic.config.machine import MachineConfig
+from multilbic.scan import eqe as eqe_mod
 from multilbic.scan.binning import Grid
 from multilbic.scan.mapping import MapResult
 from multilbic.store.alignfile import MappedFile, SavedAlignment, map_file
@@ -104,6 +106,15 @@ class LaserMap:
     reused: bool = False
     #: Why the alignment couldn't be saved, if it couldn't.
     not_saved: str | None = None
+    #: The map as EQE (a fraction) on the shared grid, from the power
+    #: read before and after it (D31, D32); None without those readings.
+    eqe: np.ndarray | None = None
+    #: The photodiode's response the EQE rests on.
+    response: eqe_mod.Response | None = None
+    #: The power over the map, from the photodiode.
+    power: eqe_mod.PowerTrack | None = None
+    #: Why there is no EQE, if there isn't.
+    no_eqe: str | None = None
 
     @property
     def complete(self) -> bool:
@@ -160,6 +171,8 @@ class RunFolder:
     attempts: list[Attempt] = field(default_factory=list)
     #: Files that couldn't be opened, and why.
     problems: dict[str, str] = field(default_factory=dict)
+    #: machine.toml as it is now: a response measured since the run.
+    machine: MachineConfig | None = None
 
     @property
     def run_id(self) -> str:
@@ -235,6 +248,7 @@ def read_folder(
     on_file: Callable[[int, int, Path], None] | None = None,
     by: str = "viewer",
     write: bool = True,
+    machine: MachineConfig | None = None,
 ) -> RunFolder:
     """Every laser's map in `folder`, on one grid. A laser file may be
     given instead of its folder. `on_file(done, total, path)` is called
@@ -243,7 +257,8 @@ def read_folder(
     Each map is built from the alignment saved beside its file when
     there is a current one, in about a second; otherwise the alignment
     is searched for and, unless `write` is False, saved for next time
-    (`store/alignfile`)."""
+    (`store/alignfile`). `machine` (machine.toml now) gives a
+    photodiode response measured since the run, for EQE."""
     folder = Path(folder)
     if folder.is_file():
         folder = folder.parent
@@ -274,22 +289,42 @@ def read_folder(
 
     grid = shared_grid([b[3].result.grid for b in built])
     maps = {
-        laser: _laser_map(laser, nm, path, mapped, grid)
+        laser: _laser_map(laser, nm, path, mapped, grid, machine)
         for laser, nm, path, mapped in built
     }
     return RunFolder(
         folder, grid, maps,
         summary=_json(folder / "run.json", problems),
         calibration=_json(folder / "calibration.json", problems),
-        attempts=attempts, problems=problems,
+        attempts=attempts, problems=problems, machine=machine,
     )
 
 
 def _laser_map(laser: int, nm: float, path: Path, mapped: MappedFile,
-               grid: SharedGrid) -> LaserMap:
-    return LaserMap(laser, nm, path, mapped.run.header, mapped.result,
-                    on_grid(mapped.result.grid, grid), mapped.saved,
-                    mapped.reused, mapped.not_saved)
+               grid: SharedGrid, machine: MachineConfig | None) -> LaserMap:
+    header = mapped.run.header
+    result = mapped.result
+    track = eqe_mod.PowerTrack.from_header(header)
+    measured_now: tuple[float | None, str | None] = (None, None)
+    if machine is not None and laser in {x.number for x in machine.lasers}:
+        spec = machine.laser(laser)
+        measured_now = (spec.pd_response_a_w, spec.pd_response_date)
+    response = eqe_mod.response_for(header, nm, measured_now)
+    eqe = None
+    no_eqe = None
+    if track is None:
+        no_eqe = "no power readings (a run before 0.7.6, or not located)"
+    elif response is None:
+        no_eqe = f"no photodiode response at {nm:g} nm"
+    else:
+        times = eqe_mod.row_times(mapped.run.anchors,
+                                  result.grid.values.shape[0])
+        own = eqe_mod.eqe_map(result.grid.values, times, track, response, nm)
+        eqe = on_grid(replace(result.grid, values=own), grid)
+    return LaserMap(laser, nm, path, header, result,
+                    on_grid(result.grid, grid), mapped.saved,
+                    mapped.reused, mapped.not_saved, eqe, response, track,
+                    no_eqe)
 
 
 def rebuild(
@@ -305,7 +340,8 @@ def rebuild(
     `run` in place of the old one, on the same grid."""
     old = run.maps[laser]
     mapped = map_file(old.path, by=by, realign=realign, shift_um=shift_um)
-    new = _laser_map(laser, old.wavelength_nm, old.path, mapped, run.grid)
+    new = _laser_map(laser, old.wavelength_nm, old.path, mapped, run.grid,
+                     run.machine)
     run.maps[laser] = new
     return new
 

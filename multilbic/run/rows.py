@@ -505,6 +505,9 @@ def run_header(
         "wavelength_nm": machine.laser(laser).wavelength_nm,
         # Added to where the photodiode puts the laser (`run.lineup`).
         "cell_offset_xy_mm": list(machine.laser(laser).cell_offset_xy_mm),
+        # The photodiode's response to it when the run was made (D32).
+        "pd_response_a_w": machine.laser(laser).pd_response_a_w,
+        "pd_response_date": machine.laser(laser).pd_response_date,
         "frame_origin_ab_mm": list(r.frame.origin_ab_mm),
         "frame_size_mm": [r.frame.width_mm, r.frame.height_mm],
         "pixel_mm": r.pixel_mm,

@@ -81,6 +81,11 @@ max_accel_mm_s2 = 100.0
 # cell against where the photodiode puts it, in XY, against the
 # reference laser; added wherever a run places it. From a line-up (the
 # Maintenance window, or `multilbic lineup RUN --write`).
+# pd_response_a_w, pd_response_date (optional): the photodiode's response
+# to the laser, A/W, measured with a power meter (photodiode, meter at
+# the sample's place, photodiode again: the Maintenance window's Power
+# tab), and when. Maps' EQE rests on it (D32); without it, on the
+# S1223-01's datasheet curve.
 
 [[lasers]]
 number = 1

@@ -77,6 +77,32 @@ On `20261106T163140Z_full_test`, laser 6 (848 nm) over laser 1 (444 nm)
 is about 3.9 across the cell; the finger edges show as thin stripes,
 the two spots being different sizes.
 
+## EQE
+
+**Show: Photocurrent / EQE**, under the views. EQE works in every view
+(one laser, side by side, ratio), the cursor and the profile, in %.
+
+A pixel's EQE is the cell's current over the photodiode's, at the
+moment that row was scanned, times the photodiode's response to that
+laser and 1239.84 / wavelength (`scan/eqe.py`):
+
+- **The photodiode's current**: the power read before the map and after
+  it (D31), dark taken out, a straight line between them in time, row by
+  row. A laser whose output drifts during its map keeps a steady EQE (a
+  simulated laser drifting 8 % a second: the current rose 6 % from the
+  first rows across the cell to the last, the EQE 0.1 %).
+- **The photodiode's response** (A/W), in this order: measured with the
+  power meter, as `machine.toml` had it when the run was made; measured
+  since, as `machine.toml` has it now (said so); or the S1223-01's
+  typical curve from Hamamatsu's datasheet (KPIN1050E02), said so. Below
+  600 nm that curve is steep and read off a graph: lasers 1 and 2 may be
+  10 % off on it.
+
+The caption says which response a map rests on and how much the power
+moved between before and after. A map made without power readings (a
+run before 0.7.6, or a laser placed from `machine.toml`) has no EQE: its
+panel is blank and says so.
+
 ## How long a folder takes to open
 
 Every map is built again from its file, from the alignment saved beside

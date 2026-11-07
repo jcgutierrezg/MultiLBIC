@@ -430,3 +430,60 @@ def test_the_ratio_of_two_lasers(viewer, run_folder):
     viewer.reload()
     wait_loaded(viewer)
     assert viewer.view_mode.get() == "ratio" and viewer.ratio_pair == (1, 2)
+
+
+def _with_power(folder, lasers, before=-1.0e-3, after=-1.1e-3):
+    """Power readings added to these lasers' files, bracketing their
+    rows, as a run since 0.7.6 writes them (a later key over an earlier
+    one, so appending is enough)."""
+    import json
+
+    from multilbic.store.runfile import read_run
+
+    for n in lasers:
+        path = next(folder.glob(f"laser{n}_*nm.csv"))
+        anchors = read_run(path).anchors
+        t0, t1 = anchors[0].sent_s - 1.0, anchors[-1].end_s + 1.0
+        entries = {
+            "power_before": {"current_a": before, "t_s": t0},
+            "power_after": {"current_a": after, "t_s": t1},
+            "power_dark": {"current_a": 0.0, "t_s": t1 + 1.0},
+        }
+        with path.open("a", encoding="utf-8") as f:
+            for key, value in entries.items():
+                f.write(f"# {key}: {json.dumps(value)}\n")
+
+
+def test_maps_shown_as_eqe(viewer, run_folder, tmp_path):
+    folder = shutil.copytree(run_folder, tmp_path / run_folder.name)
+    _with_power(folder, [1])
+    run = opened(viewer, folder)
+    m1, m2 = run.maps[1], run.maps[2]
+    assert m1.eqe is not None and m1.power.drift == pytest.approx(0.1)
+    assert m2.eqe is None and "no power readings" in m2.no_eqe
+
+    viewer.show_laser(1)
+    viewer.quantity.set("eqe")
+    viewer.redraw()
+    assert viewer.unit == ("%", 0.01)
+    np.testing.assert_array_equal(viewer.values(), m1.eqe)
+    assert "datasheet" in viewer.caption.cget("text")
+    assert "+10.0%" in viewer.caption.cget("text")
+    viewer.show_cursor(0.105, 0.075)
+    assert "EQE" in viewer.readout.cget("text")
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    assert viewer.profile_axes.get_ylabel() == "EQE (%)"
+
+    # Laser 2 has no power readings: its panel says so, blank.
+    viewer.show_side_by_side()
+    titles = [p.axes.get_title() for p in viewer.panels]
+    assert titles[1].endswith("no EQE")
+    assert np.isnan(viewer.panels[1].values).all()
+    viewer.show_cursor(0.105, 0.075)
+    assert "laser 2: no EQE" in viewer.readout.cget("text")
+
+    # Back to photocurrent: the maps as they were.
+    viewer.show_laser(1)
+    viewer.quantity.set("current")
+    viewer.redraw()
+    np.testing.assert_array_equal(viewer.values(), m1.values)

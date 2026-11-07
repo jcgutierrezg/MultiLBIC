@@ -287,3 +287,22 @@ def test_display_refuses_impossible_views(raw, u, v, message):
     raw["display"] = {"u_points": u, "v_points": v}
     with pytest.raises(MachineConfigError, match=message):
         parse(raw)
+
+
+def test_a_measured_photodiode_response_per_laser():
+    """D32 revised: the photodiode's response to a laser, measured with a
+    power meter, with its date; none until measured."""
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "multilbic" / "config" \
+        / "machine.toml"
+    data = tomllib.loads(path.read_text(encoding="utf-8"))
+    assert parse(data).laser(1).pd_response_a_w is None
+    data["lasers"][0]["pd_response_a_w"] = 0.231
+    data["lasers"][0]["pd_response_date"] = "2026-11-10"
+    laser = parse(data).laser(1)
+    assert (laser.pd_response_a_w, laser.pd_response_date) == (
+        0.231, "2026-11-10")
+    data["lasers"][0]["pd_response_a_w"] = -0.2
+    with pytest.raises(MachineConfigError):
+        parse(data)

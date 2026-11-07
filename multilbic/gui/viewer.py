@@ -81,6 +81,8 @@ LINE_COLOUR = "cyan"
 #: A press and release closer than this (in pixels on the screen) is a
 #: click, not a line.
 MIN_DRAG_PX = 4
+#: EQE is shown in %: a fraction over this.
+EQE_UNIT = ("%", 0.01)
 
 
 @dataclass
@@ -119,6 +121,8 @@ class Viewer:
         self.unit: tuple[str, float] = ("nA", 1e-9)
         #: "one", "side" or "ratio".
         self.view_mode = tk.StringVar(value="one")
+        #: "current" or "eqe" (D32).
+        self.quantity = tk.StringVar(value="current")
         self.shared_scale = tk.BooleanVar(value=True)
         self.ratio_pair: tuple[int, int] | None = None
         self.ratio_top = tk.StringVar()
@@ -242,6 +246,12 @@ class Viewer:
         self.ratio_bottom_box.pack(side="left")
         for box in (self.ratio_top_box, self.ratio_bottom_box):
             box.bind("<<ComboboxSelected>>", self._ratio_changed)
+        shown = ttk.Frame(frame)
+        shown.pack(side="top", fill="x", pady=(0, 6))
+        ttk.Label(shown, text="Show").pack(side="left", padx=(0, 8))
+        for value, text in (("current", "Photocurrent"), ("eqe", "EQE")):
+            ttk.Radiobutton(shown, text=text, value=value,
+                            variable=self.quantity, command=self.redraw)                 .pack(side="left", padx=(0, 10))
         # Maps are on white paper in both modes, as in the machine window.
         # Small to start with: the canvas grows into the window, and never
         # pushes it past the screen. Constrained layout keeps colour bars
@@ -392,7 +402,8 @@ class Viewer:
                     ("progress", f"reading {path.name} ({done + 1} of "
                                  f"{total})"))
             try:
-                run = read_folder(folder, on_file=progress)
+                run = read_folder(folder, on_file=progress,
+                                  machine=self.machine)
             except (RunFolderError, OSError) as exc:
                 self._results.put(("error", str(exc)))
             except Exception as exc:  # noqa: BLE001 - shown, not raised
@@ -650,8 +661,8 @@ class Viewer:
 
         if mode == "ratio" and self.ratio_pair is not None:
             top, bottom = self.ratio_pair
-            values = viewtools.ratio(run.maps[top].values,
-                                     run.maps[bottom].values)
+            values = viewtools.ratio(self._shown(run.maps[top]),
+                                     self._shown(run.maps[bottom]))
             self.unit = ("", 1.0)
             self._add_panel(None, values, 1, 1, 1, width, height,
                             f"laser {top} / laser {bottom}")
@@ -667,11 +678,12 @@ class Viewer:
                 len(lasers), self._area_aspect(),
                 width / height if viewtools.u_horizontal(self.view)
                 else height / width)
-            self.unit = viewtools.display_unit(run.stack())
+            self.unit = self._unit_for(
+                [self._shown(run.maps[n]) for n in lasers])
             for k, n in enumerate(lasers):
                 m = run.maps[n]
-                self._add_panel(n, m.values, rows, cols, k + 1, width,
-                                height, m.label())
+                self._add_panel(n, self._shown(m), rows, cols, k + 1, width,
+                                height, self._title(m))
             scale = ("one colour scale" if self.shared_scale.get()
                      else "each its own colour scale")
             self.caption.configure(
@@ -679,15 +691,20 @@ class Viewer:
                      "it the laser the alignment is about")
         else:
             m = run.maps[self.laser]
-            self.unit = viewtools.display_unit(m.values)
-            self._add_panel(self.laser, m.values, 1, 1, 1, width, height,
-                            m.label())
-            bits = [m.status, shift_note(m.result),
-                    f"baseline {look.amps(m.result.baseline.offset_a)} "
-                    f"subtracted, noise {look.amps(m.noise_a)}"]
-            if m.current_range_a is not None:
-                bits.append(f"range {look.amps(m.current_range_a)}")
-            self.caption.configure(text=", ".join(bits))
+            self.unit = self._unit_for([self._shown(m)])
+            self._add_panel(self.laser, self._shown(m), 1, 1, 1, width,
+                            height, self._title(m))
+            if self.eqe_shown():
+                bits = ([m.no_eqe] if m.no_eqe is not None else
+                        [m.response.describe() if m.response else "",
+                         m.power.describe() if m.power else ""])
+            else:
+                bits = [m.status, shift_note(m.result),
+                        f"baseline {look.amps(m.result.baseline.offset_a)} "
+                        f"subtracted, noise {look.amps(m.noise_a)}"]
+                if m.current_range_a is not None:
+                    bits.append(f"range {look.amps(m.current_range_a)}")
+            self.caption.configure(text=", ".join(b for b in bits if b))
 
         self._colourbars()
         current = self._current_panel()
@@ -697,6 +714,35 @@ class Viewer:
         if self.line_uv is not None:
             self._set_line(*self.line_uv)
         self.canvas.draw_idle()
+
+    def eqe_shown(self) -> bool:
+        return self.quantity.get() == "eqe"
+
+    def _shown(self, m: LaserMap) -> np.ndarray:
+        """What a laser's panel shows: its photocurrent (A), or its EQE
+        (a fraction; all blank where it has none)."""
+        if not self.eqe_shown():
+            return m.values
+        if m.eqe is None:
+            return np.full(m.values.shape, np.nan)
+        return m.eqe
+
+    def _unit_for(self, maps: list[np.ndarray]) -> tuple[str, float]:
+        if self.eqe_shown():
+            return EQE_UNIT
+        return viewtools.display_unit(np.stack(maps))
+
+    def _title(self, m: LaserMap) -> str:
+        if self.eqe_shown() and m.eqe is None:
+            return f"{m.label()}: no EQE"
+        return m.label()
+
+    def _quantity_label(self) -> str:
+        if not self.unit[0]:
+            return "ratio" + (" of EQE" if self.eqe_shown() else "")
+        if self.eqe_shown():
+            return "EQE (%)"
+        return f"photocurrent ({self.unit[0]})"
 
     def _area_aspect(self) -> float:
         """The map area's width over height, less a colour bar's room."""
@@ -721,8 +767,7 @@ class Viewer:
         self.panels.append(_Panel(laser, ax, image, values))
 
     def _colourbars(self) -> None:
-        label = (f"photocurrent ({self.unit[0]})" if self.unit[0]
-                 else "ratio")
+        label = self._quantity_label()
         if self.view_mode.get() == "side" and not self.shared_scale.get():
             for p in self.panels:
                 self.figure.colorbar(p.image, ax=p.axes, shrink=0.85)
@@ -837,7 +882,7 @@ class Viewer:
             return
         mode = self.view_mode.get()
         if mode == "side":
-            lines = [f"laser {n}: {_reading(run.maps[n].values, run, u, v)}"
+            lines = [f"laser {n}: {self._reading(run.maps[n], u, v)}"
                      for n in run.lasers]
         elif mode == "ratio" and self.ratio_pair is not None:
             top, bottom = self.ratio_pair
@@ -847,14 +892,28 @@ class Viewer:
             shown = (f"{r:.4g}" if r is not None and np.isfinite(r)
                      else "blank")
             lines = [f"laser {top}: "
-                     f"{_reading(run.maps[top].values, run, u, v)}",
+                     f"{self._reading(run.maps[top], u, v)}",
                      f"laser {bottom}: "
-                     f"{_reading(run.maps[bottom].values, run, u, v)}",
+                     f"{self._reading(run.maps[bottom], u, v)}",
                      f"ratio: {shown}"]
         else:
-            lines = [f"{_reading(run.maps[self.laser].values, run, u, v)}"
+            lines = [f"{self._reading(run.maps[self.laser], u, v)}"
                      f"  (laser {self.laser})"]
         self.readout.configure(text="\n".join([where, *lines]))
+
+    def _reading(self, m: LaserMap, u: float, v: float) -> str:
+        """A laser's value at u, v, as shown: amps, or EQE in %."""
+        assert self.run is not None
+        values = self._shown(m)
+        if self.eqe_shown() and m.eqe is None:
+            return "no EQE"
+        text = _reading(values, self.run, u, v)
+        if not self.eqe_shown():
+            return text
+        value = viewtools.value_at(values, self.run.grid, u, v)
+        if value is None or not np.isfinite(value):
+            return text
+        return f"EQE {value * 100:.2f} %"
 
     def _press(self, event: MouseEvent) -> None:
         if (event.button != 1 or self._panel_of(event.inaxes) is None
@@ -948,7 +1007,7 @@ class Viewer:
             self.profile = self.profiles.get(
                 self.laser, next(iter(self.profiles.values())))
         ax.set_xlabel("distance along the line (mm)")
-        ax.set_ylabel(f"photocurrent ({name})" if name else "ratio")
+        ax.set_ylabel(self._quantity_label())
         if len(self.panels) > 1:
             ax.legend(fontsize=7, loc="best")
         else:

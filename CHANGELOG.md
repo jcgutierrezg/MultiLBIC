@@ -3,6 +3,26 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.7 - Maps as EQE
+
+- Phase 7 step 6, first half (D32 revised). `scan/eqe.py`: a pixel's
+  EQE from the cell's current over the photodiode's at that row's time
+  (the power before and after, dark out, a straight line between), the
+  photodiode's response to the laser and 1239.84 / wavelength.
+- The response, in order: measured with a power meter and recorded in
+  the run's header; measured since, in `machine.toml` now; the
+  S1223-01's typical curve from Hamamatsu's datasheet (KPIN1050E02, Feb.
+  2013: 0.45, 0.52, 0.54 and 0.60 A/W at 660, 780, 830 and 960 nm from
+  its table, the rest read off its graph). New per-laser keys
+  `pd_response_a_w` and `pd_response_date` in `machine.toml`, copied
+  into each run file's header.
+- The viewer's **Show: Photocurrent / EQE**, in every view, the cursor
+  and the profile, in %; the caption says which response the EQE rests
+  on and how far the power moved. A map without power readings says it
+  has no EQE.
+- A simulated laser drifting 8 % a second: the current rose 6 % across
+  the cell, the EQE 0.1 %.
+
 ## 0.7.6 - Each laser's power before and after its map
 
 - Phase 7 step 5, in the simulator (D31). A laser located on the
