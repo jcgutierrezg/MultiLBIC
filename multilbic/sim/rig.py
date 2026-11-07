@@ -78,6 +78,11 @@ class Faults:
     #: as a beam meeting the blades higher than the cell at an angle.
     #: Empty: every beam lands on the cell where machine.toml says.
     cell_offset_xy_mm: tuple[tuple[int, float, float], ...] = ()
+    #: A lit laser's output grows by this share every simulated minute
+    #: from when the rig was made, on the cell and the photodiode alike:
+    #: the drift the power before and after a map measures (D31). Laser
+    #: 2 lost 80 % in a week on the bench; 0: steady.
+    laser_drift_per_min: float = 0.0
 
     @classmethod
     def none(cls) -> Faults:
@@ -131,6 +136,7 @@ class SimRig:
         )
         #: Where the servo landed each angle the last time, off true.
         self.servo_offset_mm: dict[int, tuple[float, float]] = {}
+        self._made_s = self.clock.now()
         self._servo_random = random.Random(7)
         if f.servo_scatter_mm:
             self.fake_laser.on_servo_move = self._servo_moved
@@ -211,6 +217,10 @@ class SimRig:
         self.servo_offset_mm[angle] = (self._servo_random.gauss(0.0, sigma),
                                        self._servo_random.gauss(0.0, sigma))
 
+    def power_factor(self, t: float) -> float:
+        """How much a lit laser gives at time `t`, against at the start."""
+        return 1.0 + self.faults.laser_drift_per_min * (t - self._made_s) / 60
+
     def _signal(self, channel: int, t: float) -> float:
         lit = self.fake_laser.active
         pd_channel = (self.machine.photodiode.channel
@@ -220,14 +230,14 @@ class SimRig:
             if not lit:
                 return self.photodiode.dark_a
             a, b = self.spot_carriage(self.fake_marlin.stage_position(t), lit)
-            return self.photodiode.current(lit, a, b)
+            return self.photodiode.current(lit, a, b) * self.power_factor(t)
         if channel != 1:
             return 0.0
         if not lit:
             return self.sample.dark_a
         u, v = self.spot_uv(self.fake_marlin.stage_position(t), lit)
         nm = self.machine.laser(lit).wavelength_nm
-        return self.sample.current(nm, u, v)
+        return self.sample.current(nm, u, v) * self.power_factor(t)
 
     def perfect_calibration(self, sample: str = "synthetic") -> Calibration:
         """The calibration a perfect operator would record: the corner

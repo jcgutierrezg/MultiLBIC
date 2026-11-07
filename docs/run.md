@@ -115,7 +115,7 @@ board may have restarted since calibration.
 | `--bias 0` | 0 V | |
 | `--current-range 25u` | checked, else 25 µA | fixed SMU range, one for all lasers (`25u`), one per laser (`1=650u,2=25u,3=650u`), or both (`25u,1=650u`: 650 µA for laser 1, 25 µA for the rest). Ranges: `1u`, `25u`, `650u`, `15m`, `180m`, `auto`. **Without it, each laser uses the range checked for this sample at calibration** (`ranges` above), and 25 µA if it wasn't checked; the plan printed before the start says which. Given, it applies as written. Lasers can be 100x apart in brightness on one sample, so they need their own (D15 revised). The SMU's current limit is set to the range's full scale (1 mA when autoranging). Autoranging drops 10–15 ms of samples at every range switch; a clipping range starts that laser again one range up (below) |
 | `--baseline 3` | 3 s | laser-off baseline per laser |
-| `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on); recorded in the file as row −2. `0` skips it |
+| `--warmup 60` | 60 s | laser on, stage still, before the first row, so its output settles (laser 2 drifted 2x after switch-on). A located laser warms up on the photodiode, read once a second, and its power is read at the end and again after its map (D31; in the file as `power_before`, `power_after`, `power_dark`); a laser placed from `machine.toml` warms up on the sample, recorded as row −2. `0` skips it |
 | `--one-direction` | serpentine | no serpentine alignment then |
 | `--allow-unmeasured` | | lasers whose position isn't measured |
 | `--no-step-up` | | a laser whose range clips fails the run, instead of starting again one range up (below) |

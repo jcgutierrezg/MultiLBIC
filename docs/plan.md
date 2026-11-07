@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 5: power in runs (simulator first). Steps 2-4 (a run folder as one set of maps, the viewer with one map, lasers compared) are done. |
+| next | Step 6: EQE, with the power meter calibrating the photodiode (D32 revised). Steps 2-5 are done, step 5 in the simulator only. |
 
 ## Phases
 
@@ -82,19 +82,27 @@ Steps:
    scale or each its own; the ratio of any two, blank where the laser
    below gives under 5 % of its top value; the cursor and the profile
    read every laser shown.
-5. **Power in runs** (simulator first): the laser-off baseline taken at
-   the sample before the laser is located, so the laser stays lit from
-   its warm-up to the end of its map; the warm-up on the photodiode,
-   channel 2 recorded as the warm-up row; the power before (the end of
-   the warm-up) and after (back on the open quarter) in the file's
-   header and trailer; the extra time in the estimate and the Plan tab.
-   A failed power reading leaves the map without EQE, never stops the
-   run. The simulator's photodiode drifts on request, so the test can
-   check the interpolation.
-6. **EQE**: the S1223-01's typical curve in the repository with its
-   source; EQE per pixel from the power interpolated in time; the
-   viewer switches any map, the comparison and the ratio between current
-   and EQE, and shows each map's power drift.
+5. **Power in runs** (done 0.7.6, in the simulator): for a located
+   laser, the cell's baseline where the locate left the stage (laser
+   off), the warm-up on the photodiode read reading by reading (its
+   curve in the file), the power before at its end, the rows on a stream
+   started again on the same device clock, then the power after and the
+   photodiode's dark on the same range; in the file as `power_before`
+   (a note after the baseline), `power_after` and `power_dark` (the
+   trailer); 20 s more a laser in the estimate. A failed reading after
+   the map is written down and the map stands. The simulator's lasers
+   drift on request (`Faults.laser_drift_per_min`). Bench in step 9.
+6. **EQE** (D32 revised): the photodiode's response to each laser
+   (A/W), measured with the power meter and kept in `machine.toml`, the
+   S1223-01's typical curve in the repository (with its source) for a
+   laser not measured; EQE per pixel from the power interpolated in
+   time; the viewer switches any map, the comparison and the ratio
+   between current and EQE, says which response each laser's EQE rests
+   on, and shows each map's power drift. **Power calibration**, a tab in
+   the Maintenance window: per laser, the photodiode read on the open
+   quarter, the meter's reading typed with its head at the sample's
+   place, the photodiode read again; the response shown and written to
+   `machine.toml` on Save.
 7. **The spectrum**: click a pixel or drag an area, and the EQE at the
    six wavelengths (444–848 nm) is plotted, with the spread over the
    area.
@@ -115,6 +123,16 @@ What to watch:
   EQE for the bright lasers.
 
 ## Later
+
+- **The new laser board** (being designed): each laser's power set on
+  the board, the lasers normalised to each other. Open: whether to equal
+  photon flux (a current ratio is then an EQE ratio) or optical power,
+  and whether the power is set from the software (which could then
+  equalise the lasers on the photodiode, and again as they age) or by
+  hand. Its own phase once the board exists: the driver and firmware,
+  the simulator, a power setting per laser in `machine.toml`. It should
+  also end laser 2's starved supply. The power before and after each
+  map stays: equal on paper isn't equal through warm-up and ageing.
 
 - **Tiling** samples larger than AB's range with XY.
 - **The viewer's exports**: figures and gridded maps as CSV or TIFF.

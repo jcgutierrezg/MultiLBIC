@@ -40,7 +40,13 @@ from typing import TYPE_CHECKING, Any
 from multilbic.clock import Clock
 from multilbic.config.machine import MachineConfig
 from multilbic.run.commission import CommissionError
-from multilbic.run.locate import LOCATE_S, LaserFix, Locator
+from multilbic.run.locate import (
+    LOCATE_S,
+    POWER_S,
+    LaserFix,
+    Locator,
+    PhotodiodeStops,
+)
 from multilbic.run.motion import approach
 from multilbic.run.rows import (
     DEFAULT_BASELINE_S,
@@ -252,11 +258,15 @@ class LaserEstimate:
     map_s: float
     #: Locating it on the photodiode first, and going there and back.
     locate_s: float = 0.0
+    #: Its power read on the photodiode after the map, and the trips
+    #: between sample and photodiode (D31): with the locate.
+    power_s: float = 0.0
 
     @property
     def total_s(self) -> float:
         return (self.travel_s + self.switch_s + self.baseline_s
-                + self.warmup_s + self.rows_s + self.map_s + self.locate_s)
+                + self.warmup_s + self.rows_s + self.map_s + self.locate_s
+                + self.power_s)
 
 
 @dataclass(frozen=True)
@@ -314,6 +324,7 @@ def estimate_run(
             rows_s=p.raster.estimate_s,
             map_s=MAP_FIXED_S + MAP_PER_SAMPLE_S * samples,
             locate_s=LOCATE_S if request.locate else 0.0,
+            power_s=POWER_S if request.locate else 0.0,
         ))
     return RunEstimate(HOMING_S, tuple(lasers))
 
@@ -459,8 +470,14 @@ class Session:
                             f"laser {n}: located, the sample needs "
                             f"{axis}{value:.3f}, outside {xy_lo:g}..{travel:g}")
                 self._event("laser_located", **fix.as_dict())
-            approach(self.devices.marlin, self.machine, x=x, y=y,
-                     stop=self.stop)
+            power = None
+            if fix is not None and self._locator is not None:
+                # Warmed up and its power read on the photodiode, around
+                # the map (D31); the run brings the stage to the sample.
+                power = PhotodiodeStops(self._locator, fix, (x, y))
+            else:
+                approach(self.devices.marlin, self.machine, x=x, y=y,
+                         stop=self.stop)
             while True:
                 header = run_header(
                     self.machine, plan.raster, n,
@@ -494,6 +511,7 @@ class Session:
                         stop=self.stop,
                         say=self.say,
                         on_row=self.on_row,
+                        power=power,
                     )
                 except RangeClipped as exc:
                     bigger = next_range(range_a) if self.request.step_up \

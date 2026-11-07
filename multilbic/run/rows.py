@@ -30,7 +30,7 @@ import math
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 import numpy as np
 
@@ -117,6 +117,19 @@ class ScanDevices:
     marlin: Marlin
     laser: LaserBoard
     smu: PhotocurrentSmu
+
+
+class PowerStops(Protocol):
+    """The photodiode around one laser's map (D31, `run.locate.
+    PhotodiodeStops`): the laser warmed up there and its power read
+    before the rows, the stage brought back to the sample, and the power
+    read again after them."""
+
+    def before(self, warmup_s: float) -> dict[str, Any]: ...
+
+    def to_sample(self) -> None: ...
+
+    def after(self) -> dict[str, dict[str, Any]]: ...
 
 
 @dataclass(frozen=True)
@@ -225,10 +238,20 @@ def scan_laser(
     stop: threading.Event | None = None,
     say: Callable[[str], None] = lambda text: None,
     on_row: Callable[[RowDone], None] | None = None,
+    power: PowerStops | None = None,
 ) -> dict[str, Any]:
     """Run one laser's map. Returns the trailer written to the file.
     Raises `RunStopped` if `stop` was set, or the fault that ended it;
     the file is finished either way.
+
+    With `power` (the laser located on the photodiode, D31): the
+    baseline is taken where the stage is, the laser off; the laser then
+    warms up on the photodiode, whose readings go in the file (the power
+    before); the stage comes back to the sample and the rows are scanned
+    on a stream started again on the same device clock; after the last
+    row the power is read again, and the photodiode's dark. A power
+    reading that fails is written down and the map stands. Without it,
+    as before: baseline, warm-up and rows at the sample, one stream.
 
     `on_row` is called on this thread with each block of samples once
     it is on disk. It should only hand them on (a queue): a slow one
@@ -258,16 +281,24 @@ def scan_laser(
             say(f"row display failed, left out from now on: "
                 f"{type(exc).__name__}: {exc}")
 
-    try:
-        first = rows[0]
+    first = rows[0]
+
+    def to_first_row() -> None:
         # A first, then B: both arrive moving up, so B's backlash is
         # taken up the way every later row step takes it (always +B).
         approach(marlin, machine, a=first.a_from_mm, b=first.b_mm, stop=stop)
 
-        board.off()
+    def cell_channel_ready() -> None:
         smu.prepare(bias_v=bias_v, current_range_a=current_range_a,
                     current_limit_a=current_limit_for(current_range_a))
         smu.output_on()
+
+    try:
+        if power is None:
+            to_first_row()
+
+        board.off()
+        cell_channel_ready()
         smu.stream.start(channels=(1,), rate_hz=plan.stream_hz)
 
         say(f"baseline: {baseline_s:g} s with the laser off")
@@ -287,10 +318,25 @@ def scan_laser(
         _check_range(baseline, current_range_a, "the baseline")
 
         check_stop()
-        say(f"laser {laser} on")
-        board.select(laser)
+        if power is not None:
+            # The photodiode is read outside the stream.
+            smu.stream.stop()
+            say(f"laser {laser} on, warming up {warmup_s:g} s on the "
+                "photodiode")
+            writer.note({"warmup_on": "photodiode",
+                         "power_before": power.before(warmup_s)})
+            check_stop()
+            power.to_sample()
+            to_first_row()
+            cell_channel_ready()
+            # The same device clock as the baseline's: one clock map.
+            smu.stream.start(channels=(1,), rate_hz=plan.stream_hz,
+                             set_clock=False)
+        else:
+            say(f"laser {laser} on")
+            board.select(laser)
 
-        if warmup_s > 0:
+        if power is None and warmup_s > 0:
             say(f"warm-up: {warmup_s:g} s with laser {laser} on")
             w0 = clock.now()
             while clock.now() - w0 < warmup_s:
@@ -354,6 +400,15 @@ def scan_laser(
             say(
                 f"row {row.index + 1}/{len(rows)}: {len(taken)} samples"
             )
+        if power is not None:
+            try:
+                smu.stream.stop()
+                trailer.update(power.after())
+            except RunStopped:
+                raise
+            except Exception as exc:
+                trailer["power_after_error"] = f"{type(exc).__name__}: {exc}"
+                say(f"laser {laser}: the power after wasn't read: {exc}")
         status = "complete"
     except RunStopped:
         status = "stopped"

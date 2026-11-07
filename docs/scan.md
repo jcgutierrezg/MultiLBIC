@@ -180,6 +180,24 @@ row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
   1.3 s on the PC. A last line cut short, as a file being written can
   have, is left out.
 
+### The power before and after (D31)
+
+For a laser located on the photodiode, three more keys (0.7.6):
+
+- `warmup_on: photodiode` and `power_before`, a note after the
+  baseline: the photodiode's current at the end of the warm-up (mean,
+  median, scatter, readings, range, the middle of the reading on the
+  host clock) and `warmup`, the curve, `[seconds since lit, A]` once a
+  second;
+- `power_after` and `power_dark`, in the trailer: the same, read on the
+  open quarter after the last row, then with the laser off. A reading
+  that failed leaves `power_after_error` instead.
+
+The photodiode is read outside the stream, so the rows' stream starts
+again after the warm-up, on the same device clock: the baseline and the
+rows are two stretches of one clock, which dating by count and the
+clock map take in their stride.
+
 ### The alignment beside it
 
 `laser<N>_<nm>nm.align.json`, next to each laser's file

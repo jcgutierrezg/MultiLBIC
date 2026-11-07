@@ -3,6 +3,33 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.6 - Each laser's power before and after its map
+
+- Phase 7 step 5, in the simulator (D31). A laser located on the
+  photodiode now: the cell's baseline where the locate left the stage,
+  laser off; the warm-up on the photodiode's open quarter, read once a
+  second; its power at the end; the stage back to the sample and the
+  rows, on a stream started again on the same device clock
+  (`stream.start(set_clock=False)`); after the last row, the power
+  again and the photodiode's dark on the same range. A laser placed
+  from `machine.toml` runs as before.
+- In the run file: `warmup_on`, `power_before` (with the warm-up's
+  curve) as a note after the baseline (`RunWriter.note`), `power_after`
+  and `power_dark` in the trailer. A reading after the map that fails
+  is written down (`power_after_error`); the map stands.
+- `run/locate.py`: `Locator.warm_up`, `power_after`, `PowerReading`,
+  `PhotodiodeStops`; `LaserFix.range_a`, the photodiode's range. The
+  estimate counts 20 s a laser for it (`LaserEstimate.power_s`).
+- The simulator's lasers drift on request (`Faults.
+  laser_drift_per_min`), on the cell and photodiode alike; a test
+  checks the readings follow it to 1 %. Located maps still line up as
+  before (the locate tests).
+- D32 revised: EQE from the photodiode's response to each laser,
+  measured with a power meter and kept in `machine.toml`; the datasheet
+  curve only for a laser not measured. Step 6 gains a Power calibration
+  tab. The new laser board (power per laser, normalised) is under
+  "Later", its open questions with it.
+
 ## 0.7.5 - Lasers compared
 
 - Phase 7 step 4, in the viewer, above the map: **One laser**, **Side

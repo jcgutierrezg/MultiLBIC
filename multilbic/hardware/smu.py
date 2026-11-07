@@ -130,10 +130,13 @@ class SmuStream:
         channels: tuple[int, ...] = (1,),
         rate_hz: float = 1000.0,
         sink: Callable[[StreamSample], None] | None = None,
+        set_clock: bool = True,
     ) -> None:
         """Start streaming. Samples go to `sink` if given (called on the
         reader thread, so it must be quick), otherwise to an internal
-        queue read with `drain()`."""
+        queue read with `drain()`. `set_clock` False leaves the
+        instrument's clock as it is: a stream started again within one
+        map keeps one device clock, which the clock map is fitted on."""
         if self.running:
             raise SmuError("already streaming")
         if rate_hz <= 0:
@@ -145,7 +148,8 @@ class SmuStream:
         for channel in self._channels:
             self._client.set_sample_rate(channel, rate_hz)
         # Readable timestamps in the file; positions never depend on it.
-        self._client.set_time(self._clock.wall_ms())
+        if set_clock:
+            self._client.set_time(self._clock.wall_ms())
         for channel in self._channels:
             self._client.start_streaming(channel)
         self._thread = threading.Thread(

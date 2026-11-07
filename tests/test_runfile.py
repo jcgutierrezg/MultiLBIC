@@ -75,6 +75,19 @@ def test_a_cut_short_run_is_readable_and_says_so(tmp_path):
     writer.close()
 
 
+def test_notes_between_rows_read_as_header_keys(tmp_path):
+    path = tmp_path / "run.csv"
+    writer = RunWriter(path, HEADER)
+    writer.write_samples(samples(-1))
+    writer.note({"power_before": {"current_a": -1e-3}, "laser": 5})
+    writer.write_row(anchor(0), samples(0))
+    writer.finish("complete", {})
+    run = read_run(path)
+    assert run.header["power_before"] == {"current_a": -1e-3}
+    assert run.header["laser"] == 5  # a later key over an earlier one
+    assert run.columns["row"].tolist() == [-1, -1, -1, 0, 0, 0]
+
+
 def test_a_half_written_last_line_is_left_out(tmp_path):
     """Read while the run is writing: the last line may be cut short."""
     path = tmp_path / "run.csv"

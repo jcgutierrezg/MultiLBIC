@@ -106,6 +106,14 @@ class RunWriter:
         )
         self.write_samples(samples)
 
+    def note(self, entries: dict[str, Any]) -> None:
+        """`# key: value` lines here, between rows: what is learnt as the
+        map goes (the power before it, D31). The reader takes them as it
+        takes the header, a later key over an earlier one."""
+        lines = [f"# {key}: {_value(v)}" for key, v in entries.items()]
+        self._file.write("\n".join(lines) + "\n")
+        self._flush()
+
     def finish(self, status: str, trailer: dict[str, Any]) -> None:
         lines = [f"# status: {status}"]
         lines += [f"# {key}: {_value(v)}" for key, v in trailer.items()]

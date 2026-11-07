@@ -111,7 +111,11 @@ def test_the_estimate_matches_the_bench_run(machine):
     assert plan.estimate_s == pytest.approx(221, rel=0.05)
     located = plan_form(RunForm(speed_mm_s="1"), cal, machine,
                         simulated=False)
-    assert located.estimate_s == pytest.approx(plan.estimate_s + 40, abs=1)
+    # The locate, and the power read after the map (D31).
+    from multilbic.run.locate import LOCATE_S, POWER_S
+
+    assert located.estimate_s == pytest.approx(
+        plan.estimate_s + LOCATE_S + POWER_S, abs=1)
 
 
 def test_the_estimate_follows_the_sample(machine):
