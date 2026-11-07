@@ -22,6 +22,14 @@ map (with the toolbar's zoom and pan off); the line stays where it is
 when another laser is picked, so the same line can be read at every
 wavelength. Keys 1-6 pick a laser.
 
+**Comparing lasers** (above the map): **One laser**; **Side by side**,
+every laser in a panel of its own, in one unit, with one colour scale or
+each its own (a click on a panel makes that laser the current one, the
+one the alignment section is about); **Ratio**, one laser over another
+pixel by pixel, blank where the one below gives next to nothing
+(`viewtools.ratio`). The cursor reads every laser shown, and the profile
+plots each laser's along the same line in its colour, or the ratio.
+
 Folders are read on a thread (a big run takes seconds); only the Tk
 thread touches a widget (SMUniversal rule 8).
 """
@@ -32,6 +40,7 @@ import datetime
 import queue
 import threading
 import tkinter as tk
+from dataclasses import dataclass
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 from typing import TYPE_CHECKING, Any
@@ -59,8 +68,8 @@ from multilbic.store.runfolder import (
 from multilbic.version import app_version
 
 if TYPE_CHECKING:
+    from matplotlib.axes import Axes
     from matplotlib.backend_bases import MouseEvent
-    from matplotlib.colorbar import Colorbar
     from matplotlib.image import AxesImage
     from matplotlib.lines import Line2D
 
@@ -72,6 +81,18 @@ LINE_COLOUR = "cyan"
 #: A press and release closer than this (in pixels on the screen) is a
 #: click, not a line.
 MIN_DRAG_PX = 4
+
+
+@dataclass
+class _Panel:
+    """One map drawn in the map area: a laser's, or (laser None) the
+    ratio."""
+
+    laser: int | None
+    axes: Axes
+    image: AxesImage
+    values: np.ndarray
+    line: Line2D | None = None
 
 
 class Viewer:
@@ -96,13 +117,22 @@ class Viewer:
         self.limits_mode = tk.StringVar(value="auto")
         self.limits_a: tuple[float, float] | None = None
         self.unit: tuple[str, float] = ("nA", 1e-9)
+        #: "one", "side" or "ratio".
+        self.view_mode = tk.StringVar(value="one")
+        self.shared_scale = tk.BooleanVar(value=True)
+        self.ratio_pair: tuple[int, int] | None = None
+        self.ratio_top = tk.StringVar()
+        self.ratio_bottom = tk.StringVar()
+        self.panels: list[_Panel] = []
+        #: The current panel's axes and image.
+        self.axes: Axes | None = None
         self.image: AxesImage | None = None
-        self.colorbar: Colorbar | None = None
         #: The profile's ends on the sample (u, v), once one is drawn.
         self.line_uv: tuple[tuple[float, float], tuple[float, float]] | None \
             = None
         self.profile: viewtools.Profile | None = None
-        self._line_artist: Line2D | None = None
+        #: Side by side: each laser's profile along the line.
+        self.profiles: dict[int, viewtools.Profile] = {}
         self._drag_start: tuple[float, float, float, float] | None = None
 
         root.title("MultiLBIC viewer")
@@ -192,11 +222,32 @@ class Viewer:
     def _build_map(self, body: ttk.Frame) -> None:
         frame = look.section(body, "Map")
         frame.grid(row=0, column=1, sticky="nsew", padx=(0, 10))
+        views = ttk.Frame(frame)
+        views.pack(side="top", fill="x", pady=(0, 6))
+        for value, text in (("one", "One laser"), ("side", "Side by side"),
+                            ("ratio", "Ratio")):
+            ttk.Radiobutton(views, text=text, value=value,
+                            variable=self.view_mode,
+                            command=self._view_changed)                 .pack(side="left", padx=(0, 10))
+        self.scale_box = ttk.Checkbutton(views, text="One colour scale",
+                                         variable=self.shared_scale,
+                                         command=self.redraw)
+        self.scale_box.pack(side="left", padx=(6, 18))
+        self.ratio_top_box = ttk.Combobox(views, textvariable=self.ratio_top,
+                                          width=11, state="readonly")
+        self.ratio_top_box.pack(side="left")
+        ttk.Label(views, text=" / ").pack(side="left")
+        self.ratio_bottom_box = ttk.Combobox(
+            views, textvariable=self.ratio_bottom, width=11, state="readonly")
+        self.ratio_bottom_box.pack(side="left")
+        for box in (self.ratio_top_box, self.ratio_bottom_box):
+            box.bind("<<ComboboxSelected>>", self._ratio_changed)
         # Maps are on white paper in both modes, as in the machine window.
         # Small to start with: the canvas grows into the window, and never
-        # pushes it past the screen.
-        self.figure = Figure(figsize=(4, 3), dpi=100, facecolor="white")
-        self.axes = self.figure.add_subplot()
+        # pushes it past the screen. Constrained layout keeps colour bars
+        # and panels apart however many there are.
+        self.figure = Figure(figsize=(4, 3), dpi=100, facecolor="white",
+                             layout="constrained")
         self.canvas = FigureCanvasTkAgg(self.figure, master=frame)
         self.toolbar = NavigationToolbar2Tk(self.canvas, frame,
                                             pack_toolbar=False)
@@ -386,7 +437,11 @@ class Viewer:
         keep = self.laser if same and self.laser in run.maps else None
         if not same:
             self.line_uv = None
-        self.show_laser(keep if keep is not None else run.lasers[0])
+            self.ratio_pair = None
+            self.view_mode.set("one")
+        self._pick(keep if keep is not None else run.lasers[0])
+        self._fill_ratio_boxes()
+        self.redraw()
         reused = sum(m.reused for m in run.maps.values())
         self.status(f"opened {run.path} ({reused} of {len(run.maps)} "
                     "from saved alignments)")
@@ -453,7 +508,8 @@ class Viewer:
                     + (f"; not saved: {new.not_saved}" if new.not_saved
                        else ", saved"))
         if laser == self.laser:
-            self.show_laser(laser)
+            self._show_alignment(new)
+        self.redraw()
 
     def _show_alignment(self, m: LaserMap) -> None:
         a = m.result.alignment
@@ -506,54 +562,195 @@ class Viewer:
     # ---- the map ----
 
     def _show_nothing(self) -> None:
-        self.axes.clear()
-        self.axes.set_axis_off()
-        self.axes.text(0.5, 0.5, "Open a run folder", ha="center",
-                       va="center", transform=self.axes.transAxes,
-                       color="#666666", fontsize=12)
+        self.figure.clear()
+        self.panels = []
+        ax = self.figure.add_subplot()
+        ax.set_axis_off()
+        ax.text(0.5, 0.5, "Open a run folder", ha="center", va="center",
+                transform=ax.transAxes, color="#666666", fontsize=12)
         self.canvas.draw_idle()
         for button in (self.reload_btn, self.clear_btn, self.realign_btn,
                        self.set_shift_btn):
             button.state(["disabled"])
 
     def show_laser(self, laser: int) -> None:
-        run = self.run
-        if run is None or laser not in run.maps:
+        """Laser `laser` alone on the map."""
+        if self.run is None or laser not in self.run.maps:
             return
+        self._pick(laser)
+        self.view_mode.set("one")
+        self.redraw()
+
+    def show_side_by_side(self, shared: bool | None = None) -> None:
+        if shared is not None:
+            self.shared_scale.set(shared)
+        self.view_mode.set("side")
+        self.redraw()
+
+    def show_ratio(self, top: int, bottom: int) -> None:
+        """Laser `top` over laser `bottom`, pixel by pixel."""
+        self.ratio_pair = (top, bottom)
+        self._fill_ratio_boxes()
+        self.view_mode.set("ratio")
+        self.redraw()
+
+    def _pick(self, laser: int) -> None:
+        """The current laser: the one the alignment section is about."""
+        assert self.run is not None
         self.laser = laser
         self.laser_var.set(laser)
-        m = run.maps[laser]
-        self.unit = viewtools.display_unit(m.values)
-        if self.colorbar is not None:
-            self.colorbar.remove()
-            self.colorbar = None
-        self.axes.clear()
-        self.axes.set_axis_on()
+        self._show_alignment(self.run.maps[laser])
+
+    def _view_changed(self) -> None:
+        if self.view_mode.get() == "ratio":
+            self._ratio_changed()
+        else:
+            self.redraw()
+
+    def _ratio_changed(self, event: object = None) -> None:
+        top = _laser_of(self.ratio_top.get())
+        bottom = _laser_of(self.ratio_bottom.get())
+        if top is not None and bottom is not None:
+            self.ratio_pair = (top, bottom)
+        self.view_mode.set("ratio")
+        self.redraw()
+
+    def _fill_ratio_boxes(self) -> None:
+        run = self.run
+        if run is None:
+            return
+        names = [_laser_name(n, m.wavelength_nm) for n, m in run.maps.items()]
+        for box in (self.ratio_top_box, self.ratio_bottom_box):
+            box.configure(values=names)
+        if self.ratio_pair is None or not set(self.ratio_pair) <= set(run.maps):
+            first = self.laser if self.laser in run.maps else run.lasers[0]
+            others = [n for n in run.lasers if n != first]
+            self.ratio_pair = (first, others[0] if others else first)
+        top, bottom = self.ratio_pair
+        self.ratio_top.set(_laser_name(top, run.maps[top].wavelength_nm))
+        self.ratio_bottom.set(_laser_name(bottom,
+                                          run.maps[bottom].wavelength_nm))
+
+    def redraw(self) -> None:
+        """The map area as the view asks: one laser, every laser side by
+        side, or the ratio of two."""
+        run = self.run
+        if run is None or self.laser is None:
+            return
+        mode = self.view_mode.get()
+        self.figure.clear()
+        self.panels = []
         u0, u1, v0, v1 = run.grid.extent_mm
-        self.image = draw_map(self.axes, m.values, u1 - u0, v1 - v0,
-                              self.view, per_unit_a=self.unit[1])
-        self.colorbar = self.figure.colorbar(
-            self.image, ax=self.axes, label=f"photocurrent ({self.unit[0]})")
-        self.axes.set_title(m.label(), fontsize=10)
-        self.unit_label.configure(text=self.unit[0])
-        self._line_artist = None
-        self.figure.tight_layout()
+        width, height = u1 - u0, v1 - v0
+        side = mode == "side"
+        self.scale_box.state(["!disabled"] if side else ["disabled"])
+        for box in (self.ratio_top_box, self.ratio_bottom_box):
+            box.state(["!disabled", "readonly"] if mode == "ratio"
+                      else ["disabled"])
+
+        if mode == "ratio" and self.ratio_pair is not None:
+            top, bottom = self.ratio_pair
+            values = viewtools.ratio(run.maps[top].values,
+                                     run.maps[bottom].values)
+            self.unit = ("", 1.0)
+            self._add_panel(None, values, 1, 1, 1, width, height,
+                            f"laser {top} / laser {bottom}")
+            share = f"{viewtools.RATIO_FLOOR_SHARE:.0%}"
+            self.caption.configure(
+                text=f"laser {top} ({run.maps[top].wavelength_nm:g} nm) over "
+                     f"laser {bottom} ({run.maps[bottom].wavelength_nm:g} nm),"
+                     f" blank where laser {bottom} gives under {share} of "
+                     "its top value")
+        elif side:
+            lasers = run.lasers
+            rows, cols = viewtools.panel_grid(
+                len(lasers), self._area_aspect(),
+                width / height if viewtools.u_horizontal(self.view)
+                else height / width)
+            self.unit = viewtools.display_unit(run.stack())
+            for k, n in enumerate(lasers):
+                m = run.maps[n]
+                self._add_panel(n, m.values, rows, cols, k + 1, width,
+                                height, m.label())
+            scale = ("one colour scale" if self.shared_scale.get()
+                     else "each its own colour scale")
+            self.caption.configure(
+                text=f"{len(lasers)} lasers, {scale}: click a map to make "
+                     "it the laser the alignment is about")
+        else:
+            m = run.maps[self.laser]
+            self.unit = viewtools.display_unit(m.values)
+            self._add_panel(self.laser, m.values, 1, 1, 1, width, height,
+                            m.label())
+            bits = [m.status, shift_note(m.result),
+                    f"baseline {look.amps(m.result.baseline.offset_a)} "
+                    f"subtracted, noise {look.amps(m.noise_a)}"]
+            if m.current_range_a is not None:
+                bits.append(f"range {look.amps(m.current_range_a)}")
+            self.caption.configure(text=", ".join(bits))
+
+        self._colourbars()
+        current = self._current_panel()
+        self.axes, self.image = current.axes, current.image
+        self.unit_label.configure(text=self.unit[0] or "ratio")
         self._apply_limits()
-        bits = [m.status, shift_note(m.result),
-                f"baseline {look.amps(m.result.baseline.offset_a)} "
-                f"subtracted, noise {look.amps(m.noise_a)}"]
-        if m.current_range_a is not None:
-            bits.append(f"range {look.amps(m.current_range_a)}")
-        self.caption.configure(text=", ".join(bits))
-        self._show_alignment(m)
         if self.line_uv is not None:
             self._set_line(*self.line_uv)
         self.canvas.draw_idle()
 
+    def _area_aspect(self) -> float:
+        """The map area's width over height, less a colour bar's room."""
+        widget = self.canvas.get_tk_widget()
+        w, h = widget.winfo_width(), widget.winfo_height()
+        if w < 50 or h < 50:
+            return 1.4
+        return 0.85 * w / h
+
+    def _add_panel(self, laser: int | None, values: np.ndarray, rows: int,
+                   cols: int, index: int, width: float, height: float,
+                   title: str) -> None:
+        ax = self.figure.add_subplot(rows, cols, index)
+        image = draw_map(ax, values, width, height, self.view,
+                         per_unit_a=self.unit[1])
+        small = rows * cols > 1
+        ax.set_title(title, fontsize=9 if small else 10)
+        if small:
+            ax.tick_params(labelsize=7)
+            ax.xaxis.label.set_size(8)
+            ax.yaxis.label.set_size(8)
+        self.panels.append(_Panel(laser, ax, image, values))
+
+    def _colourbars(self) -> None:
+        label = (f"photocurrent ({self.unit[0]})" if self.unit[0]
+                 else "ratio")
+        if self.view_mode.get() == "side" and not self.shared_scale.get():
+            for p in self.panels:
+                self.figure.colorbar(p.image, ax=p.axes, shrink=0.85)
+        else:
+            self.figure.colorbar(self.panels[0].image,
+                                 ax=[p.axes for p in self.panels],
+                                 label=label,
+                                 shrink=0.6 if len(self.panels) > 1 else 1.0)
+
+    def _current_panel(self) -> _Panel:
+        for p in self.panels:
+            if p.laser == self.laser:
+                return p
+        return self.panels[0]
+
+    def _panel_of(self, axes: object) -> _Panel | None:
+        for p in self.panels:
+            if p.axes is axes:
+                return p
+        return None
+
     def values(self) -> np.ndarray | None:
-        """The shown laser's map, A, on the run's grid."""
+        """What the current panel shows: a laser's map (A), or the
+        ratio."""
         if self.run is None or self.laser is None:
             return None
+        if self.panels:
+            return self._current_panel().values
         return self.run.maps[self.laser].values
 
     # ---- colour limits ----
@@ -579,28 +776,37 @@ class Viewer:
         self.limits_mode.set("set")
         self._apply_limits()
 
-    def _apply_limits(self) -> None:
-        values = self.values()
-        if values is None or self.image is None:
-            return
+    def _limits_for(self, values: list[np.ndarray]
+                    ) -> tuple[float, float] | None:
         mode = self.limits_mode.get()
         if mode == "set" and self.limits_a is not None:
-            limits: tuple[float, float] | None = self.limits_a
-        elif mode == "full":
-            limits = viewtools.full_limits(values)
-        else:
-            limits = viewtools.auto_limits(values)
-        if limits is None:
+            return self.limits_a
+        return viewtools.shared_limits(values,
+                                       "full" if mode == "full" else "auto")
+
+    def _apply_limits(self) -> None:
+        if not self.panels:
             return
         scale = self.unit[1]
-        lo, hi = limits[0] / scale, limits[1] / scale
-        self.image.set_clim(lo, hi)
-        self.lo_var.set(f"{lo:.4g}")
-        self.hi_var.set(f"{hi:.4g}")
+        own = self.view_mode.get() == "side" and not self.shared_scale.get()
+        if own:
+            for p in self.panels:
+                limits = self._limits_for([p.values])
+                if limits is not None:
+                    p.image.set_clim(limits[0] / scale, limits[1] / scale)
+            shown = self._limits_for([self._current_panel().values])
+        else:
+            shown = self._limits_for([p.values for p in self.panels])
+            if shown is not None:
+                for p in self.panels:
+                    p.image.set_clim(shown[0] / scale, shown[1] / scale)
+        if shown is not None:
+            self.lo_var.set(f"{shown[0] / scale:.4g}")
+            self.hi_var.set(f"{shown[1] / scale:.4g}")
         self.canvas.draw_idle()
 
     def clim(self) -> tuple[float, float] | None:
-        """The colour limits drawn now, in the map's unit."""
+        """The current panel's colour limits, in the map's unit."""
         return None if self.image is None else self.image.get_clim()
 
     # ---- the cursor and the profile ----
@@ -610,7 +816,7 @@ class Viewer:
         return not str(getattr(self.toolbar, "mode", ""))
 
     def _motion(self, event: MouseEvent) -> None:
-        if event.inaxes is not self.axes or event.xdata is None \
+        if self._panel_of(event.inaxes) is None or event.xdata is None \
                 or event.ydata is None:
             return
         self.show_cursor(*viewtools.to_uv(self.view, event.xdata,
@@ -622,22 +828,36 @@ class Viewer:
             self.canvas.draw_idle()
 
     def show_cursor(self, u: float, v: float) -> None:
-        values = self.values()
-        if values is None or self.run is None:
+        run = self.run
+        if run is None or self.laser is None:
             return
-        value = viewtools.value_at(values, self.run.grid, u, v)
         where = f"u {u:.3f} mm, v {v:.3f} mm"
-        if value is None:
+        if viewtools.pixel_at(run.grid, u, v) is None:
             self.readout.configure(text=f"{where}\noff the map")
             return
-        # An empty pixel is filled in the picture from its neighbours
-        # (`store/image.fill_short_gaps`), never in the data.
-        shown = (look.amps(value) if np.isfinite(value)
-                 else "no samples in this pixel")
-        self.readout.configure(text=f"{where}\n{shown}  (laser {self.laser})")
+        mode = self.view_mode.get()
+        if mode == "side":
+            lines = [f"laser {n}: {_reading(run.maps[n].values, run, u, v)}"
+                     for n in run.lasers]
+        elif mode == "ratio" and self.ratio_pair is not None:
+            top, bottom = self.ratio_pair
+            values = self.values()
+            r = (viewtools.value_at(values, run.grid, u, v)
+                 if values is not None else None)
+            shown = (f"{r:.4g}" if r is not None and np.isfinite(r)
+                     else "blank")
+            lines = [f"laser {top}: "
+                     f"{_reading(run.maps[top].values, run, u, v)}",
+                     f"laser {bottom}: "
+                     f"{_reading(run.maps[bottom].values, run, u, v)}",
+                     f"ratio: {shown}"]
+        else:
+            lines = [f"{_reading(run.maps[self.laser].values, run, u, v)}"
+                     f"  (laser {self.laser})"]
+        self.readout.configure(text="\n".join([where, *lines]))
 
     def _press(self, event: MouseEvent) -> None:
-        if (event.button != 1 or event.inaxes is not self.axes
+        if (event.button != 1 or self._panel_of(event.inaxes) is None
                 or event.xdata is None or event.ydata is None
                 or not self._tools_idle() or self.values() is None):
             return
@@ -648,15 +868,22 @@ class Viewer:
         start, self._drag_start = self._drag_start, None
         if start is None:
             return
-        if event.xdata is None or event.ydata is None \
-                or event.inaxes is not self.axes:
+        panel = self._panel_of(event.inaxes)
+        if event.xdata is None or event.ydata is None or panel is None:
             if self.line_uv is not None:
                 self._set_line(*self.line_uv)
             self.canvas.draw_idle()
             return
         moved = abs(event.x - start[2]) + abs(event.y - start[3])
         if moved < MIN_DRAG_PX:
-            # A click: the line, if any, stays as it was.
+            # A click: the line, if any, stays as it was. Side by side,
+            # the map clicked becomes the current laser.
+            if panel.laser is not None and panel.laser != self.laser \
+                    and self.view_mode.get() == "side":
+                self._pick(panel.laser)
+                self.axes, self.image = panel.axes, panel.image
+                self._apply_limits()
+                self.status(f"laser {panel.laser} picked")
             if self.line_uv is not None:
                 self._set_line(*self.line_uv)
             else:
@@ -678,52 +905,68 @@ class Viewer:
                   end_uv: tuple[float, float], *, compute: bool = True) -> None:
         x0, y0 = viewtools.to_xy(self.view, *start_uv)
         x1, y1 = viewtools.to_xy(self.view, *end_uv)
-        if self._line_artist is None:
-            # The map's extent stays: a line past its edge is clipped,
-            # not given room.
-            (self._line_artist,) = self.axes.plot(
-                [x0, x1], [y0, y1], color=LINE_COLOUR, lw=1.5,
-                marker="o", markersize=4, scalex=False, scaley=False)
-        else:
-            self._line_artist.set_data([x0, x1], [y0, y1])
+        for p in self.panels:
+            if p.line is None:
+                # The map's extent stays: a line past its edge is
+                # clipped, not given room.
+                (p.line,) = p.axes.plot(
+                    [x0, x1], [y0, y1], color=LINE_COLOUR, lw=1.5,
+                    marker="o", markersize=4, scalex=False, scaley=False)
+            else:
+                p.line.set_data([x0, x1], [y0, y1])
         if compute:
             self._plot_profile(start_uv, end_uv)
 
     def _remove_line(self) -> None:
-        if self._line_artist is not None:
-            self._line_artist.remove()
-            self._line_artist = None
+        for p in self.panels:
+            if p.line is not None:
+                p.line.remove()
+                p.line = None
 
     def _plot_profile(self, start_uv: tuple[float, float],
                       end_uv: tuple[float, float]) -> None:
-        values = self.values()
-        if values is None or self.run is None:
+        run = self.run
+        if run is None or not self.panels:
             return
-        self.profile = viewtools.profile(values, self.run.grid, start_uv,
-                                         end_uv)
-        p = self.profile
         name, scale = self.unit
         ax = self.profile_axes
         ax.clear()
-        m = self.run.maps[self.laser] if self.laser is not None else None
-        ax.plot(p.distance_mm, p.values / scale, lw=1.2,
-                color=wavelength_colour(m.wavelength_nm) if m else None)
+        self.profiles = {}
+        for p in self.panels:
+            prof = viewtools.profile(p.values, run.grid, start_uv, end_uv)
+            if p.laser is None:
+                ax.plot(prof.distance_mm, prof.values, lw=1.2,
+                        color="#333333")
+                self.profile = prof
+                continue
+            self.profiles[p.laser] = prof
+            m = run.maps[p.laser]
+            ax.plot(prof.distance_mm, prof.values / scale, lw=1.2,
+                    color=wavelength_colour(m.wavelength_nm),
+                    label=_laser_name(p.laser, m.wavelength_nm))
+        if self.profiles:
+            self.profile = self.profiles.get(
+                self.laser, next(iter(self.profiles.values())))
         ax.set_xlabel("distance along the line (mm)")
-        ax.set_ylabel(f"photocurrent ({name})")
-        if m is not None:
-            ax.set_title(m.label(), fontsize=9)
+        ax.set_ylabel(f"photocurrent ({name})" if name else "ratio")
+        if len(self.panels) > 1:
+            ax.legend(fontsize=7, loc="best")
+        else:
+            ax.set_title(self.panels[0].axes.get_title(), fontsize=9)
         ax.grid(True, alpha=0.3)
         self.profile_figure.tight_layout()
         self.profile_canvas.draw_idle()
         (u0, v0), (u1, v1) = start_uv, end_uv
+        length = self.profile.length_mm if self.profile else 0.0
         self.profile_note.configure(
             text=f"({u0:.3f}, {v0:.3f}) to ({u1:.3f}, {v1:.3f}) mm, "
-                 f"{p.length_mm:.3f} mm long")
+                 f"{length:.3f} mm long")
         self.clear_btn.state(["!disabled"])
 
     def clear_profile(self) -> None:
         self.line_uv = None
         self.profile = None
+        self.profiles = {}
         self._remove_line()
         self.profile_axes.clear()
         self.profile_canvas.draw_idle()
@@ -750,6 +993,26 @@ class Viewer:
             except tk.TclError:
                 pass
             self._poll_id = None
+
+
+def _laser_name(laser: int, nm: float) -> str:
+    return f"{laser}: {nm:g} nm"
+
+
+def _laser_of(name: str) -> int | None:
+    """The laser number from a name `_laser_name` made."""
+    head = name.split(":", 1)[0].strip()
+    return int(head) if head.isdigit() else None
+
+
+def _reading(values: np.ndarray, run: RunFolder, u: float, v: float) -> str:
+    """A map's value at u, v for the cursor readout. An empty pixel is
+    filled in the picture from its neighbours (`store/image.
+    fill_short_gaps`), never in the data."""
+    value = viewtools.value_at(values, run.grid, u, v)
+    if value is None:
+        return "off the map"
+    return look.amps(value) if np.isfinite(value) else "no samples here"
 
 
 def _when(iso: str) -> str:

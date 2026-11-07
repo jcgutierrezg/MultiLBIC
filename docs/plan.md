@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 4: lasers compared. Steps 2-3 (a run folder as one set of maps, the viewer with one map) are done. |
+| next | Step 5: power in runs (simulator first). Steps 2-4 (a run folder as one set of maps, the viewer with one map, lasers compared) are done. |
 
 ## Phases
 
@@ -77,8 +77,11 @@ Steps:
    the run and the viewer (D30 revised, 0.7.4): a full-size three-laser
    run opens in about 10 s on the PC instead of 80; **Re-align** and
    **Set shift** change it.
-4. **Lasers compared**: all of a run's lasers side by side on the shared
-   grid with one colour scale or each its own; the ratio of any two.
+4. **Lasers compared** (done 0.7.5, [viewer](viewer.md#comparing-lasers)):
+   all of a run's lasers side by side on the shared grid with one colour
+   scale or each its own; the ratio of any two, blank where the laser
+   below gives under 5 % of its top value; the cursor and the profile
+   read every laser shown.
 5. **Power in runs** (simulator first): the laser-off baseline taken at
    the sample before the laser is located, so the laser stays lit from
    its warm-up to the end of its map; the warm-up on the photodiode,

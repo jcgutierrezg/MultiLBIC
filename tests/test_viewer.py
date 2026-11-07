@@ -75,6 +75,33 @@ def test_a_map_is_shown_in_a_unit_that_suits_it(biggest, unit):
     assert viewtools.display_unit(np.array([0.0, -biggest]))[0] == unit
 
 
+def test_a_ratio_is_blank_where_the_laser_below_gives_little():
+    top = np.array([[-2.0, -1.0, -0.5, np.nan]])
+    bottom = np.array([[-1.0, -1.0, -0.01, -1.0]])
+    r = viewtools.ratio(top, bottom)
+    np.testing.assert_allclose(r[0, :2], [2.0, 1.0])
+    # Under 5 % of the bottom laser's top value, and empty pixels: blank.
+    assert np.isnan(r[0, 2]) and np.isnan(r[0, 3])
+    assert np.isnan(viewtools.ratio(top, np.full((1, 4), np.nan))).all()
+
+
+@pytest.mark.parametrize("n, area, shape, grid", [
+    (1, 1.6, 1.0, (1, 1)),
+    (3, 1.1, 0.9, (2, 2)),   # a squarish area: two rows are bigger
+    (3, 2.5, 1.0, (1, 3)),   # a wide area: one row
+    (6, 1.6, 1.0, (2, 3)),
+    (2, 1.1, 4.0, (2, 1)),   # long thin maps stack
+])
+def test_panels_are_laid_out_as_big_as_they_fit(n, area, shape, grid):
+    assert viewtools.panel_grid(n, area, shape) == grid
+
+
+def test_one_colour_scale_over_several_maps():
+    a, b = np.array([0.0, 1.0]), np.array([5.0, np.nan])
+    assert viewtools.shared_limits([a, b], "full") == (0.0, 5.0)
+    assert viewtools.shared_limits([np.array([np.nan])], "auto") is None
+
+
 # ---- the window ----
 
 tk = pytest.importorskip("tkinter")
@@ -189,12 +216,13 @@ def test_keys_pick_a_laser(viewer, run_folder):
     assert viewer.laser == 2
 
 
-def _mouse(viewer, name, u, v, button=1):
-    """A matplotlib mouse event at u, v on the drawn map."""
+def _mouse(viewer, name, u, v, button=1, axes=None):
+    """A matplotlib mouse event at u, v on the drawn map (on `axes`, or
+    the current panel's)."""
     from matplotlib.backend_bases import MouseEvent
 
     x, y = viewtools.to_xy(viewer.view, u, v)
-    px, py = viewer.axes.transData.transform((x, y))
+    px, py = (axes or viewer.axes).transData.transform((x, y))
     event = MouseEvent(name, viewer.canvas, px, py, button=button)
     viewer.canvas.callbacks.process(name, event)
 
@@ -228,7 +256,7 @@ def test_a_dragged_line_gives_a_profile_that_follows_the_laser(viewer,
                                     *viewer.line_uv).values)
     assert "disabled" not in viewer.clear_btn.state()
     # The map keeps its own extent: the line doesn't stretch it.
-    assert viewer._line_artist is not None
+    assert all(p.line is not None for p in viewer.panels)
 
     # The same line on the next laser.
     viewer.show_laser(2)
@@ -323,3 +351,82 @@ def test_the_alignment_can_be_set_by_hand_and_searched_again(
     viewer.set_shift()  # not a number: refused, nothing rebuilt
     assert not viewer.loading
     assert "number" in viewer.status_label.cget("text")
+
+
+def test_side_by_side_one_scale_or_each_its_own(viewer, run_folder):
+    run = opened(viewer, run_folder)
+    viewer.show_side_by_side(shared=True)
+    assert [p.laser for p in viewer.panels] == [1, 2]
+    scale = viewer.unit[1]
+    assert viewer.unit == viewtools.display_unit(run.stack())
+    together = viewtools.shared_limits(
+        [run.maps[1].values, run.maps[2].values], "auto")
+    for p in viewer.panels:
+        assert p.image.get_clim() == pytest.approx(
+            (together[0] / scale, together[1] / scale))
+    assert "one colour scale" in viewer.caption.cget("text")
+
+    viewer.show_side_by_side(shared=False)
+    for p in viewer.panels:
+        own = viewtools.auto_limits(run.maps[p.laser].values)
+        assert p.image.get_clim() == pytest.approx(
+            (own[0] / scale, own[1] / scale))
+
+    # The cursor reads both, the profile is each laser's.
+    viewer.canvas.draw()
+    viewer.show_cursor(0.105, 0.075)
+    text = viewer.readout.cget("text")
+    assert "laser 1:" in text and "laser 2:" in text
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    assert sorted(viewer.profiles) == [1, 2]
+    assert all(p.line is not None for p in viewer.panels)
+    np.testing.assert_array_equal(
+        viewer.profiles[2].values,
+        viewtools.profile(run.maps[2].values, run.grid,
+                          *viewer.line_uv).values)
+
+    # A click on laser 2's map makes it the current laser.
+    second = viewer.panels[1].axes
+    _mouse(viewer, "button_press_event", 0.1, 0.1, axes=second)
+    _mouse(viewer, "button_release_event", 0.1, 0.1, axes=second)
+    assert viewer.laser == 2 and viewer.view_mode.get() == "side"
+    assert viewer.line_uv is not None  # a click keeps the line
+
+    # Picking a laser from the list shows it alone.
+    viewer.show_laser(1)
+    assert viewer.view_mode.get() == "one" and len(viewer.panels) == 1
+
+
+def test_the_ratio_of_two_lasers(viewer, run_folder):
+    run = opened(viewer, run_folder)
+    viewer.show_ratio(2, 1)
+    assert len(viewer.panels) == 1 and viewer.panels[0].laser is None
+    expected = viewtools.ratio(run.maps[2].values, run.maps[1].values)
+    np.testing.assert_array_equal(viewer.values(), expected)
+    assert viewer.unit == ("", 1.0)
+    assert viewer.unit_label.cget("text") == "ratio"
+    assert "over laser 1" in viewer.caption.cget("text")
+    assert viewer.ratio_top.get().startswith("2:")
+    assert viewer.ratio_bottom.get().startswith("1:")
+
+    viewer.show_cursor(0.105, 0.075)
+    assert "ratio:" in viewer.readout.cget("text")
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    np.testing.assert_array_equal(
+        viewer.profile.values,
+        viewtools.profile(expected, run.grid, *viewer.line_uv).values)
+
+    # Swapped from the boxes, as a person would.
+    viewer.ratio_top.set(viewer.ratio_top_box.cget("values")[0])
+    viewer.ratio_bottom.set(viewer.ratio_bottom_box.cget("values")[1])
+    viewer.ratio_top_box.event_generate("<<ComboboxSelected>>")
+    viewer.root.update()
+    assert viewer.ratio_pair == (1, 2)
+    np.testing.assert_array_equal(
+        viewer.values(),
+        viewtools.ratio(run.maps[1].values, run.maps[2].values))
+
+    # Reload keeps the view.
+    viewer.reload()
+    wait_loaded(viewer)
+    assert viewer.view_mode.get() == "ratio" and viewer.ratio_pair == (1, 2)

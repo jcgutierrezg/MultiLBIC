@@ -30,7 +30,7 @@ in `~/multilbic-runs`; copy a folder to the PC by hand (USB stick or
   pixel and row pitch; **Open folder...** and **Reload** (a run still
   going shows the rows written so far).
 - **Lasers**: one per map in the folder, in its colour; keys **1-6**
-  pick one too. Clipped attempts (D26) are listed, not shown; a file
+  pick one too, and show it alone. Clipped attempts (D26) are listed, not shown; a file
   that can't be read is named with why, and the rest open.
 - **Map** (middle): drawn as the machine window draws it, turned to
   `[display]`, on white paper. The unit follows the map (mA, µA, nA). The
@@ -54,6 +54,28 @@ in `~/multilbic-runs`; copy a folder to the PC by hand (USB stick or
   off) to draw a line; the map along it is plotted. The line stays when
   another laser is picked, so the same line can be read at every
   wavelength. **Clear** removes it.
+
+## Comparing lasers
+
+Above the map:
+
+- **One laser**: the laser picked in the list (or with keys 1-6).
+- **Side by side**: every laser of the run, each in its own panel, laid
+  out as big as the area allows, all in one unit. **One colour scale**
+  puts every panel on the same limits, so brighter is brighter across
+  wavelengths; unticked, each panel gets its own, so each shows its own
+  detail. Typed limits apply to every panel. A click on a panel makes
+  that laser the current one: the one the Alignment section is about.
+- **Ratio**: one laser over another, pixel by pixel, picked in the two
+  boxes. A pixel is blank where the laser below gives under 5 % of its
+  own top value (off the cell, a dead region), or where either has no
+  samples: dividing by next to nothing shows only noise.
+
+The cursor reads every laser shown (and the ratio), and the profile
+plots each laser's along the same line in its own colour, or the ratio.
+On `20261106T163140Z_full_test`, laser 6 (848 nm) over laser 1 (444 nm)
+is about 3.9 across the cell; the finger edges show as thin stripes,
+the two spots being different sizes.
 
 ## How long a folder takes to open
 

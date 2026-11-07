@@ -3,6 +3,22 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.5 - Lasers compared
+
+- Phase 7 step 4, in the viewer, above the map: **One laser**, **Side
+  by side** (every laser in a panel of its own, in one unit, with one
+  colour scale or each its own) and **Ratio** (one laser over another,
+  pixel by pixel, picked in two boxes). The panels are laid out as big
+  as the area allows (`viewtools.panel_grid`); a click on one makes that
+  laser the current one.
+- A ratio's pixel is blank where the laser below gives under 5 % of its
+  own top value, or either is empty (`viewtools.ratio`).
+- The cursor reads every laser shown, and the ratio; the line is drawn
+  on every panel, and the profile plots each laser's in its colour, or
+  the ratio. Reload keeps the view.
+- On `20261106T163140Z_full_test`: laser 6 over laser 1 is about 3.9
+  across the cell.
+
 ## 0.7.4 - Each map's alignment, saved beside it
 
 - A map's serpentine shift and its late rows' placement are saved in

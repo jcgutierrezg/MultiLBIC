@@ -132,3 +132,55 @@ def _widened(lo: float, hi: float) -> tuple[float, float]:
         return lo, hi
     pad = abs(lo) * 1e-3 or 1e-12
     return lo - pad, hi + pad
+
+
+# ---- comparing lasers ----
+
+#: A ratio's pixel is left blank where the laser below the line reads
+#: less than this share of its own top value (its 99th percentile): off
+#: the cell, or in a dead region, both lasers give next to nothing and
+#: their ratio is noise.
+RATIO_FLOOR_SHARE = 0.05
+
+
+def ratio(top: np.ndarray, bottom: np.ndarray,
+          floor_share: float = RATIO_FLOOR_SHARE) -> np.ndarray:
+    """`top / bottom` pixel by pixel; NaN where either is empty or
+    `bottom` is under `floor_share` of its top value. Two photocurrents
+    of the same sign give a positive ratio."""
+    magnitude = np.abs(bottom)
+    finite = magnitude[np.isfinite(magnitude)]
+    if not finite.size:
+        return np.full(np.shape(top), np.nan)
+    floor = floor_share * float(np.percentile(finite, 99.0))
+    out = np.full(np.shape(top), np.nan)
+    keep = np.isfinite(top) & np.isfinite(bottom) & (magnitude >= floor) \
+        & (magnitude > 0)
+    out[keep] = top[keep] / bottom[keep]
+    return out
+
+
+def panel_grid(n: int, area_aspect: float = 1.6,
+               map_aspect: float = 1.0) -> tuple[int, int]:
+    """(rows, columns) for `n` maps side by side that draws each as big
+    as it can be: `area_aspect` is the drawing area's width over height,
+    `map_aspect` a map's, as drawn. A tie goes to fewer rows."""
+    best, best_size = (1, max(1, n)), -1.0
+    for rows in range(1, max(1, n) + 1):
+        cols = math.ceil(n / rows)
+        if (rows - 1) * cols >= n:
+            continue  # a whole row would be empty
+        cell_w, cell_h = area_aspect / cols, 1.0 / rows
+        size = min(cell_w / map_aspect, cell_h)
+        if size > best_size * (1 + 1e-9):
+            best, best_size = (rows, cols), size
+    return best
+
+
+def shared_limits(values: list[np.ndarray], mode: str
+                  ) -> tuple[float, float] | None:
+    """One set of colour limits over several maps: `mode` "full" or
+    "auto", as for one map."""
+    finite = [v[np.isfinite(v)] for v in values]
+    joined = np.concatenate(finite) if finite else np.array([])
+    return full_limits(joined) if mode == "full" else auto_limits(joined)
