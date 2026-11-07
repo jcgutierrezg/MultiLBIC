@@ -102,6 +102,34 @@ def test_one_colour_scale_over_several_maps():
     assert viewtools.shared_limits([np.array([np.nan])], "auto") is None
 
 
+def test_an_area_takes_the_pixels_inside_it():
+    mask = viewtools.area_mask(GRID, (0.02, 0.05), (0.05, 0.15))
+    # Columns centred at 0.025, 0.035, 0.045; rows at 0.075, 0.125.
+    assert mask.sum() == 6
+    assert mask[1:3, 2:5].all()
+    # A click: the one pixel under it, whichever way it was dragged.
+    one = viewtools.area_mask(GRID, (0.031, 0.06), (0.031, 0.06))
+    assert one.sum() == 1 and one[1, 3]
+    assert (viewtools.area_mask(GRID, (0.05, 0.15), (0.02, 0.05))
+            == mask).all()
+
+
+def test_the_spectrum_over_an_area():
+    values = np.arange(40.0).reshape(4, 10)
+    mask = viewtools.area_mask(GRID, (0.0, 0.0), (0.1, 0.2))
+    empty = np.full((4, 10), np.nan)
+    points = viewtools.spectrum(
+        {6: (848.0, values * 2), 1: (444.0, values), 2: (519.0, empty)},
+        mask)
+    # In wavelength order; a laser with nothing there left out.
+    assert [p.laser for p in points] == [1, 6]
+    first = points[0]
+    assert first.median == pytest.approx(np.median(values))
+    assert first.low == pytest.approx(np.percentile(values, 16))
+    assert first.high == pytest.approx(np.percentile(values, 84))
+    assert first.pixels == 40
+
+
 # ---- the window ----
 
 tk = pytest.importorskip("tkinter")
@@ -487,3 +515,66 @@ def test_maps_shown_as_eqe(viewer, run_folder, tmp_path):
     viewer.quantity.set("current")
     viewer.redraw()
     np.testing.assert_array_equal(viewer.values(), m1.values)
+
+
+def test_a_pixel_and_an_area_give_each_lasers_spectrum(viewer, run_folder,
+                                                       tmp_path):
+    folder = shutil.copytree(run_folder, tmp_path / run_folder.name)
+    _with_power(folder, [1])
+    run = opened(viewer, folder)
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    viewer.pick_mode.set("area")
+    viewer._pick_mode_changed()
+    assert "Click a pixel" in viewer.profile_note.cget("text")
+    viewer.canvas.draw()
+
+    # A click picks the pixel under it: each laser's value there.
+    _mouse(viewer, "button_press_event", 0.105, 0.075)
+    _mouse(viewer, "button_release_event", 0.105, 0.075)
+    at = viewtools.pixel_at(run.grid, 0.105, 0.075)
+    spectrum = {p.laser: p for p in viewer.spectrum}
+    for n in (1, 2):
+        value = run.maps[n].values[at]
+        if np.isfinite(value):
+            assert spectrum[n].median == pytest.approx(value)
+            assert spectrum[n].pixels == 1
+    assert "pixel at" in viewer.profile_note.cget("text")
+    # The line drawn before is still there, its profile kept.
+    assert viewer.line_uv is not None and viewer.profile is not None
+
+    # A drag takes an area: the median over its pixels, every panel
+    # showing the box.
+    _mouse(viewer, "button_press_event", 0.03, 0.03)
+    _mouse(viewer, "button_release_event", 0.2, 0.12)
+    mask = viewtools.area_mask(run.grid, *viewer.area_uv)
+    assert mask.sum() > 10  # 17 pixels of one row in the simulated map
+    spectrum = {p.laser: p for p in viewer.spectrum}
+    inside = run.maps[2].values[mask]
+    assert spectrum[2].median == pytest.approx(
+        np.median(inside[np.isfinite(inside)]))
+    assert [p.wavelength_nm for p in viewer.spectrum] == sorted(
+        p.wavelength_nm for p in viewer.spectrum)
+    viewer.show_side_by_side()
+    assert all(p.area is not None for p in viewer.panels)
+
+    # As EQE: laser 1's, and laser 2 said to have none.
+    viewer.quantity.set("eqe")
+    viewer.redraw()
+    assert [p.laser for p in viewer.spectrum] == [1]
+    assert viewer.spectrum[0].median == pytest.approx(
+        np.median(run.maps[1].eqe[mask][np.isfinite(run.maps[1].eqe[mask])]))
+    assert "no EQE: laser 2" in viewer.profile_note.cget("text")
+    assert viewer.profile_axes.get_xlabel() == "wavelength (nm)"
+
+    # Back to the line: its profile shows again; Clear clears what the
+    # mode draws.
+    viewer.pick_mode.set("line")
+    viewer._pick_mode_changed()
+    assert viewer.profile_axes.get_xlabel() == "distance along the line (mm)"
+    viewer.clear_current()
+    assert viewer.line_uv is None and viewer.area_uv is not None
+    viewer.pick_mode.set("area")
+    viewer._pick_mode_changed()
+    viewer.clear_current()
+    assert viewer.area_uv is None and viewer.spectrum == []
+    assert all(p.area is None for p in viewer.panels)

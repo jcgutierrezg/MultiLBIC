@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 7: the spectrum at a pixel or over an area. Steps 2-6 are done; steps 5 and 6's machine parts (the power readings in runs, the Power tab) in the simulator only, for the bench in step 9. |
+| next | Step 8: the docs read again, and the viewer on the Pi's screen. Steps 2-7 are done; steps 5 and 6's machine parts (the power readings in runs, the Power tab) in the simulator only, for the bench in step 9. |
 
 ## Phases
 
@@ -105,9 +105,10 @@ Steps:
    quarter, the meter's reading typed with its head at the sample's
    place, the photodiode read again; the response shown and written to
    `machine.toml` on Save.
-7. **The spectrum**: click a pixel or drag an area, and the EQE at the
-   six wavelengths (444–848 nm) is plotted, with the spread over the
-   area.
+7. **The spectrum** (done 0.7.9, [viewer](viewer.md#the-spectrum)):
+   click a pixel or drag an area, and every laser's value there (EQE or
+   photocurrent, as shown) is plotted at its wavelength, the median and
+   the 16-84 % spread over the area.
 8. **Docs** (`docs/viewer.md`; run file and run order in `scan.md` and
    `run.md`) and **the viewer on the Pi's screen** (fonts, speed).
 9. **Bench**: a six-laser run on a cell with the power readings (ask

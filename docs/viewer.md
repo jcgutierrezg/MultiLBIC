@@ -50,10 +50,16 @@ in `~/multilbic-runs`; copy a folder to the PC by hand (USB stick or
   the shift typed (µm) and keeps it. Either is saved beside the laser's
   file and used from then on, by the viewer, `multilbic map` and the
   window's "Open run file" alike ([scan](scan.md#the-alignment-beside-it)).
-- **Profile**: drag across the map (with the toolbar's zoom and pan
-  off) to draw a line; the map along it is plotted. The line stays when
-  another laser is picked, so the same line can be read at every
-  wavelength. **Clear** removes it.
+- **Line or area** (**Drag draws**: a line, or an area), with the
+  toolbar's zoom and pan off:
+  - **a line: profile**: drag across the map to draw a line; the map
+    along it is plotted. The line stays when another laser is picked,
+    so the same line can be read at every wavelength.
+  - **an area: spectrum**: click a pixel, or drag a box; every laser's
+    value there is plotted at its wavelength (below).
+
+  The line and the area each stay until cleared, whatever the view;
+  **Clear** clears the one the mode draws.
 
 ## Comparing lasers
 
@@ -76,6 +82,21 @@ plots each laser's along the same line in its own colour, or the ratio.
 On `20261106T163140Z_full_test`, laser 6 (848 nm) over laser 1 (444 nm)
 is about 3.9 across the cell; the finger edges show as thin stripes,
 the two spots being different sizes.
+
+## The spectrum
+
+In area mode, a click picks the pixel under it and a drag a box (drawn
+dashed on every panel, to the edges of the pixels it counts). For each
+laser of the run, whatever the view, the plot shows its value there at
+its wavelength: for a box, the median over its pixels, with bars from
+the 16th to the 84th percentile (a normal spread's one standard
+deviation, without outliers pulling it). It follows **Show**: EQE in %,
+or photocurrent in the run's unit. A laser with nothing there (no EQE,
+or no samples in the area) is left out and named.
+
+On `20261106T163140Z_full_test`, a 3.6 x 3.0 mm box on the cell gives
+-0.64, -1.38 and -2.35 mA at 444, 652 and 848 nm: photocurrent, as that
+run has no power readings to make EQE from.
 
 ## EQE
 

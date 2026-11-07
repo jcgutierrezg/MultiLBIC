@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.9 - The spectrum at a pixel or over an area
+
+- Phase 7 step 7. The viewer's Profile section is now **Line or area**:
+  **Drag draws** a line (the profile, as before) or an area. In area
+  mode a click picks one pixel and a drag a box, drawn on every panel
+  to the edges of the pixels it counts; the plot shows every laser's
+  value there at its wavelength, the median and the 16-84 % spread, as
+  EQE or photocurrent as **Show** says. A laser with nothing there is
+  named.
+- The line and the area each stay through changes of laser, view and
+  quantity; **Clear** clears the one the mode draws.
+- `viewtools.area_mask`, `spectrum`, `SpectrumPoint`.
+
 ## 0.7.8 - The Power tab: the photodiode against the power meter
 
 - Phase 7 step 6, second half (D32 revised): the Maintenance window's

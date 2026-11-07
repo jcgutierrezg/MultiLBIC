@@ -51,6 +51,7 @@ from matplotlib.backends.backend_tkagg import (
     NavigationToolbar2Tk,
 )
 from matplotlib.figure import Figure
+from matplotlib.patches import Rectangle
 from smuniversal_lab_suite.core.gui.theme import Theme, set_dark_title_bar
 
 from multilbic.config.machine import MachineConfig
@@ -95,6 +96,7 @@ class _Panel:
     image: AxesImage
     values: np.ndarray
     line: Line2D | None = None
+    area: Rectangle | None = None
 
 
 class Viewer:
@@ -137,6 +139,13 @@ class Viewer:
         self.profile: viewtools.Profile | None = None
         #: Side by side: each laser's profile along the line.
         self.profiles: dict[int, viewtools.Profile] = {}
+        #: What a drag draws: "line" (a profile) or "area" (a
+        #: spectrum; a click picks one pixel).
+        self.pick_mode = tk.StringVar(value="line")
+        #: The area's corners on the sample (u, v), once one is drawn.
+        self.area_uv: tuple[tuple[float, float], tuple[float, float]] \
+            | None = None
+        self.spectrum: list[viewtools.SpectrumPoint] = []
         self._drag_start: tuple[float, float, float, float] | None = None
 
         root.title("MultiLBIC viewer")
@@ -330,8 +339,17 @@ class Viewer:
         self.set_shift_btn.pack(side="right")
         self.shift_entry.bind("<Return>", lambda e: self.set_shift())
 
-        prof = look.section(column, "Profile")
+        prof = look.section(column, "Line or area")
         prof.pack(fill="both", expand=True)
+        modes = ttk.Frame(prof)
+        modes.pack(fill="x", pady=(0, 4))
+        ttk.Label(modes, text="Drag draws").pack(side="left")
+        for value, text in (("line", "a line: profile"),
+                            ("area", "an area: spectrum")):
+            ttk.Radiobutton(modes, text=text, value=value,
+                            variable=self.pick_mode,
+                            command=self._pick_mode_changed) \
+                .pack(side="left", padx=(8, 0))
         top = ttk.Frame(prof)
         top.pack(fill="x")
         self.profile_note = ttk.Label(
@@ -340,7 +358,7 @@ class Viewer:
             wraplength=RIGHT_COLUMN_PX - 110)
         self.profile_note.pack(side="left", anchor="w")
         self.clear_btn = ttk.Button(top, text="Clear",
-                                    command=self.clear_profile)
+                                    command=self.clear_current)
         self.clear_btn.pack(side="right")
         self.profile_figure = Figure(figsize=(3.6, 2.4), dpi=100,
                                      facecolor="white")
@@ -448,6 +466,7 @@ class Viewer:
         keep = self.laser if same and self.laser in run.maps else None
         if not same:
             self.line_uv = None
+            self.area_uv = None
             self.ratio_pair = None
             self.view_mode.set("one")
         self._pick(keep if keep is not None else run.lasers[0])
@@ -713,6 +732,8 @@ class Viewer:
         self._apply_limits()
         if self.line_uv is not None:
             self._set_line(*self.line_uv)
+        if self.area_uv is not None:
+            self._set_area(*self.area_uv)
         self.canvas.draw_idle()
 
     def eqe_shown(self) -> bool:
@@ -867,9 +888,12 @@ class Viewer:
         self.show_cursor(*viewtools.to_uv(self.view, event.xdata,
                                           event.ydata))
         if self._drag_start is not None:
-            u0, v0 = self._drag_start[:2]
-            self._set_line((u0, v0), viewtools.to_uv(
-                self.view, event.xdata, event.ydata), compute=False)
+            start = self._drag_start[:2]
+            here = viewtools.to_uv(self.view, event.xdata, event.ydata)
+            if self.area_mode():
+                self._set_area(start, here, compute=False)
+            else:
+                self._set_line(start, here, compute=False)
             self.canvas.draw_idle()
 
     def show_cursor(self, u: float, v: float) -> None:
@@ -929,28 +953,71 @@ class Viewer:
             return
         panel = self._panel_of(event.inaxes)
         if event.xdata is None or event.ydata is None or panel is None:
-            if self.line_uv is not None:
-                self._set_line(*self.line_uv)
+            self._restore_marks()
             self.canvas.draw_idle()
             return
+        here = viewtools.to_uv(self.view, event.xdata, event.ydata)
         moved = abs(event.x - start[2]) + abs(event.y - start[3])
         if moved < MIN_DRAG_PX:
-            # A click: the line, if any, stays as it was. Side by side,
-            # the map clicked becomes the current laser.
+            # A click. Side by side, the map clicked becomes the current
+            # laser. In area mode it picks the pixel under it; a line
+            # drawn stays as it was.
             if panel.laser is not None and panel.laser != self.laser \
                     and self.view_mode.get() == "side":
                 self._pick(panel.laser)
                 self.axes, self.image = panel.axes, panel.image
                 self._apply_limits()
                 self.status(f"laser {panel.laser} picked")
-            if self.line_uv is not None:
-                self._set_line(*self.line_uv)
-            else:
-                self._remove_line()
+            if self.area_mode():
+                self.draw_area(here, here)
+                return
+            self._restore_marks()
             self.canvas.draw_idle()
             return
-        self.draw_profile((start[0], start[1]), viewtools.to_uv(
-            self.view, event.xdata, event.ydata))
+        if self.area_mode():
+            self.draw_area((start[0], start[1]), here)
+        else:
+            self.draw_profile((start[0], start[1]), here)
+
+    def _restore_marks(self) -> None:
+        """The line and the area as they were (a drag that came to
+        nothing)."""
+        if self.line_uv is not None:
+            self._set_line(*self.line_uv, compute=False)
+        else:
+            self._remove_line()
+        if self.area_uv is not None:
+            self._set_area(*self.area_uv, compute=False)
+        else:
+            self._remove_area()
+
+    def area_mode(self) -> bool:
+        return self.pick_mode.get() == "area"
+
+    def _pick_mode_changed(self) -> None:
+        """The plot shows what the mode draws: the line's profile, or the
+        area's spectrum."""
+        self._show_pick()
+
+    def _show_pick(self) -> None:
+        if self.area_mode():
+            if self.area_uv is not None:
+                self._plot_spectrum()
+            else:
+                self._empty_plot("Click a pixel, or drag across an area, "
+                                 "for each laser's value there.")
+        elif self.line_uv is not None:
+            self._plot_profile(*self.line_uv)
+        else:
+            self._empty_plot("Drag across the map to draw a line.")
+
+    def _empty_plot(self, note: str) -> None:
+        self.profile_axes.clear()
+        self.profile_canvas.draw_idle()
+        self.profile_note.configure(text=note)
+        self.clear_btn.state(["disabled"])
+
+    # ---- the line and its profile ----
 
     def draw_profile(self, start_uv: tuple[float, float],
                      end_uv: tuple[float, float]) -> None:
@@ -984,28 +1051,36 @@ class Viewer:
 
     def _plot_profile(self, start_uv: tuple[float, float],
                       end_uv: tuple[float, float]) -> None:
+        """Each panel's map along the line, kept (`profiles`, `profile`)
+        and, in line mode, plotted."""
         run = self.run
         if run is None or not self.panels:
             return
         name, scale = self.unit
+        draw = not self.area_mode()
         ax = self.profile_axes
-        ax.clear()
+        if draw:
+            ax.clear()
         self.profiles = {}
         for p in self.panels:
             prof = viewtools.profile(p.values, run.grid, start_uv, end_uv)
             if p.laser is None:
-                ax.plot(prof.distance_mm, prof.values, lw=1.2,
-                        color="#333333")
+                if draw:
+                    ax.plot(prof.distance_mm, prof.values, lw=1.2,
+                            color="#333333")
                 self.profile = prof
                 continue
             self.profiles[p.laser] = prof
             m = run.maps[p.laser]
-            ax.plot(prof.distance_mm, prof.values / scale, lw=1.2,
-                    color=wavelength_colour(m.wavelength_nm),
-                    label=_laser_name(p.laser, m.wavelength_nm))
+            if draw:
+                ax.plot(prof.distance_mm, prof.values / scale, lw=1.2,
+                        color=wavelength_colour(m.wavelength_nm),
+                        label=_laser_name(p.laser, m.wavelength_nm))
         if self.profiles:
             self.profile = self.profiles.get(
                 self.laser, next(iter(self.profiles.values())))
+        if not draw:
+            return
         ax.set_xlabel("distance along the line (mm)")
         ax.set_ylabel(self._quantity_label())
         if len(self.panels) > 1:
@@ -1027,11 +1102,139 @@ class Viewer:
         self.profile = None
         self.profiles = {}
         self._remove_line()
-        self.profile_axes.clear()
-        self.profile_canvas.draw_idle()
-        self.profile_note.configure(text="Drag across the map to draw a line.")
-        self.clear_btn.state(["disabled"])
+        if not self.area_mode():
+            self._show_pick()
         self.canvas.draw_idle()
+
+    # ---- the area and its spectrum ----
+
+    def draw_area(self, corner_a: tuple[float, float],
+                  corner_b: tuple[float, float]) -> None:
+        """The rectangle between two corners on the sample (one pixel,
+        for a click), and every laser's value over it."""
+        self.area_uv = (corner_a, corner_b)
+        self._set_area(corner_a, corner_b)
+        self.canvas.draw_idle()
+
+    def _area_bounds(self, corner_a: tuple[float, float],
+                     corner_b: tuple[float, float]
+                     ) -> tuple[np.ndarray, tuple[float, float, float, float]]:
+        """The area's pixels, and the rectangle their edges make (u0, u1,
+        v0, v1): what the drawn box shows is what is counted."""
+        assert self.run is not None
+        grid = self.run.grid
+        mask = viewtools.area_mask(grid, corner_a, corner_b)
+        if not mask.any():
+            u0, u1 = sorted((corner_a[0], corner_b[0]))
+            v0, v1 = sorted((corner_a[1], corner_b[1]))
+            return mask, (u0, u1, v0, v1)
+        rows = np.flatnonzero(mask.any(axis=1))
+        cols = np.flatnonzero(mask.any(axis=0))
+        return mask, (cols[0] * grid.pixel_mm, (cols[-1] + 1) * grid.pixel_mm,
+                      rows[0] * grid.pitch_mm, (rows[-1] + 1) * grid.pitch_mm)
+
+    def _set_area(self, corner_a: tuple[float, float],
+                  corner_b: tuple[float, float], *,
+                  compute: bool = True) -> None:
+        if self.run is None:
+            return
+        _, (u0, u1, v0, v1) = self._area_bounds(corner_a, corner_b)
+        x0, y0 = viewtools.to_xy(self.view, u0, v0)
+        x1, y1 = viewtools.to_xy(self.view, u1, v1)
+        corner = (min(x0, x1), min(y0, y1))
+        w, h = abs(x1 - x0), abs(y1 - y0)
+        for p in self.panels:
+            if p.area is None:
+                p.area = Rectangle(corner, w, h, fill=False,
+                                   edgecolor=LINE_COLOUR, linewidth=1.5,
+                                   linestyle="--")
+                p.axes.add_patch(p.area)
+            else:
+                p.area.set_xy(corner)
+                p.area.set_width(w)
+                p.area.set_height(h)
+        if compute:
+            self._plot_spectrum()
+
+    def _remove_area(self) -> None:
+        for p in self.panels:
+            if p.area is not None:
+                p.area.remove()
+                p.area = None
+
+    def spectrum_unit(self) -> tuple[str, float]:
+        """The spectrum's unit: EQE in %, or the photocurrent's for all
+        the run's lasers together."""
+        if self.eqe_shown():
+            return EQE_UNIT
+        assert self.run is not None
+        return viewtools.display_unit(self.run.stack())
+
+    def _plot_spectrum(self) -> None:
+        """Every laser's value over the area, at its wavelength: the
+        median and the spread, in area mode plotted."""
+        run = self.run
+        if run is None or self.area_uv is None:
+            return
+        mask, (u0, u1, v0, v1) = self._area_bounds(*self.area_uv)
+        maps = {n: (m.wavelength_nm, self._shown(m))
+                for n, m in run.maps.items()}
+        self.spectrum = viewtools.spectrum(maps, mask)
+        if not self.area_mode():
+            return
+        name, scale = self.spectrum_unit()
+        ax = self.profile_axes
+        ax.clear()
+        points = self.spectrum
+        if points:
+            nm = [p.wavelength_nm for p in points]
+            ax.plot(nm, [p.median / scale for p in points], color="#999999",
+                    lw=1, zorder=1)
+            for p in points:
+                colour = wavelength_colour(p.wavelength_nm)
+                ax.errorbar([p.wavelength_nm], [p.median / scale],
+                            yerr=[[(p.median - p.low) / scale],
+                                  [(p.high - p.median) / scale]],
+                            fmt="o", color=colour, ecolor=colour,
+                            markeredgecolor="#333333", markersize=7,
+                            capsize=3, zorder=2)
+                ax.annotate(str(p.laser), (p.wavelength_nm, p.median / scale),
+                            textcoords="offset points", xytext=(6, 4),
+                            fontsize=7, color="#333333")
+        ax.set_xlabel("wavelength (nm)")
+        ax.set_ylabel("EQE (%)" if self.eqe_shown()
+                      else f"photocurrent ({name})")
+        ax.set_xlim(400, 900)
+        ax.grid(True, alpha=0.3)
+        pixels = int(mask.sum())
+        where = (f"pixel at ({u0:.3f}, {v0:.3f}) mm" if pixels == 1 else
+                 f"{u1 - u0:.3f} x {v1 - v0:.3f} mm, {pixels} pixels")
+        ax.set_title(where, fontsize=9)
+        self.profile_figure.tight_layout()
+        self.profile_canvas.draw_idle()
+        missing = [n for n in run.lasers
+                   if n not in {p.laser for p in points}]
+        note = where + ("; median and 16-84 % spread" if pixels > 1 else "")
+        if missing:
+            why = "no EQE" if self.eqe_shown() else "no values there"
+            note += f"; {why}: laser " + ", ".join(map(str, missing))
+        self.profile_note.configure(text=note)
+        self.clear_btn.state(["!disabled"])
+
+    def clear_area(self) -> None:
+        self.area_uv = None
+        self.spectrum = []
+        self._remove_area()
+        if self.area_mode():
+            self._show_pick()
+        self.canvas.draw_idle()
+
+    def clear_current(self) -> None:
+        """Clear: what the mode draws."""
+        if self.area_mode():
+            self.clear_area()
+        else:
+            self.clear_profile()
 
     # ---- keys, status, closing ----
 

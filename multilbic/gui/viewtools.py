@@ -184,3 +184,58 @@ def shared_limits(values: list[np.ndarray], mode: str
     finite = [v[np.isfinite(v)] for v in values]
     joined = np.concatenate(finite) if finite else np.array([])
     return full_limits(joined) if mode == "full" else auto_limits(joined)
+
+
+# ---- the spectrum ----
+
+#: The spread over an area: these percentiles either side of the median
+#: (one standard deviation's worth, for a normal spread, without the
+#: outliers pulling it).
+SPREAD_PERCENTILES = (16.0, 84.0)
+
+
+def area_mask(grid: SharedGrid, corner_a: tuple[float, float],
+              corner_b: tuple[float, float]) -> np.ndarray:
+    """The pixels whose centres lie in the rectangle between two corners
+    on the sample (u, v), as a boolean map; a rectangle smaller than a
+    pixel (a click) takes the one pixel under it."""
+    u_lo, u_hi = sorted((corner_a[0], corner_b[0]))
+    v_lo, v_hi = sorted((corner_a[1], corner_b[1]))
+    cols = (grid.u_mm >= u_lo) & (grid.u_mm <= u_hi)
+    rows = (grid.v_mm >= v_lo) & (grid.v_mm <= v_hi)
+    mask = rows[:, None] & cols[None, :]
+    if not mask.any():
+        at = pixel_at(grid, (u_lo + u_hi) / 2, (v_lo + v_hi) / 2)
+        if at is not None:
+            mask[at] = True
+    return mask
+
+
+@dataclass(frozen=True)
+class SpectrumPoint:
+    laser: int
+    wavelength_nm: float
+    #: The median over the area (the pixel's value, for one pixel).
+    median: float
+    low: float
+    high: float
+    #: Pixels with a value.
+    pixels: int
+
+
+def spectrum(maps: dict[int, tuple[float, np.ndarray]],
+             mask: np.ndarray) -> list[SpectrumPoint]:
+    """Each laser's value over the area `mask`: `maps` is laser ->
+    (wavelength, values on the shared grid). In wavelength order; a
+    laser with no value in the area is left out."""
+    out = []
+    lo_p, hi_p = SPREAD_PERCENTILES
+    for laser, (nm, values) in maps.items():
+        inside = values[mask]
+        inside = inside[np.isfinite(inside)]
+        if not inside.size:
+            continue
+        low, median, high = np.percentile(inside, (lo_p, 50.0, hi_p))
+        out.append(SpectrumPoint(laser, float(nm), float(median), float(low),
+                                 float(high), int(inside.size)))
+    return sorted(out, key=lambda p: p.wavelength_nm)
