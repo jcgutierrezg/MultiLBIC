@@ -36,6 +36,13 @@ in `~/multilbic-runs`; copy a folder to the PC by hand (USB stick or
   `[display]`, on white paper. The unit follows the map (mA, µA, nA). The
   toolbar zooms and pans. Below it: the map's status, serpentine shift,
   baseline, noise floor and range.
+- **Flip sign** (beside **Show**): the photocurrent is negative as
+  wired, so a brighter response is a lower value at the dark end of the
+  colour scale. Ticked, every value is shown with its sign flipped: the
+  maps, the colour bars and typed limits, the cursor, the profile and
+  the spectrum, each labelled "−photocurrent" so a saved figure says
+  so. A ratio is the same either way. EQE is positive already, so the
+  box is greyed out while EQE is shown.
 - **Colour** (right): **Auto** (all but the extreme 1 % at either end),
   **Full** (smallest to largest), or typed limits (**Set**, in the map's
   unit), kept when another laser is picked.

@@ -3,6 +3,14 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.10 - Flip the photocurrent's sign in the viewer
+
+- **Flip sign**, beside the viewer's Show switch: the photocurrent
+  (negative as wired) shown with its sign flipped everywhere it is
+  read: maps, colour bars, typed limits, cursor, profile and spectrum,
+  labelled "−photocurrent". Ratios are unchanged; greyed out for EQE,
+  which is positive already.
+
 ## 0.7.9 - The spectrum at a pixel or over an area
 
 - Phase 7 step 7. The viewer's Profile section is now **Line or area**:

@@ -125,6 +125,9 @@ class Viewer:
         self.view_mode = tk.StringVar(value="one")
         #: "current" or "eqe" (D32).
         self.quantity = tk.StringVar(value="current")
+        #: The photocurrent shown with its sign flipped (negative as
+        #: wired), colour bars and all; EQE is positive either way.
+        self.flip_sign = tk.BooleanVar(value=False)
         self.shared_scale = tk.BooleanVar(value=True)
         self.ratio_pair: tuple[int, int] | None = None
         self.ratio_top = tk.StringVar()
@@ -241,7 +244,8 @@ class Viewer:
                             ("ratio", "Ratio")):
             ttk.Radiobutton(views, text=text, value=value,
                             variable=self.view_mode,
-                            command=self._view_changed)                 .pack(side="left", padx=(0, 10))
+                            command=self._view_changed) \
+                .pack(side="left", padx=(0, 10))
         self.scale_box = ttk.Checkbutton(views, text="One colour scale",
                                          variable=self.shared_scale,
                                          command=self.redraw)
@@ -260,7 +264,12 @@ class Viewer:
         ttk.Label(shown, text="Show").pack(side="left", padx=(0, 8))
         for value, text in (("current", "Photocurrent"), ("eqe", "EQE")):
             ttk.Radiobutton(shown, text=text, value=value,
-                            variable=self.quantity, command=self.redraw)                 .pack(side="left", padx=(0, 10))
+                            variable=self.quantity, command=self.redraw) \
+                .pack(side="left", padx=(0, 10))
+        self.flip_box = ttk.Checkbutton(shown, text="Flip sign",
+                                        variable=self.flip_sign,
+                                        command=self._flip_changed)
+        self.flip_box.pack(side="left", padx=(6, 0))
         # Maps are on white paper in both modes, as in the machine window.
         # Small to start with: the canvas grows into the window, and never
         # pushes it past the screen. Constrained layout keeps colour bars
@@ -674,6 +683,8 @@ class Viewer:
         width, height = u1 - u0, v1 - v0
         side = mode == "side"
         self.scale_box.state(["!disabled"] if side else ["disabled"])
+        self.flip_box.state(["disabled"] if self.eqe_shown()
+                            else ["!disabled"])
         for box in (self.ratio_top_box, self.ratio_bottom_box):
             box.state(["!disabled", "readonly"] if mode == "ratio"
                       else ["disabled"])
@@ -723,6 +734,8 @@ class Viewer:
                         f"subtracted, noise {look.amps(m.noise_a)}"]
                 if m.current_range_a is not None:
                     bits.append(f"range {look.amps(m.current_range_a)}")
+                if self.flipped():
+                    bits.append("shown with its sign flipped")
             self.caption.configure(text=", ".join(b for b in bits if b))
 
         self._colourbars()
@@ -739,11 +752,24 @@ class Viewer:
     def eqe_shown(self) -> bool:
         return self.quantity.get() == "eqe"
 
+    def flipped(self) -> bool:
+        """The photocurrent is shown with its sign flipped."""
+        return self.flip_sign.get() and not self.eqe_shown()
+
+    def _flip_changed(self) -> None:
+        # Typed limits follow the values: (lo, hi) becomes (-hi, -lo).
+        if self.limits_a is not None:
+            lo, hi = self.limits_a
+            self.limits_a = (-hi, -lo)
+        self.redraw()
+
     def _shown(self, m: LaserMap) -> np.ndarray:
-        """What a laser's panel shows: its photocurrent (A), or its EQE
-        (a fraction; all blank where it has none)."""
+        """What a laser's panel shows: its photocurrent (A; its sign
+        flipped if asked), or its EQE (a fraction; all blank where it has
+        none). Everything else (the cursor, the profile, the spectrum,
+        the colour limits) reads it from here."""
         if not self.eqe_shown():
-            return m.values
+            return -m.values if self.flipped() else m.values
         if m.eqe is None:
             return np.full(m.values.shape, np.nan)
         return m.eqe
@@ -761,9 +787,14 @@ class Viewer:
     def _quantity_label(self) -> str:
         if not self.unit[0]:
             return "ratio" + (" of EQE" if self.eqe_shown() else "")
+        return self._label_in(self.unit[0])
+
+    def _label_in(self, unit: str) -> str:
+        """The axis label for the quantity shown, in `unit`: a flipped
+        photocurrent says so on every colour bar and plot."""
         if self.eqe_shown():
             return "EQE (%)"
-        return f"photocurrent ({self.unit[0]})"
+        return ("−" if self.flipped() else "") + f"photocurrent ({unit})"
 
     def _area_aspect(self) -> float:
         """The map area's width over height, less a colour bar's room."""
@@ -1202,8 +1233,7 @@ class Viewer:
                             textcoords="offset points", xytext=(6, 4),
                             fontsize=7, color="#333333")
         ax.set_xlabel("wavelength (nm)")
-        ax.set_ylabel("EQE (%)" if self.eqe_shown()
-                      else f"photocurrent ({name})")
+        ax.set_ylabel(self._label_in(name))
         ax.set_xlim(400, 900)
         ax.grid(True, alpha=0.3)
         pixels = int(mask.sum())

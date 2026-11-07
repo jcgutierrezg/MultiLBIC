@@ -517,6 +517,62 @@ def test_maps_shown_as_eqe(viewer, run_folder, tmp_path):
     np.testing.assert_array_equal(viewer.values(), m1.values)
 
 
+def test_flip_sign_turns_the_photocurrent_over(viewer, run_folder, tmp_path):
+    folder = shutil.copytree(run_folder, tmp_path / run_folder.name)
+    _with_power(folder, [1])
+    run = opened(viewer, folder)
+    m1 = run.maps[1]
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    before = viewer.profile.values.copy()
+    viewer.lo_var.set("-5")
+    viewer.hi_var.set("1")
+    viewer.apply_typed()
+    scale = viewer.unit[1]
+
+    viewer.flip_sign.set(True)
+    viewer._flip_changed()
+    np.testing.assert_array_equal(viewer.values(), -m1.values)
+    # The typed limits follow the values; the labels say so.
+    assert viewer.clim() == pytest.approx((-1.0, 5.0))
+    assert viewer.limits_a == pytest.approx((-1 * scale, 5 * scale))
+    assert viewer.profile_axes.get_ylabel().startswith("−photocurrent")
+    np.testing.assert_allclose(viewer.profile.values, -before)
+    assert "sign flipped" in viewer.caption.cget("text")
+    viewer.show_cursor(0.105, 0.075)
+    value = viewtools.value_at(m1.values, run.grid, 0.105, 0.075)
+    if np.isfinite(value):
+        from multilbic.gui.look import amps
+        assert amps(-value) in viewer.readout.cget("text")
+    # The spectrum too.
+    viewer.pick_mode.set("area")
+    viewer._pick_mode_changed()
+    viewer.draw_area((0.03, 0.03), (0.2, 0.12))
+    mask = viewtools.area_mask(run.grid, *viewer.area_uv)
+    inside = m1.values[mask]
+    point = next(p for p in viewer.spectrum if p.laser == 1)
+    assert point.median == pytest.approx(
+        -np.median(inside[np.isfinite(inside)]))
+    assert viewer.profile_axes.get_ylabel().startswith("−photocurrent")
+    # A ratio is the same either way.
+    viewer.show_ratio(1, 2)
+    flipped = viewer.values().copy()
+    viewer.flip_sign.set(False)
+    viewer._flip_changed()
+    np.testing.assert_allclose(viewer.values(), flipped)
+
+    # EQE is positive already: the box does nothing there.
+    viewer.flip_sign.set(True)
+    viewer.show_laser(1)
+    viewer.quantity.set("eqe")
+    viewer.redraw()
+    assert "disabled" in viewer.flip_box.state()
+    np.testing.assert_array_equal(viewer.values(), m1.eqe)
+    viewer.quantity.set("current")
+    viewer.redraw()
+    assert "disabled" not in viewer.flip_box.state()
+    np.testing.assert_array_equal(viewer.values(), -m1.values)
+
+
 def test_a_pixel_and_an_area_give_each_lasers_spectrum(viewer, run_folder,
                                                        tmp_path):
     folder = shutil.copytree(run_folder, tmp_path / run_folder.name)
