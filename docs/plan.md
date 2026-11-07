@@ -73,8 +73,10 @@ Steps:
    folder, pick a laser; the map drawn as the window draws it
    (`store/image.draw_map`, `[display]`), colour limits, the value under
    the cursor, a line profile along a drawn line that stays when the
-   laser changes. A full-size run opens slowly (80 s on the PC for three
-   18 x 20 mm maps), nearly all of it the serpentine alignment.
+   laser changes. Each laser's alignment is saved beside its file, by
+   the run and the viewer (D30 revised, 0.7.4): a full-size three-laser
+   run opens in about 10 s on the PC instead of 80; **Re-align** and
+   **Set shift** change it.
 4. **Lasers compared**: all of a run's lasers side by side on the shared
    grid with one colour scale or each its own; the ratio of any two.
 5. **Power in runs** (simulator first): the laser-off baseline taken at

@@ -75,6 +75,28 @@ def test_a_cut_short_run_is_readable_and_says_so(tmp_path):
     writer.close()
 
 
+def test_a_half_written_last_line_is_left_out(tmp_path):
+    """Read while the run is writing: the last line may be cut short."""
+    path = tmp_path / "run.csv"
+    writer = RunWriter(path, HEADER)
+    writer.write_row(anchor(0), samples(0))
+    writer.close()
+    with path.open("a", encoding="utf-8") as f:
+        f.write("0,1,1,5003,100.5")  # the rest not yet written
+    run = read_run(path)
+    assert run.columns["row"].size == 3
+    assert run.columns["device_ms"].tolist() == [5000.0, 5001.0, 5002.0]
+
+
+def test_a_run_with_no_samples_yet_reads(tmp_path):
+    path = tmp_path / "run.csv"
+    RunWriter(path, HEADER).close()
+    run = read_run(path)
+    assert run.anchors == []
+    assert run.columns["row"].size == 0
+    assert set(run.columns) == set(COLUMNS)
+
+
 def test_comment_lines_leave_a_plain_table(tmp_path):
     """What pandas.read_csv(path, comment='#') would see."""
     path = tmp_path / "run.csv"

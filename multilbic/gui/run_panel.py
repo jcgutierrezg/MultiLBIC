@@ -309,13 +309,13 @@ class RunPanel:
     def _load(self, path: Path) -> None:
         """On its own thread: reading and mapping a big file takes a
         while. Hands the result back through a queue."""
-        from multilbic.scan.mapping import build_map
-        from multilbic.store.runfile import read_run
+        from multilbic.store.alignfile import map_file
 
         try:
-            run = read_run(path)
-            result = build_map(run.scan_data())
-            self._loaded.put((path, result, run.header.get("status", "?")))
+            # From its saved alignment if it has a current one.
+            mapped = map_file(path, by="window")
+            self._loaded.put((path, mapped.result,
+                              mapped.run.header.get("status", "?")))
         except Exception as exc:
             self._loaded.put((path, exc, ""))
 

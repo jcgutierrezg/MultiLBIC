@@ -19,6 +19,7 @@ so a run file can be re-mapped later with better calibration. The steps:
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -95,6 +96,11 @@ class MapResult:
     baseline: Baseline
     alignment: Alignment
     rows: list[MappedRow] = field(repr=False)
+    #: The late rows (their indices) placed from their reply rather than
+    #: their send: with the alignment, what a saved alignment keeps
+    #: (`store/alignfile`) so the map can be built again without
+    #: searching for either.
+    late_from_reply: tuple[int, ...] = ()
 
 
 def build_map(
@@ -103,7 +109,15 @@ def build_map(
     channel: int = 1,
     align: bool = True,
     mains: bool = True,
+    alignment: Alignment | None = None,
+    late_from_reply: Collection[int] | None = None,
 ) -> MapResult:
+    """The map from `data`. Given an `alignment`, it is used as it is
+    instead of being searched for (`align` is then ignored); given
+    `late_from_reply`, those late rows are placed from their reply and
+    the other late rows from their send, without comparing each with its
+    neighbours. Both come from a saved alignment (`store/alignfile`):
+    with them a big map builds in a fraction of the time."""
     on_channel = data.channel == channel
     if not on_channel.any():
         raise ValueError(f"no samples on channel {channel}")
@@ -137,21 +151,32 @@ def build_map(
     # A late reply is mostly the reply alone being late, but sometimes
     # the move started late too (single rows, bench 2026-11-05): each
     # late row keeps the placement its neighbours agree with.
+    from_reply: list[int] = []
     for k, (raw, new) in enumerate(zip(data.anchors, settled, strict=True)):
-        if new.end_s != raw.end_s:
-            positioned[k] = _agreeing(k, positioned, position(raw), settled,
-                                      data.anchors)
+        if new.end_s == raw.end_s:
+            continue
+        if late_from_reply is not None:
+            if raw.index in late_from_reply:
+                positioned[k] = position(raw)
+                from_reply.append(raw.index)
+            continue
+        by_reply = position(raw)
+        positioned[k] = _agreeing(k, positioned, by_reply, settled,
+                                  data.anchors)
+        if positioned[k] is by_reply:
+            from_reply.append(raw.index)
 
-    if align:
-        alignment = align_mod.estimate_shift(
-            [
-                RowSamples(anchor.motion().direction, a, v)
-                for anchor, a, v, _ in positioned
-                if a.size
-            ]
-        )
-    else:
-        alignment = align_mod.NOT_FOUND
+    if alignment is None:
+        if align:
+            alignment = align_mod.estimate_shift(
+                [
+                    RowSamples(anchor.motion().direction, a, v)
+                    for anchor, a, v, _ in positioned
+                    if a.size
+                ]
+            )
+        else:
+            alignment = align_mod.NOT_FOUND
 
     rows = []
     for anchor, a, values, device_ms in positioned:
@@ -169,7 +194,7 @@ def build_map(
         data.pixel_mm,
         data.pitch_mm,
     )
-    return MapResult(grid, clock, base, alignment, rows)
+    return MapResult(grid, clock, base, alignment, rows, tuple(from_reply))
 
 
 Positioned = tuple[RowAnchor, np.ndarray, np.ndarray, np.ndarray]

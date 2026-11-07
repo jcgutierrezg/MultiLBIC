@@ -114,7 +114,7 @@ def section(parent: tk.Misc, title: str) -> ttk.LabelFrame:
 
 #: The ring round a swatch too dark to see on the dark theme.
 RING = "#8a8a8a"
-_SWATCHES: dict[tuple[str, str, int], tk.PhotoImage] = {}
+_SWATCHES: dict[tuple[int, str, str, int], tk.PhotoImage] = {}
 
 
 def swatch(master: tk.Misc, colour: str, size: int = 14) -> tk.PhotoImage:
@@ -122,10 +122,17 @@ def swatch(master: tk.Misc, colour: str, size: int = 14) -> tk.PhotoImage:
     once made: Tk forgets an image Python no longer holds."""
     from multilbic.gui.spectrum import needs_ring
 
-    key = (str(master.winfo_toplevel()), colour, size)
+    # Keyed by the Tk interpreter too: a second Tk (the viewer beside the
+    # window, or one test module after another) reuses the same widget
+    # paths, and an image made in the first doesn't exist in the second.
+    key = (id(master.tk), str(master.winfo_toplevel()), colour, size)
     image = _SWATCHES.get(key)
     if image is not None:
-        return image
+        try:
+            master.tk.call("image", "type", image.name)
+            return image
+        except tk.TclError:
+            pass  # gone with its interpreter: made again below
     image = tk.PhotoImage(master=master, width=size, height=size)
     ring = needs_ring(colour)
     r = size / 2 - 0.5

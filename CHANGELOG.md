@@ -3,6 +3,34 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.4 - Each map's alignment, saved beside it
+
+- A map's serpentine shift and its late rows' placement are saved in
+  `laser<N>_<nm>nm.align.json` next to its file (`store/alignfile.py`):
+  how the shift was found (computed or by hand), by what, when, with
+  which version, and the file's size and rows it is for. The run writes
+  it as each laser's map ends; the viewer, `multilbic map` and the
+  window's "Open run file" build from it while it matches the file, and
+  otherwise search again and save it. D30 revised: the viewer writes
+  these files, nothing else.
+- The viewer's Alignment section shows it, with **Re-align** (search
+  again with the code as it is now) and **Set shift** (a shift typed in
+  µm, kept). The map redraws with the same line and colour limits.
+  `multilbic map --realign`.
+- `build_map(alignment=, late_from_reply=)` uses them instead of
+  searching; `MapResult.late_from_reply` says which late rows took their
+  reply. Same map, checked on real and simulated runs.
+- `read_run` parses the numbers with `np.loadtxt`: 2.9 s to 1.3 s for a
+  120 MB file, identical on all 38 run files on the PC; a half-written
+  last line is left out.
+- `20261106T163140Z_full_test` (three 18 x 20 mm maps): 74 s to open the
+  first time, 9.6 s after.
+- The line-up and the sync check still search afresh: they are
+  measurements.
+- The laser colour dots (`look.swatch`) are kept per Tk interpreter: a
+  second Tk reuses the same widget paths, and the viewer's tests, run
+  after the window's, got a dot from a Tk already gone.
+
 ## 0.7.3 - The viewer, one map
 
 - Phase 7 step 3: `multilbic view [FOLDER]` (`gui/viewer.py`,

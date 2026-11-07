@@ -56,7 +56,7 @@ from multilbic.run.rows import (
 )
 from multilbic.scan.geometry import Calibration, Placement, place
 from multilbic.scan.raster import RasterPlan, ScanRequest, plan_raster
-from multilbic.store.runfile import RunWriter, read_run
+from multilbic.store.runfile import RunWriter
 from multilbic.version import app_version
 
 if TYPE_CHECKING:
@@ -589,14 +589,13 @@ class Session:
         """Build the map from the file alone, as anyone later would.
         A map that can't be built (a run stopped before its first row)
         is not an error of the run."""
-        from multilbic.scan.mapping import build_map
+        from multilbic.store.alignfile import NoRows, map_file
         from multilbic.store.image import save_png
 
         try:
-            data = read_run(result.path).scan_data()
-            if not data.anchors:
-                return
-            mapped = build_map(data)
+            # The alignment is saved beside the file, so the viewer opens
+            # this map without searching for it again (store/alignfile).
+            mapped = map_file(result.path, by="run", realign=True).result
             result.png = save_png(
                 mapped, result.path.with_suffix(".png"),
                 title=f"{self.request.calibration.sample}, laser "
@@ -605,6 +604,8 @@ class Session:
             )
             if mapped.alignment.found:
                 result.shift_um = mapped.alignment.shift_mm * 1000
+        except NoRows:
+            return
         except Exception as exc:
             self.say(f"laser {result.laser}: no map: {exc}")
             return

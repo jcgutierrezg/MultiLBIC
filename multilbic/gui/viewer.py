@@ -49,7 +49,13 @@ from multilbic.gui import look, viewtools
 from multilbic.gui.spectrum import wavelength_colour
 from multilbic.run.session import REAL_RUNS, SIM_RUNS
 from multilbic.store.image import draw_map, shift_note
-from multilbic.store.runfolder import RunFolder, RunFolderError, read_folder
+from multilbic.store.runfolder import (
+    LaserMap,
+    RunFolder,
+    RunFolderError,
+    read_folder,
+    rebuild,
+)
 from multilbic.version import app_version
 
 if TYPE_CHECKING:
@@ -240,6 +246,29 @@ class Viewer:
         self.readout = ttk.Label(cursor, text="-", justify="left")
         self.readout.pack(anchor="w")
 
+        # How the shown map was aligned (saved beside its file,
+        # store/alignfile), and the two ways to change it.
+        align = look.section(column, "Alignment")
+        align.pack(fill="x", pady=(0, 8))
+        self.align_note = ttk.Label(align, text="-", justify="left",
+                                    wraplength=RIGHT_COLUMN_PX - 30)
+        self.align_note.pack(anchor="w", fill="x")
+        row = ttk.Frame(align)
+        row.pack(fill="x", pady=(6, 0))
+        self.realign_btn = ttk.Button(row, text="Re-align",
+                                      command=self.realign)
+        self.realign_btn.pack(side="left")
+        ttk.Label(row, text="shift").pack(side="left", padx=(14, 4))
+        self.shift_var = tk.StringVar()
+        self.shift_entry = ttk.Entry(row, textvariable=self.shift_var,
+                                     width=8)
+        self.shift_entry.pack(side="left")
+        ttk.Label(row, text="µm").pack(side="left", padx=(4, 6))
+        self.set_shift_btn = ttk.Button(row, text="Set shift",
+                                        command=self.set_shift)
+        self.set_shift_btn.pack(side="right")
+        self.shift_entry.bind("<Return>", lambda e: self.set_shift())
+
         prof = look.section(column, "Profile")
         prof.pack(fill="both", expand=True)
         top = ttk.Frame(prof)
@@ -338,6 +367,9 @@ class Viewer:
             elif kind == "done":
                 self._loaded(payload, None)
                 return
+            elif kind == "rebuilt":
+                self._rebuilt(*payload)
+                return
         self._poll_id = self.root.after(POLL_MS, self._poll)
 
     def _loaded(self, run: RunFolder | None, error: str | None) -> None:
@@ -355,13 +387,81 @@ class Viewer:
         if not same:
             self.line_uv = None
         self.show_laser(keep if keep is not None else run.lasers[0])
-        self.status(f"opened {run.path}")
+        reused = sum(m.reused for m in run.maps.values())
+        self.status(f"opened {run.path} ({reused} of {len(run.maps)} "
+                    "from saved alignments)")
 
     def _set_busy(self, busy: bool) -> None:
+        self.loading = busy
         state = ["disabled"] if busy else ["!disabled"]
         self.open_btn.state(state)
-        self.reload_btn.state(
-            state if busy or self.run is not None else ["disabled"])
+        have = ["disabled"] if busy or self.run is None else ["!disabled"]
+        for button in (self.reload_btn, self.realign_btn, self.set_shift_btn):
+            button.state(have)
+
+    # ---- the alignment ----
+
+    def realign(self) -> None:
+        """Search for the shown map's alignment again, with the code as
+        it is now, and save it."""
+        self._rebuild(realign=True)
+
+    def set_shift(self) -> None:
+        """The shown map's shift set by hand, in µm, and saved."""
+        try:
+            shift = float(self.shift_var.get())
+        except ValueError:
+            self.status("shift: a number of µm")
+            return
+        self._rebuild(shift_um=shift)
+
+    def _rebuild(self, *, realign: bool = False,
+                 shift_um: float | None = None) -> None:
+        run, laser = self.run, self.laser
+        if run is None or laser is None or self.loading:
+            return
+        before = run.maps[laser].saved
+        self._set_busy(True)
+        self.status(f"laser {laser}: "
+                    + ("searching for the alignment again..." if realign
+                       else f"building with a shift of {shift_um:g} µm..."))
+
+        def work() -> None:
+            try:
+                new: LaserMap | str = rebuild(run, laser, realign=realign,
+                                              shift_um=shift_um)
+            except Exception as exc:  # noqa: BLE001 - shown, not raised
+                new = f"{type(exc).__name__}: {exc}"
+            self._results.put(("rebuilt", (laser, new, before)))
+
+        threading.Thread(target=work, name="viewer-align",
+                         daemon=True).start()
+        self._poll_id = self.root.after(POLL_MS, self._poll)
+
+    def _rebuilt(self, laser: int, new: LaserMap | str,
+                 before: Any) -> None:
+        self._set_busy(False)
+        if isinstance(new, str):
+            self.status(f"laser {laser}: not rebuilt: {new}")
+            messagebox.showerror("Not rebuilt", new, parent=self.root)
+            return
+        was = (f"{before.alignment.shift_mm * 1000:.1f} µm"
+               if before is not None and before.alignment.found else "none")
+        now = (f"{new.result.alignment.shift_mm * 1000:.1f} µm"
+               if new.result.alignment.found else "none")
+        self.status(f"laser {laser}: shift {now} (was {was})"
+                    + (f"; not saved: {new.not_saved}" if new.not_saved
+                       else ", saved"))
+        if laser == self.laser:
+            self.show_laser(laser)
+
+    def _show_alignment(self, m: LaserMap) -> None:
+        a = m.result.alignment
+        text = m.saved.describe() if m.saved is not None else "-"
+        if m.not_saved:
+            text += "\nnot saved beside the file: " + m.not_saved
+        self.align_note.configure(text=text)
+        self.shift_var.set(f"{a.shift_mm * 1000:.1f}" if a.found else "")
 
     def _fill_run(self) -> None:
         run = self.run
@@ -412,8 +512,9 @@ class Viewer:
                        va="center", transform=self.axes.transAxes,
                        color="#666666", fontsize=12)
         self.canvas.draw_idle()
-        self.reload_btn.state(["disabled"])
-        self.clear_btn.state(["disabled"])
+        for button in (self.reload_btn, self.clear_btn, self.realign_btn,
+                       self.set_shift_btn):
+            button.state(["disabled"])
 
     def show_laser(self, laser: int) -> None:
         run = self.run
@@ -444,6 +545,7 @@ class Viewer:
         if m.current_range_a is not None:
             bits.append(f"range {look.amps(m.current_range_a)}")
         self.caption.configure(text=", ".join(bits))
+        self._show_alignment(m)
         if self.line_uv is not None:
             self._set_line(*self.line_uv)
         self.canvas.draw_idle()

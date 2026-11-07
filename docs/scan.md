@@ -176,6 +176,27 @@ row,direction,channel,device_ms,host_s,current_a,voltage_v,a_mm,b_mm
 - The header names the sample, laser and wavelength, frame, pixel,
   pitch, speed, stream rate, mains frequency, app version, commit and
   dirty state, and every device's firmware.
+- **Read by numpy's C reader** (`np.loadtxt`): a 120 MB file in about
+  1.3 s on the PC. A last line cut short, as a file being written can
+  have, is left out.
+
+### The alignment beside it
+
+`laser<N>_<nm>nm.align.json`, next to each laser's file
+(`store/alignfile.py`): the serpentine shift and which late rows were
+placed from their reply, how the shift was found (computed, or set by
+hand), by what, when and with which version, and the file's size and
+row count it was made for. Searching for both is nearly all the time a
+big map takes to build (20 of 23 s for an 18 x 20 mm map); with them
+saved it builds in about a second, to the same map.
+
+The run writes it as each laser's map ends. The viewer, `multilbic map`
+and the window's "Open run file" use it while it still matches the file
+(same size and rows), and otherwise search again and save the new one;
+`multilbic map --realign` and the viewer's **Re-align** search again
+anyway, and the viewer's **Set shift** saves a shift typed by hand. The
+line-up and the sync check always search afresh: they are measurements.
+The CSV itself is never changed.
 
 ## The simulated scan
 

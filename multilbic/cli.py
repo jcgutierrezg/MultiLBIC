@@ -326,13 +326,12 @@ def run_until_done(session: Session | SyncCheck):
 def remap(args: argparse.Namespace) -> int:
     """Rebuild a map from its run file alone and draw it again, e.g.
     after the display orientation or the mapping changed."""
-    from multilbic.scan.mapping import build_map
+    from multilbic.store.alignfile import map_file
     from multilbic.store.image import save_png
-    from multilbic.store.runfile import read_run
 
     machine = load(args.machine)
-    run = read_run(args.runfile)
-    result = build_map(run.scan_data())
+    mapped = map_file(args.runfile, by="map", realign=args.realign)
+    run, result = mapped.run, mapped.result
     out = Path(args.out) if args.out else Path(args.runfile).with_suffix(".png")
     save_png(
         result, out,
@@ -342,6 +341,10 @@ def remap(args: argparse.Namespace) -> int:
     )
     shift = result.alignment
     say(f"map: {out}")
+    say(f"alignment: {mapped.saved.describe()}"
+        + (" (saved)" if mapped.reused else ""))
+    if mapped.not_saved:
+        say(f"alignment not saved: {mapped.not_saved}")
     say(
         f"serpentine shift {shift.shift_mm * 1000:.1f} µm "
         f"(quality {shift.quality:.2f})" if shift.found
@@ -962,6 +965,9 @@ def main(argv: list[str] | None = None) -> int:
     draw = commands.add_parser("map", help="rebuild and draw a run file's map")
     draw.add_argument("runfile", help="a laser's .csv from a run folder")
     draw.add_argument("--out", default="", help="PNG (default: next to it)")
+    draw.add_argument("--realign", action="store_true",
+                      help="search for the alignment again, not the one "
+                      "saved beside the file")
     draw.set_defaults(func=remap)
 
     sync = commands.add_parser(

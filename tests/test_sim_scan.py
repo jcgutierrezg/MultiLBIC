@@ -144,6 +144,17 @@ def test_a_row_that_starts_late_stays_where_it_was(scan, tmp_path):
     assert worst <= max(0.005, PIXEL_MM)
     assert late.result.alignment.shift_mm == pytest.approx(
         scan.result.alignment.shift_mm, abs=0.004)
+    # What an alignment file keeps (store/alignfile) builds the same map
+    # again without searching: the shift, and that row placed from its
+    # reply.
+    assert late.result.late_from_reply
+    from multilbic.scan.mapping import build_map
+
+    again = build_map(read_run(late.run_path).scan_data(),
+                      alignment=late.result.alignment,
+                      late_from_reply=late.result.late_from_reply)
+    np.testing.assert_array_equal(again.grid.values, late.result.grid.values)
+    assert again.late_from_reply == late.result.late_from_reply
 
 
 def test_a_edges_within_tolerance(scan):

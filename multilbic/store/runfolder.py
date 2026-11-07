@@ -40,8 +40,8 @@ from typing import Any
 import numpy as np
 
 from multilbic.scan.binning import Grid
-from multilbic.scan.mapping import MapResult, build_map
-from multilbic.store.runfile import read_run
+from multilbic.scan.mapping import MapResult
+from multilbic.store.alignfile import MappedFile, SavedAlignment, map_file
 
 #: A laser's finished map; a clipped attempt has its range after the nm.
 LASER_FILE = re.compile(r"^laser(\d+)_(\d+)nm\.csv$")
@@ -97,6 +97,13 @@ class LaserMap:
     #: The map on the run's shared grid, `values[v, u]`, A; NaN where
     #: this laser has no samples.
     values: np.ndarray
+    #: The alignment the map was built with, as saved beside the file
+    #: (`store/alignfile`).
+    saved: SavedAlignment | None = None
+    #: Built from that saved alignment rather than searched for.
+    reused: bool = False
+    #: Why the alignment couldn't be saved, if it couldn't.
+    not_saved: str | None = None
 
     @property
     def complete(self) -> bool:
@@ -226,10 +233,17 @@ def read_folder(
     folder: str | Path,
     *,
     on_file: Callable[[int, int, Path], None] | None = None,
+    by: str = "viewer",
+    write: bool = True,
 ) -> RunFolder:
     """Every laser's map in `folder`, on one grid. A laser file may be
     given instead of its folder. `on_file(done, total, path)` is called
-    before each file, for a progress bar."""
+    before each file, for a progress bar.
+
+    Each map is built from the alignment saved beside its file when
+    there is a current one, in about a second; otherwise the alignment
+    is searched for and, unless `write` is False, saved for next time
+    (`store/alignfile`)."""
     folder = Path(folder)
     if folder.is_file():
         folder = folder.parent
@@ -239,30 +253,29 @@ def read_folder(
     if not files:
         raise RunFolderError(f"{folder}: no laser maps (laser<N>_<nm>nm.csv)")
 
-    built: list[tuple[int, float, Path, dict[str, Any], MapResult]] = []
+    built: list[tuple[int, float, Path, MappedFile]] = []
     problems: dict[str, str] = {}
     for k, (named_laser, named_nm, path) in enumerate(files):
         if on_file is not None:
             on_file(k, len(files), path)
         try:
-            run = read_run(path)
-            result = build_map(run.scan_data())
+            mapped = map_file(path, by=by, write=write)
         except Exception as exc:  # noqa: BLE001 - one bad file, the rest open
             problems[path.name] = f"{type(exc).__name__}: {exc}"
             continue
-        laser = int(run.header.get("laser") or named_laser)
-        nm = float(run.header.get("wavelength_nm") or named_nm)
-        built.append((laser, nm, path, run.header, result))
+        header = mapped.run.header
+        laser = int(header.get("laser") or named_laser)
+        nm = float(header.get("wavelength_nm") or named_nm)
+        built.append((laser, nm, path, mapped))
     if not built:
         raise RunFolderError(
             f"{folder}: none of its laser maps could be read: "
             + "; ".join(f"{name}: {why}" for name, why in problems.items()))
 
-    grid = shared_grid([b[4].grid for b in built])
+    grid = shared_grid([b[3].result.grid for b in built])
     maps = {
-        laser: LaserMap(laser, nm, path, header, result,
-                        on_grid(result.grid, grid))
-        for laser, nm, path, header, result in built
+        laser: _laser_map(laser, nm, path, mapped, grid)
+        for laser, nm, path, mapped in built
     }
     return RunFolder(
         folder, grid, maps,
@@ -270,6 +283,31 @@ def read_folder(
         calibration=_json(folder / "calibration.json", problems),
         attempts=attempts, problems=problems,
     )
+
+
+def _laser_map(laser: int, nm: float, path: Path, mapped: MappedFile,
+               grid: SharedGrid) -> LaserMap:
+    return LaserMap(laser, nm, path, mapped.run.header, mapped.result,
+                    on_grid(mapped.result.grid, grid), mapped.saved,
+                    mapped.reused, mapped.not_saved)
+
+
+def rebuild(
+    run: RunFolder,
+    laser: int,
+    *,
+    realign: bool = False,
+    shift_um: float | None = None,
+    by: str = "viewer",
+) -> LaserMap:
+    """Laser `laser`'s map built again, with its alignment searched for
+    afresh (`realign`) or set by hand (`shift_um`), saved, and put in
+    `run` in place of the old one, on the same grid."""
+    old = run.maps[laser]
+    mapped = map_file(old.path, by=by, realign=realign, shift_um=shift_um)
+    new = _laser_map(laser, old.wavelength_nm, old.path, mapped, run.grid)
+    run.maps[laser] = new
+    return new
 
 
 def shared_grid(grids: list[Grid]) -> SharedGrid:

@@ -277,3 +277,49 @@ def test_the_viewer_matches_read_folder(run_folder):
     """The window draws what `read_folder` gives: nothing of its own."""
     run = read_folder(run_folder)
     assert run.grid.shape == run.maps[1].values.shape
+
+
+def test_the_alignment_can_be_set_by_hand_and_searched_again(
+        viewer, run_folder, tmp_path):
+    from multilbic.store import alignfile
+
+    folder = shutil.copytree(run_folder, tmp_path / run_folder.name)
+    run = opened(viewer, folder)
+    assert all(m.reused for m in run.maps.values())  # saved by the run
+    assert "2 of 2 from saved alignments" in viewer.status_label.cget("text")
+    assert "computed by the run" in viewer.align_note.cget("text")
+    viewer.show_laser(2)
+    viewer.draw_profile((0.02, 0.075), (0.28, 0.075))
+    searched = run.maps[2].result.alignment.shift_mm * 1000
+
+    viewer.shift_var.set("41.5")
+    viewer.set_shift()
+    wait_loaded(viewer)
+    m = viewer.run.maps[2]
+    assert m.result.alignment.shift_mm == pytest.approx(0.0415)
+    assert "by hand" in viewer.align_note.cget("text")
+    assert "shift 41.5 µm" in viewer.status_label.cget("text")
+    assert alignfile.load(m.path).by_hand
+    # Laser 2 is still shown, its line and profile with it, now from
+    # the new map.
+    assert viewer.laser == 2 and viewer.line_uv is not None
+    np.testing.assert_array_equal(
+        viewer.profile.values,
+        viewtools.profile(m.values, viewer.run.grid, *viewer.line_uv).values)
+
+    # Opened again, it keeps the shift set by hand.
+    viewer.load(folder)
+    wait_loaded(viewer)
+    assert viewer.run.maps[2].saved.by_hand
+
+    viewer.realign()
+    wait_loaded(viewer)
+    m = viewer.run.maps[2]
+    assert not m.saved.by_hand
+    assert m.result.alignment.shift_mm * 1000 == pytest.approx(searched)
+    assert "computed by the viewer" in viewer.align_note.cget("text")
+
+    viewer.shift_var.set("lots")
+    viewer.set_shift()  # not a number: refused, nothing rebuilt
+    assert not viewer.loading
+    assert "number" in viewer.status_label.cget("text")
