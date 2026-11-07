@@ -3,6 +3,25 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.8 - The Power tab: the photodiode against the power meter
+
+- Phase 7 step 6, second half (D32 revised): the Maintenance window's
+  **Power** tab measures the photodiode's response to one laser with the
+  power meter. Photodiode before (dark, laser on and warmed up, range
+  chosen, read), the meter's reading typed with its head at the
+  sample's place, photodiode after on the same range, then the dark.
+  The response (before and after's mean, dark out, over the meter's
+  power) is shown with what is worth a second look: before and after
+  more than 2 % apart, more than 25 % off the datasheet, a reading at
+  its range's limit. **Save** writes `pd_response_a_w` and
+  `pd_response_date` into the laser's table.
+- `run/powercal.py`: `PowerCal`, `PowerCalibrator` (on commissioning's
+  readings), `apply_response`, a report per calibration in the runs
+  folder. The worker's `power_before`, `power_after`, `save_power` and
+  `PowerCalChanged`; Stop reaches it as it reaches commissioning.
+- On the simulator: laser 3's response comes out as the simulated
+  photodiode's full beam over the meter's reading, within 3 %.
+
 ## 0.7.7 - Maps as EQE
 
 - Phase 7 step 6, first half (D32 revised). `scan/eqe.py`: a pixel's

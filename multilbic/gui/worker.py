@@ -53,6 +53,7 @@ offset on the cell is worked out (`run.lineup`) and sent as
 
 from __future__ import annotations
 
+import dataclasses
 import datetime
 import enum
 import queue
@@ -91,7 +92,14 @@ from multilbic.run.lineup import (
     read_lineup,
 )
 from multilbic.run.motion import RunStopped
+from multilbic.run.powercal import (
+    PowerCal,
+    PowerCalibrator,
+    apply_response,
+)
+from multilbic.run.powercal import write_report as write_powercal
 from multilbic.run.ranges import RangeCheck
+from multilbic.run.reading import amps as amps_text
 from multilbic.run.rows import RowDone
 from multilbic.run.session import (
     LaserOutcome,
@@ -249,6 +257,16 @@ class LineUpEnded:
 
 
 @dataclass(frozen=True)
+class PowerCalChanged:
+    """A step of the photodiode's power calibration done (or failed):
+    the calibration as it stands (a copy)."""
+
+    cal: PowerCal | None
+    report: Path | None = None
+    error: str | None = None
+
+
+@dataclass(frozen=True)
 class MachineChanged:
     machine: MachineConfig
     path: Path
@@ -260,7 +278,7 @@ Event = (
     | CalibrationChanged | RunStarted | RowEvent | MapEvent | RunEnded
     | NotLocated
     | FocusStarted | FocusPassed | FocusEnded | MachineChanged
-    | CommissionEnded | LineUpEnded
+    | CommissionEnded | LineUpEnded | PowerCalChanged
 )
 
 
@@ -309,6 +327,8 @@ class MachineWorker:
         #: The last commissioning's and line-up's results, until saved.
         self._commissioned: CommissionResult | None = None
         self._lined_up: LineUp | None = None
+        #: The power calibration in hand (the Power tab), until saved.
+        self._powercal: PowerCal | None = None
         #: The stage's coordinates mean something.
         self._homed = False
         #: The SMU output is on at 0 V, so readings can be taken.
@@ -550,6 +570,34 @@ class MachineWorker:
     def save_lineup(self) -> bool:
         """Write the last line-up's offsets into machine.toml."""
         return self._moving("save line-up", self._save_lineup)
+
+    # ---- the photodiode's power calibration (the Power tab) ----
+
+    def power_before(self, laser: int, warmup_s: float) -> bool:
+        """The open quarter under `laser`: the dark, the laser lit and
+        warmed up, the photodiode read. The laser stays on for the
+        meter."""
+        return self._submit(
+            "power before", lambda: self._power_before(laser, warmup_s),
+            State.COMMISSIONING)
+
+    def power_after(self, meter_mw: float,
+                    out_root: str | Path | None = None,
+                    provenance: dict[str, Any] | None = None) -> bool:
+        """The meter's reading (mW), then the photodiode read again on
+        the open quarter, and the dark with the laser off. Refused with
+        no reading before in hand."""
+        cal = self._powercal
+        if cal is None or cal.before is None or cal.after is not None:
+            return False
+        return self._submit(
+            "power after",
+            lambda: self._power_after(meter_mw, out_root, provenance or {}),
+            State.COMMISSIONING)
+
+    def save_power(self) -> bool:
+        """Write the calibration's response into machine.toml."""
+        return self._moving("save power calibration", self._save_power)
 
     # ---- Stop ----
 
@@ -943,6 +991,86 @@ class MachineWorker:
 
         self._write_machine(write)
         self._lined_up = None
+
+    def _power_job(self) -> PowerCalibrator:
+        conn = self._conn
+        if conn is None:
+            raise RuntimeError("not connected")
+        self._require_homed()
+        calibrator = PowerCalibrator(conn.devices, self.machine, conn.clock,
+                                     say=self._log)
+        with self._lock:
+            if self._state is State.STOPPING:
+                raise RunStopped("stopped before it started")
+            self._commissioner = calibrator
+        self._reading = False
+        return calibrator
+
+    def _power_before(self, laser: int, warmup_s: float) -> None:
+        cal = PowerCal(laser, self.machine.laser(laser).wavelength_nm)
+        self._powercal = None
+        try:
+            self._power_job().read_before(cal, warmup_s)
+        except BaseException as exc:
+            self._emit(LaserChanged(0))
+            self._emit(PowerCalChanged(None, None, str(exc) or
+                                       type(exc).__name__))
+            self._readings_again()
+            raise
+        self._powercal = cal
+        self._emit(LaserChanged(laser))
+        self._emit(PowerCalChanged(dataclasses.replace(cal)))
+        for line in cal.lines():
+            self._log(line)
+        # The photodiode stays on its range for the reading after.
+        self._reading = True
+
+    def _power_after(self, meter_mw: float, out_root: str | Path | None,
+                     provenance: dict[str, Any]) -> None:
+        cal = self._powercal
+        if cal is None or cal.before is None:
+            raise RuntimeError("read the photodiode before first")
+        if not meter_mw > 0:
+            raise RuntimeError("the meter's reading: mW, above 0")
+        cal.meter_mw = meter_mw
+        try:
+            self._power_job().read_after(cal)
+        except BaseException as exc:
+            self._emit(PowerCalChanged(dataclasses.replace(cal), None,
+                                       str(exc) or type(exc).__name__))
+            raise
+        finally:
+            self._emit(LaserChanged(0))
+            self._readings_again()
+        report = None
+        if out_root is not None and self._conn is not None:
+            report = write_powercal(
+                Path(out_root) / folder_name(self._conn.simulated), cal,
+                simulated=self._conn.simulated, provenance=provenance)
+        error = None
+        if cal.response_a_w is None:
+            error = "no response: the photodiode saw no light"
+        elif self.machine_path is None:
+            error = "the window was not given machine.toml's path"
+        self._emit(PowerCalChanged(dataclasses.replace(cal), report, error))
+        for line in cal.lines():
+            self._log(line)
+
+    def _save_power(self) -> None:
+        cal = self._powercal
+        if cal is None or cal.response_a_w is None:
+            raise RuntimeError("nothing to save: calibrate a laser first")
+        response = cal.response_a_w
+        meter = cal.meter_mw
+        light = cal.light_a
+        note = (f"{meter:g} mW, photodiode {amps_text(light)}"
+                if meter is not None and light is not None else "")
+
+        def write(text: str, when: str) -> str:
+            return apply_response(text, cal.laser, response, when, note)
+
+        self._write_machine(write)
+        self._powercal = None
 
     def _write_machine(self, change: Callable[[str, str], str]) -> None:
         """machine.toml changed and written, and the worker and the

@@ -12,7 +12,7 @@ each push is in [`CHANGELOG.md`](../CHANGELOG.md); decisions are in
 | | |
 |---|---|
 | status | Phases 0–6 merged. **Phase 7 (the viewer and spectral response) planned**, branch `phase-7-viewer`. |
-| next | Step 6, second half: the Power calibration tab. EQE in the viewer is done (0.7.7); steps 2-5 are done, step 5 in the simulator only. |
+| next | Step 7: the spectrum at a pixel or over an area. Steps 2-6 are done; steps 5 and 6's machine parts (the power readings in runs, the Power tab) in the simulator only, for the bench in step 9. |
 
 ## Phases
 
@@ -92,8 +92,9 @@ Steps:
    trailer); 20 s more a laser in the estimate. A failed reading after
    the map is written down and the map stands. The simulator's lasers
    drift on request (`Faults.laser_drift_per_min`). Bench in step 9.
-6. **EQE** (D32 revised; the EQE itself done 0.7.7,
-   [viewer](viewer.md#eqe); the Power tab next): the photodiode's response to each laser
+6. **EQE** (D32 revised; done: the EQE 0.7.7, [viewer](viewer.md#eqe);
+   the Power tab 0.7.8, [commissioning](commissioning.md#power), in the
+   simulator): the photodiode's response to each laser
    (A/W), measured with the power meter and kept in `machine.toml`, the
    S1223-01's typical curve in the repository (with its source) for a
    laser not measured; EQE per pixel from the power interpolated in

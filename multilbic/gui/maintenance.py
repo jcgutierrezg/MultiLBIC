@@ -8,6 +8,9 @@ Lasers panel's Maintenance button, beside the main window.
   laser found on the photodiode, its position and spot, and what that
   would change in machine.toml. After any work in the box (lasers move
   when handled), and after refocusing.
+* **Power**: the photodiode's response to each laser, measured with
+  the power meter (`run.powercal`, D32 revised): photodiode, meter at
+  the sample's place, photodiode again; the EQE of every map rests on it.
 * **Line-up**: a short run of the chosen lasers over a cell's corner,
   placed from the photodiode, then each laser's offset on the cell
   against the reference laser (`run.lineup`), and what that would
@@ -23,7 +26,7 @@ import dataclasses
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, ttk
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from multilbic.gui.focus_window import FocusTab
 from multilbic.gui.runform import FormError, plan_form
@@ -33,10 +36,12 @@ from multilbic.gui.worker import (
     Event,
     LineUpEnded,
     MachineChanged,
+    PowerCalChanged,
     State,
     StateChanged,
 )
 from multilbic.run import lineup as lu
+from multilbic.run import powercal as pc
 from multilbic.run.commission import CommissionRequest, estimate_s
 from multilbic.run.session import duration
 
@@ -63,17 +68,22 @@ class MaintenanceWindow:
         self.focus = FocusTab(app, self.notebook)
         self.commission = CommissionTab(app, self.notebook)
         self.lineup = LineUpTab(app, self.notebook)
+        self.power = PowerTab(app, self.notebook)
         for tab, title in ((self.focus, "Focus"),
                            (self.commission, "Photodiode"),
+                           (self.power, "Power"),
                            (self.lineup, "Line-up")):
             self.notebook.add(tab.frame, text=title)
 
+    def tabs(self) -> tuple[Any, ...]:
+        return (self.focus, self.commission, self.power, self.lineup)
+
     def handle(self, event: Event) -> None:
-        for tab in (self.focus, self.commission, self.lineup):
+        for tab in self.tabs():
             tab.handle(event)
 
     def refresh(self) -> None:
-        for tab in (self.focus, self.commission, self.lineup):
+        for tab in self.tabs():
             tab.refresh()
 
     def close(self) -> None:
@@ -397,6 +407,152 @@ class LineUpTab:
     def refresh(self) -> None:
         idle = self.app.state is State.IDLE
         _enable(self.start_btn, idle)
+        _enable(self.save_btn, idle and self.can_save)
+
+
+class PowerTab:
+    """The photodiode's response to each laser, with a power meter
+    (`run.powercal`, D32 revised): photodiode, meter, photodiode."""
+
+    def __init__(self, app: App, parent: tk.Misc):
+        self.app = app
+        body = ttk.Frame(parent, padding=12)
+        self.frame = body
+        ttk.Label(
+            body, wraplength=520, justify="left",
+            text="How much current the photodiode gives per watt of each "
+                 "laser, measured with the power meter: the EQE of every "
+                 "map rests on it. One laser at a time: the photodiode, "
+                 "then the meter at the sample's place, then the "
+                 "photodiode again.").pack(anchor="w")
+        pick = ttk.Frame(body)
+        pick.pack(anchor="w", pady=(8, 0))
+        ttk.Label(pick, text="Laser").pack(side="left")
+        self.laser = tk.IntVar(master=body, value=app.laser_numbers()[0])
+        for n in app.laser_numbers():
+            ttk.Radiobutton(pick, text=str(n), value=n,
+                            variable=self.laser).pack(side="left",
+                                                      padx=(8, 0))
+        ttk.Label(pick, text="warm-up").pack(side="left", padx=(16, 4))
+        self.warmup = tk.StringVar(master=body, value=f"{pc.WARMUP_S:g}")
+        ttk.Entry(pick, textvariable=self.warmup, width=5).pack(side="left")
+        ttk.Label(pick, text="s").pack(side="left", padx=(4, 0))
+
+        steps = ttk.Frame(body)
+        steps.pack(fill="x", pady=(10, 0))
+        self.before_btn = ttk.Button(steps, text="1. Photodiode before",
+                                     command=self.before)
+        self.before_btn.grid(row=0, column=0, sticky="w")
+        ttk.Label(steps, style="Hint.TLabel", wraplength=360, justify="left",
+                  text="Homed first. The laser comes on over the photodiode "
+                       "and stays on.").grid(row=0, column=1, sticky="w",
+                                             padx=(10, 0))
+        meter = ttk.Frame(steps)
+        meter.grid(row=1, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(meter, text="2. Meter").pack(side="left")
+        self.meter = tk.StringVar(master=body)
+        self.meter_entry = ttk.Entry(meter, textvariable=self.meter, width=9)
+        self.meter_entry.pack(side="left", padx=(6, 4))
+        ttk.Label(meter, text="mW").pack(side="left")
+        ttk.Label(steps, style="Hint.TLabel", wraplength=360, justify="left",
+                  text="Jog the meter's head under the beam at the sample's "
+                       "place (main window), set it to the laser's "
+                       "wavelength, type its reading.").grid(
+            row=1, column=1, sticky="w", padx=(10, 0), pady=(8, 0))
+        self.after_btn = ttk.Button(steps, text="3. Photodiode after",
+                                    command=self.after)
+        self.after_btn.grid(row=2, column=0, sticky="w", pady=(8, 0))
+        ttk.Label(steps, style="Hint.TLabel", wraplength=360, justify="left",
+                  text="Back over the photodiode, then the laser off for "
+                       "the dark.").grid(row=2, column=1, sticky="w",
+                                         padx=(10, 0), pady=(8, 0))
+        buttons = ttk.Frame(body)
+        buttons.pack(fill="x", pady=(10, 0))
+        self.save_btn = ttk.Button(buttons, text="Save to machine.toml",
+                                   command=self.save)
+        self.save_btn.pack(side="left")
+        ttk.Label(body, style="Small.Hint.TLabel", wraplength=520,
+                  justify="left", text=INFRARED_NOTE).pack(anchor="w",
+                                                           pady=(6, 0))
+        self.result = _text(body, 12)
+        self.result.pack(fill="both", expand=True, pady=(10, 0))
+        #: The calibration in hand, as the worker last reported it.
+        self.cal: pc.PowerCal | None = None
+        self.can_save = False
+        self.refresh()
+
+    def before(self) -> None:
+        n = self.laser.get()
+        try:
+            warmup = float(self.warmup.get())
+        except ValueError:
+            self.app.status("power: the warm-up in seconds", error=True)
+            return
+        if not messagebox.askokcancel(
+                "Read the photodiode?",
+                f"Laser {n} comes on over the photodiode, warms up "
+                f"{warmup:g} s and is read; it stays on for the meter.\n"
+                + INFRARED_NOTE, parent=self.frame):
+            return
+        if not self.app.worker.power_before(n, warmup):
+            self.app.refused("power")
+            return
+        self.cal = None
+        self.can_save = False
+        _show(self.result, [f"laser {n}: warming up and reading..."])
+        self.refresh()
+
+    def after(self) -> None:
+        try:
+            meter = float(self.meter.get())
+        except ValueError:
+            self.app.status("power: the meter's reading in mW", error=True)
+            return
+        if not meter > 0:
+            self.app.status("power: the meter's reading, above 0 mW",
+                            error=True)
+            return
+        from multilbic.bench.report import provenance
+
+        if not self.app.worker.power_after(meter, _out_folder(self.app),
+                                           provenance()):
+            self.app.refused("power")
+            return
+        _show(self.result, (self.cal.lines() if self.cal else [])
+              + ["reading the photodiode again..."])
+
+    def save(self) -> None:
+        if not self.app.worker.save_power():
+            self.app.refused("save")
+
+    def handle(self, event: Event) -> None:
+        if isinstance(event, PowerCalChanged):
+            self.cal = event.cal
+            lines = event.cal.lines() if event.cal else []
+            if event.report is not None:
+                lines.append(f"report: {event.report}")
+            if event.error:
+                lines.append(f"! {event.error}")
+            self.can_save = (event.cal is not None
+                             and event.cal.response_a_w is not None
+                             and not event.error)
+            _show(self.result, lines)
+        elif isinstance(event, MachineChanged) and self.can_save:
+            self.can_save = False
+            self.cal = None
+            self.result.configure(state="normal")
+            self.result.insert("end", f"\nsaved: {event.path}")
+            self.result.configure(state="disabled")
+        if isinstance(event, (StateChanged, PowerCalChanged, MachineChanged)):
+            self.refresh()
+
+    def refresh(self) -> None:
+        idle = self.app.state is State.IDLE
+        _enable(self.before_btn, idle)
+        waiting = (self.cal is not None and self.cal.before is not None
+                   and self.cal.after is None)
+        _enable(self.after_btn, idle and waiting)
+        _enable(self.meter_entry, waiting)
         _enable(self.save_btn, idle and self.can_save)
 
 

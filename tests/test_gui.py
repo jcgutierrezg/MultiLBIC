@@ -686,7 +686,7 @@ def test_the_maintenance_window(window, tmp_path, monkeypatch):
     assert m is not None
     m.top.withdraw()
     tabs = [m.notebook.tab(t, "text") for t in m.notebook.tabs()]
-    assert tabs == ["Focus", "Photodiode", "Line-up"]
+    assert tabs == ["Focus", "Photodiode", "Power", "Line-up"]
     # Clicking again brings the open one forward, not a second one.
     window.click(app.maintenance_btn)
     assert app.maintenance is m

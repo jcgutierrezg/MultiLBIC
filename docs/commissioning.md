@@ -5,7 +5,7 @@ title: "Commissioning"
 
 # Commissioning: keeping the lasers where `machine.toml` says
 
-Three procedures, all on the reference [photodiode](hardware/photodiode.md),
+Four procedures, all on the reference [photodiode](hardware/photodiode.md),
 all in the window's **Maintenance...** (bottom left, where `machine.toml`
 has a photodiode), so none needs the command line:
 
@@ -13,10 +13,12 @@ has a photodiode), so none needs the command line:
 |---|---|---|---|
 | **Focus** | (window only) | the spot, pass after pass, while the focus is turned by hand | `xy_centre_mm`, `spot_um` |
 | **Photodiode** | `multilbic commission` | each laser's position and spot | `xy_centre_mm`, `spot_um` (and the corner) |
+| **Power** | (window only) | the photodiode's response to a laser, against the power meter | `pd_response_a_w`, `pd_response_date` |
 | **Line-up** | `multilbic lineup` | where each laser lands on a cell against laser 3 | `cell_offset_xy_mm` |
 
 Each shows what it found and writes to `machine.toml` only when asked
-(D23), each changed line ending in `# focus|commission|lineup <date>`.
+(D23), each changed line ending in `# focus|commission|lineup|power
+meter <date>`.
 Esc or STOP stops any of them at once: motion stops, laser and channel
 off, nothing saved. **They move the stage and light lasers; lasers 5 and
 6 are infrared, so the box is closed** (Focus is the exception: the box
@@ -34,6 +36,8 @@ deploy.
 - **After focusing a laser**: Focus measures it again before saving.
 - **Now and then, or when maps from different lasers disagree**: a
   line-up. It needs no commissioning first.
+- **Now and then for EQE, and after anything changes a laser's light**
+  (refocusing, the new laser board): Power, laser by laser.
 
 ## Focus
 
@@ -111,6 +115,33 @@ can't reach past an edge says so; a channel reporting more than 10 mV
 off its bias is reported (the positions stand). `--sim` runs it on the
 simulated photodiode; `--sim-offset N=DX,DY` and `--sim-corner DA,DB`
 plant errors to see them recovered.
+
+## Power
+
+How much current the photodiode gives per watt of each laser, measured
+with the power meter (`run/powercal.py`, D32 revised). The EQE of every
+map made since rests on it ([viewer](viewer.md#eqe)); a laser never
+measured falls back on the S1223-01's datasheet curve. The meter is not
+part of the system: its reading is typed. One laser at a time, homed:
+
+1. **Photodiode before**: the open quarter under the laser, the dark,
+   the laser on and warmed up (60 s by default), the range chosen from
+   the light, then 5 s of readings. The laser stays on.
+2. **Meter**: jog the meter's head under the beam at the sample's place
+   in the main window, set the meter to the laser's wavelength, and type
+   its reading in mW.
+3. **Photodiode after**: back over the open quarter on the same range,
+   read again; then the laser off and the dark on that range.
+
+The response is the mean of before and after, dark taken out, over the
+meter's power. The tab says so if before and after are more than 2 %
+apart (the laser drifted while the meter was read: do it again), if the
+response is more than 25 % off the datasheet's (the meter's wavelength
+setting, or its head missing part of the beam), or if a reading reached
+its range's limit. Each calibration's readings go to
+`<stamp>_powercal_laser<N>.json` in the runs folder; **Save** writes the
+response into that laser's table, the meter's and photodiode's readings
+in the line's comment.
 
 ## Line-up
 
