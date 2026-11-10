@@ -143,6 +143,13 @@ module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-modu
   went on to 16 mA (1.16 mW), its light per mA easing from 87 to 74 uA;
   its voltage sweep then stopped when 18.76 mA passed a 15.5 mA limit
   the miniSMU had dropped (hardware/smu.md), about 1.6 mW, harmless.
+  A third (`20261110T183723Z`) went the same way to 14.5 mA (threshold
+  8.7 mA, 0.176 mW per mA, up and down within 0.3 %); on a plain supply
+  its current clamped at 18.06 mA, 1.94 V and 1.55 mW from 1.95 V up,
+  still a diode: its driver takes over above that, as on the board
+  (16 mA, 2.47 mW at 3.26 V). Like laser 3's, it wants a fixed voltage;
+  its light against voltage is still to measure. Held 60 s at 1.88 V the
+  light moved −1.6 % with dips of 5 %; at 15.3 mA, +0.2 %.
 
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of

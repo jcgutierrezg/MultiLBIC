@@ -3,6 +3,24 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.22 - The limit's offset allowed for; a clamp seen by its voltage
+
+- Laser 5's third pass completed: the limit check measured 1.23 x at
+  2 mA, but its plain-supply sweep clamped at 18.06 mA for 16.85 mA
+  sent (1.07 x): the miniSMU's limit clamps about 1.05 x the setting
+  plus 0.4 mA, and 0.7.19's 18.76 mA was no limit at all, the limit set
+  before the range. 0.7.21's note that the order "is not it" was wrong;
+  hardware/smu.md now has both.
+- The gain at 2 mA over-corrected at higher currents, so laser 5 sat at
+  18 mA, 83 % of the 21.8 wanted, without the sweep calling it the
+  limit, set to 5.5 V and read at 1.94 V. Limits are now sent at what is
+  wanted less the excess the limit check read, over 1.05, which lands
+  the clamp at what is wanted; and the voltage read more than 30 mV
+  below the voltage set counts as at the limit. The simulator's limit
+  has an offset as well as a gain.
+- Laser 5's three passes in hardware/lasers.md: a diode to 18 mA and
+  1.55 mW on a plain supply, its driver above that, as laser 3's.
+
 ## 0.7.21 - Channel 1's limit clamps 1.22 x: measured and allowed for
 
 - 0.7.20's laser 5 run: the limit check read 2.69 mA under a 2.2 mA

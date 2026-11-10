@@ -290,12 +290,11 @@ def test_the_current_limit_survives_the_range():
     rig = laser_module.ModuleRig(smu, clock, 1, 0.0)
     rig.start()
     rig.force_voltage(0.0155)
-    # Sent under the margin (and the gain, once the limit check has one).
+    # Sent under the margin (and the excess, once the limit check has one).
     assert fake.current_limit[1] == pytest.approx(0.0155 / laser_module.LIMIT_MARGIN)
-    rig.limit_gain = 1.22
+    rig.limit_excess_a = 0.5e-3
     rig.force_voltage(0.0155)
-    assert fake.current_limit[1] == pytest.approx(
-        0.0155 / (1.22 * laser_module.LIMIT_MARGIN))
+    assert fake.current_limit[1] == pytest.approx(0.0150 / laser_module.LIMIT_MARGIN)
     rig.force_current(5.5)
     assert fake.voltage_limit[1] == pytest.approx(5.5)
     rig.off()
@@ -325,24 +324,43 @@ def test_laser_module_parks_channel_1_clear_of_the_offset(tmp_path, monkeypatch)
     assert "offset state" in results["stopped"]
 
 
-@pytest.mark.parametrize("gain", [1.22, 20.0])
-def test_laser_module_measures_the_limit_gain(tmp_path, monkeypatch, gain):
-    # The real limit clamps 1.22 x what is set: measured and allowed for.
-    # One that barely acts (20 x) stops the run before the voltage sweep.
+@pytest.mark.parametrize("gain, offset_a", [(1.05, 0.4e-3), (20.0, 0.0)])
+def test_laser_module_allows_for_the_limit_offset(tmp_path, monkeypatch, gain, offset_a):
+    # The real limit clamps about 1.05 x what is set plus 0.4 mA: measured
+    # and allowed for, so the clamp lands at what is wanted. One that
+    # barely acts (20 x) stops the run before the voltage sweep.
     from multilbic.sim.laser_module import FakeModuleSMU
 
     monkeypatch.setattr(FakeModuleSMU, "LIMIT_GAIN", gain)
+    monkeypatch.setattr(FakeModuleSMU, "LIMIT_OFFSET_A", offset_a)
     _responses(monkeypatch, 0.4375)
-    results = _module(tmp_path, "--module", "laser3", "--i-known", "16m")
+    results = _module(tmp_path, "--module", "rollover")
     if gain > laser_module.LIMIT_GAIN_MAX:
         assert "the limit did not hold" in results["stopped"]
         assert "voltage" not in results
         return
     assert "stopped" not in results
-    assert results["limit_check"]["gain"] == pytest.approx(gain, rel=0.03)
     _assert_within_ceilings(results)
     wanted = results["voltage"]["current_limit_a"]
-    assert max(p["i"] for p in results["voltage"]["points"]) <= wanted * 1.01
+    clamp = max(p["i"] for p in results["voltage"]["points"])
+    assert 0.97 * wanted <= clamp <= 1.01 * wanted
+
+
+def test_laser_module_sees_a_clamp_by_its_voltage(tmp_path, monkeypatch):
+    # Laser 5, 2026-11-10: clamped at 18.06 mA (83 % of the 21.8 wanted,
+    # the gain over-correcting), the voltage stuck at 1.94 V while the
+    # set voltage rose to 5.5 V, and nothing called it the limit. A gain
+    # that over-corrects the same way, on a module with no driver:
+    from multilbic.sim.laser_module import FakeModuleSMU
+
+    monkeypatch.setattr(FakeModuleSMU, "LIMIT_GAIN", 0.8)
+    monkeypatch.setattr(FakeModuleSMU, "LIMIT_OFFSET_A", -1e-3)
+    results = _module(tmp_path, "--module", "rollover")
+    voltage = results["voltage"]
+    assert voltage["stopped_by"] == "current limit"
+    clamped = [p for p in voltage["points"] if p["set"] - p["v"] > 0.03]
+    # It stops 0.5 V past where it first clamped, not at 5.5 V.
+    assert clamped and max(p["set"] for p in voltage["points"]) <= clamped[0]["set"] + 0.51
 
 
 def test_judge_voltage_on_laser_3s_supply_sweep():

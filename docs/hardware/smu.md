@@ -19,13 +19,21 @@ The same **Undalogic miniSMU MS01** that SMUniversal uses (serial
 - **The current limit follows the range**, at its full scale (1 mA on
   autorange); it took limits down to 25 µA. A range that truly clips
   reads its end exactly, 26.8 µA on 25 µA.
-- **Channel 1's voltage-mode current limit clamps about 1.22 x what is
-  set**, on its 180 mA range: 18.76 mA through a 15.5 mA limit, then
-  2.69 mA through 2.2 mA, both into laser 5 (2026-11-10; the readings
-  themselves are good to 0.1 %). I first blamed setting the limit before
-  the range (0.7.19); the second run, with the range first, clamped at
-  the same 1.22 x, so the order is not it. The laser module test
-  measures the gain each run and sets its limits under it.
+- **A limit set before the range is lost**, and **channel 1's
+  voltage-mode current limit clamps above what is set**, on its 180 mA
+  range, both into laser 5 (2026-11-10; the readings themselves are good
+  to 0.1 %):
+  - limit 15.5 mA sent before the range: 18.76 mA, what the diode draws
+    at that voltage, so no limit at all;
+  - with the range first: 2.55 mA for 2.07 mA sent, 2.69 for 2.2, and
+    18.06 for 16.85, about 1.05 x the setting plus 0.4 mA.
+
+  Set the range first, then the limit, and allow for the offset. The
+  laser module test measures the gain at a few mA each run and sets
+  its limits under it (over-correcting at higher currents), and also
+  calls the voltage read 30 mV below the voltage set a clamp.
+  `PhotocurrentSmu.prepare` sets limit then range, harmless for a cell
+  at 0 V.
 - **Firmware 1.4.6**: Undalogic's updater returned HTTP 500. 1.5.0+
   adds the active range to each streamed packet; nothing depends on it.
 

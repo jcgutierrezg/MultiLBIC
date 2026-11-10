@@ -129,17 +129,20 @@ DARK_STEADY_A = 2e-6
 PD_V_MAX = 0.01
 #: Channel 1 parked: voltage mode at 0 V, this limit, output off.
 PARK_LIMIT_A = 1e-3
-#: Channel 1's voltage-mode current limit clamps about 1.22 x what is
-#: set (18.76 mA for 15.5, 2.69 for 2.2; laser 5, 2026-11-10). The limit
-#: check measures that gain each run, refusing a limit that doesn't act
-#: (above LIMIT_ACTING of the current without it) or a gain past
-#: LIMIT_GAIN_MAX; every limit is then set at what is wanted over the
-#: gain and LIMIT_MARGIN. A current past LIMIT_SEEN of what is wanted
-#: counts as at the limit.
+#: Channel 1's voltage-mode current limit clamps above what is set,
+#: about 1.05 x it plus 0.4 mA (2.55 mA for 2.07, 18.06 for 16.85; laser
+#: 5, 2026-11-10). The limit check measures the excess at a few mA each
+#: run, refusing a limit that doesn't act (above LIMIT_ACTING of the
+#: current without it) or clamps past LIMIT_GAIN_MAX x; every limit is
+#: then sent at what is wanted less that excess, over LIMIT_MARGIN (the
+#: 1.05 x), so the clamp lands at what is wanted. At the limit: a
+#: current past LIMIT_SEEN of what is wanted, or the voltage read more
+#: than CLAMPED_V below the voltage set.
 LIMIT_ACTING = 0.8
 LIMIT_GAIN_MAX = 1.5
 LIMIT_MARGIN = 1.05
 LIMIT_SEEN = 0.9
+CLAMPED_V = 0.03
 #: Current steps: never below MIN_STEP_A; stop this close to the ceiling.
 MIN_STEP_A = 20e-6
 CREEP_STOP = 0.02
@@ -217,9 +220,9 @@ class ModuleRig:
         self.pd_v = 0.0
         #: Points whose bend or fall was read again (and didn't hold).
         self.read_again: list[Point] = []
-        #: Channel 1's current limit: its gain (from the limit check) and
-        #: what was last sent.
-        self.limit_gain = 1.0
+        #: Channel 1's current limit: how far above what is sent it
+        #: clamps, from the limit check, and what was last sent.
+        self.limit_excess_a = 0.0
         self.limit_sent_a = 0.0
         self.laser = smu.drivers[1]
         self.pd = smu.drivers[2]
@@ -261,8 +264,8 @@ class ModuleRig:
         self.off()
         self.laser.set_source_function("voltage")
         self._fix_range()
-        self.limit_sent_a = min(current_limit_a, MAX_I_A) / (
-            max(1.0, self.limit_gain) * LIMIT_MARGIN)
+        wanted = min(current_limit_a, MAX_I_A)
+        self.limit_sent_a = max(0.5 * wanted, wanted - self.limit_excess_a) / LIMIT_MARGIN
         self.laser.set_current_limit(self.limit_sent_a)
         self.laser.set_voltage_level(0.0)
         self.laser.output_on()
@@ -531,8 +534,8 @@ def prove_current_limit(rig, report, judged: dict, up: list[dict], caps: Caps) -
     """Channel 1's current limit, proven on the instrument before the
     voltage sweep relies on it: the voltage that drew half the lasing
     threshold (or half the highest current, with no light), under a
-    limit of half that. Held, it reads about the limit, and its gain
-    (read over sent) sets every later limit; not held, the module takes
+    limit of half that. Held, it reads about the limit, and how far
+    above it reads sets every later limit; not held, the module takes
     that current, below threshold, and the run stops."""
     good = [p for p in up if not p["why"]]
     i_max = max((p["i"] for p in good), default=0.0)
@@ -567,9 +570,11 @@ def prove_current_limit(rig, report, judged: dict, up: list[dict], caps: Caps) -
             f"limit check: {read * 1e3:.2f} mA read under a {sent * 1e3:.2f} mA "
             f"limit, {gain:.2f} x: the limit did not hold"
         )
-    rig.limit_gain = max(1.0, gain)
+    rig.limit_excess_a = max(0.0, read - sent)
+    report["limit_check"]["excess_a"] = rig.limit_excess_a
     say(f"limit check: {read * 1e3:.2f} mA read, {gain:.2f} x the limit sent: "
-        f"limits from here are set at what is wanted / {rig.limit_gain * LIMIT_MARGIN:.2f}")
+        f"limits from here are sent {rig.limit_excess_a * 1e3:.2f} mA under what is "
+        f"wanted, / {LIMIT_MARGIN:g}")
 
 
 def sweep_limit(judged: dict, caps: Caps, i_max: float) -> float:
@@ -610,7 +615,7 @@ def stage_voltage(rig, report, args, caps: Caps, v_op, i_max,
     for k in range(n + 1):
         level = top * k / n
         p = rig.step(level, limit)
-        at_limit = abs(p.i) >= LIMIT_SEEN * limit.i_a
+        at_limit = abs(p.i) >= LIMIT_SEEN * limit.i_a or level - p.v > CLAMPED_V
         if at_limit and limited_from is None:
             limited_from = level
         elif not at_limit:

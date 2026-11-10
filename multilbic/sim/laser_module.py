@@ -293,9 +293,11 @@ class FakeModuleSMU(FakeMiniSMU):
     #: off; cleared by channel 1's range or its output on (2026-11-10).
     OFFSET_STATE_V = 0.156
     OFFSET_STATE_SHARE = 0.0103
-    #: Channel 1's voltage-mode current limit clamps this times what is
-    #: set (1.22 on the real one; laser 5, 2026-11-10).
+    #: Channel 1's voltage-mode current limit clamps at this times what
+    #: is set plus this (1.05 and 0.4 mA on the real one; laser 5,
+    #: 2026-11-10).
     LIMIT_GAIN = 1.0
+    LIMIT_OFFSET_A = 0.0
 
     def _ch1_changed(self) -> None:
         if self.mode[1] == "FIMV" and not self.enabled[1]:
@@ -342,7 +344,7 @@ class FakeModuleSMU(FakeMiniSMU):
             if isinstance(m, DriverModule):
                 m.on = False
             return 0.0, 0.0
-        limit = self.current_limit[1] * self.LIMIT_GAIN
+        limit = self.current_limit[1] * self.LIMIT_GAIN + self.LIMIT_OFFSET_A
         if isinstance(m, DriverModule):
             if self.mode[1] == "FIMV":
                 return m.fimv(self.level_a[1], self.voltage_limit[1])
