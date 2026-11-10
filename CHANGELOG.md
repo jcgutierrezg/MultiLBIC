@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.15 - Channel 2's offset state, set and cleared
+
+- Every 0.7.14 run refused its dark: +298-300 uA on 15 mA. On the bench
+  (channel 1's output off) a mode command to channel 1 puts channel 2
+  in its offset state, +0.30 V reported at 0 V and about 2 % of the
+  range's full scale read; the next fixed-range command to channel 1
+  clears it. Channel 2's own range, a reset and replugging didn't.
+  Written up in [smu](docs/hardware/smu.md#the-channel-2-offset-state).
+- The laser module test parks channel 1 before its dark (current mode,
+  0 A, output off, its range last) and refuses any reading with channel
+  2 more than 10 mV off 0 V. Three dark-only runs on the machine read
+  -0.06 to -0.09 uA.
+- The simulator can put channel 2 in that state.
+
 ## 0.7.14 - The laser module test checks its dark
 
 - Laser 4's second run read the photodiode +297 uA dark for its first

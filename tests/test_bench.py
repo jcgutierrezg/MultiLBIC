@@ -227,14 +227,17 @@ def test_laser_module_operating_point_is_on_the_light():
     assert laser_module.operating_point(dark)[0] == pytest.approx(0.8 * 0.0205)
 
 
-@pytest.mark.parametrize("offset_a, says", [
-    (297e-6, "with the laser off"),     # laser 4's second run
-    (-8e-6, "the dark isn't steady"),   # small, and the dangerous sign
+@pytest.mark.parametrize("offset_a, offset_v, says", [
+    (297e-6, 0.304, "offset state"),        # laser 4's runs, as they were
+    (297e-6, 0.0, "with the laser off"),    # the same, its voltage unseen
+    (-8e-6, 0.0, "the dark isn't steady"),  # small, and the dangerous sign
 ])
-def test_laser_module_refuses_a_bad_dark(tmp_path, monkeypatch, offset_a, says):
+def test_laser_module_refuses_a_bad_dark(tmp_path, monkeypatch, offset_a,
+                                         offset_v, says):
     from multilbic.sim.laser_module import FakeModuleSMU
 
     monkeypatch.setattr(FakeModuleSMU, "PD_OFFSET_A", offset_a)
+    monkeypatch.setattr(FakeModuleSMU, "PD_OFFSET_V", offset_v)
     monkeypatch.setattr(FakeModuleSMU, "PD_OFFSET_READS", 20)
     results = _module(tmp_path, "--module", "laser4", "--i-known", "23m")
     assert says in results["stopped"]

@@ -119,6 +119,11 @@ LIT_SCATTER = 10.0
 DARK_SETTLE_S = 2.0
 DARK_MAX_A = 20e-6
 DARK_STEADY_A = 2e-6
+#: Channel 2 must report its 0 V within this. Setting channel 1's mode
+#: puts channel 2 in its offset state (+0.30 V reported, +2 % of each
+#: range's full scale read) until channel 1's range is set again
+#: (bench, 2026-11-10; hardware/smu.md).
+PD_V_MAX = 0.01
 #: Current steps: never below MIN_STEP_A; stop this close to the ceiling.
 MIN_STEP_A = 20e-6
 CREEP_STOP = 0.02
@@ -170,6 +175,8 @@ class ModuleRig:
         self.settle_s = settle_s
         self.dark = 0.0
         self.lit_a = LIT_A
+        #: Channel 2's voltage over the last read: 0 V unless offset.
+        self.pd_v = 0.0
         self.laser = smu.drivers[1]
         self.pd = smu.drivers[2]
         self.client = smu.stream._client
@@ -184,6 +191,13 @@ class ModuleRig:
         self.pd.set_voltage_level(0.0)
         self.pd.set_current_limit(PD_LIMIT_A)
         self.client.set_current_range_by_limit(2, PD_LIMIT_A, disable_autorange=True)
+        # Channel 1 parked, output off: current mode at 0 A, its range
+        # last, which clears channel 2's offset state (PD_V_MAX).
+        self.laser.set_source_function("current")
+        self.laser.set_current_level(0.0)
+        self.laser.set_voltage_limit(MAX_V)
+        self._fix_range()
+        self.mode = "off"
         self.pd.output_on()
 
     def off(self) -> None:
@@ -233,19 +247,30 @@ class ModuleRig:
     def read(self, reads: int | None = None) -> tuple[float, float, float]:
         """Mean (volts, amps) on the module and amps on the photodiode."""
         n = reads or self.reads
-        vs, is_, pds = [], [], []
+        vs, is_, pds, pd_vs = [], [], [], []
         for _ in range(n):
             v, i = self.laser.measure() if self.mode != "off" else (0.0, 0.0)
-            pds.append(self.pd.measure()[1])
+            pd_v, pd = self.pd.measure()
+            pds.append(pd)
+            pd_vs.append(pd_v)
             vs.append(v)
             is_.append(i)
+        self.pd_v = statistics.fmean(pd_vs)
         return statistics.fmean(vs), statistics.fmean(is_), statistics.fmean(pds)
+
+    def check_pd_voltage(self) -> None:
+        if abs(self.pd_v) > PD_V_MAX:
+            raise StopRun(
+                f"channel 2 reports {self.pd_v:+.3f} V where it holds 0 V: its "
+                f"offset state (hardware/smu.md), so the photodiode reads high"
+            )
 
     def light(self, pd: float) -> float:
         return abs(pd - self.dark)
 
     def check(self, v: float, i: float, pd: float, caps: Caps) -> None:
         """End the run if an absolute ceiling did not hold."""
+        self.check_pd_voltage()
         if abs(i) > caps.i_a * 1.03 + 0.2e-3:
             raise StopRun(
                 f"{i * 1e3:.2f} mA read against a {caps.i_a * 1e3:.1f} mA ceiling: "
@@ -280,7 +305,10 @@ class ModuleRig:
 def stage_dark(rig: ModuleRig, report: Report) -> None:
     rig.off()
     rig.clock.sleep(DARK_SETTLE_S)
-    pds = [rig.read(1)[2] for _ in range(20)]
+    pds = []
+    for _ in range(20):
+        pds.append(rig.read(1)[2])
+        rig.check_pd_voltage()
     rig.dark = statistics.fmean(pds)
     scatter = statistics.stdev(pds)
     rig.lit_a = max(LIT_A, LIT_SCATTER * scatter)
