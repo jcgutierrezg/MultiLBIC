@@ -60,9 +60,9 @@ Stages (`--stages`, default all, in this order):
    over the same levels: light against current (threshold, slope, kinks,
    up/down hysteresis) and the voltage it needs. This is how the new
    board would drive it.
-3. **voltage**: voltage forced from 0 to the voltage the module needed at
-   80 % of the highest current reached, under that current as a limit:
-   the module on a plain supply, as today.
+3. **voltage**: voltage forced from 0 to the voltage the module needed
+   where its light reached 80 % of its peak, under the highest current
+   reached as a limit: the module on a plain supply, as today.
 4. **hold**: `--hold-s` at that voltage, dark for `--gap-s`, then
    `--hold-s` at that current: which keeps the light steadier.
 
@@ -97,12 +97,18 @@ MARGIN_CALIBRATED = 0.8
 MARGIN_DATASHEET = 0.65
 #: Light must be seen by this times --i-known.
 LIGHT_BY = 1.5
-#: Channel 1 measures on the 180 mA range throughout; channel 2
-#: autoranges single readings under the photodiode's 15 mA limit.
+#: Channel 1 measures on the 180 mA range throughout; channel 2 on the
+#: fixed 15 mA range. Autoranging, the miniSMU holds a channel to 1 mA
+#: whatever limit is set (hardware/smu.md), under every light ceiling:
+#: laser 4's first run read its light flat at 1.01 mA (2026-11-10).
 LASER_RANGE_A = 0.18
 PD_LIMIT_A = 15e-3
-#: Light this far from dark counts as lit.
+#: A photodiode reading this close to its range's end is clipped.
+PD_CLIPPED = 0.9
+#: Light this far from dark counts as lit (or 10 x the dark's scatter,
+#: if more: the 15 mA range is coarser than autorange).
 LIT_A = 0.5e-6
+LIT_SCATTER = 10.0
 #: Current steps: never below MIN_STEP_A; stop this close to the ceiling.
 MIN_STEP_A = 20e-6
 CREEP_STOP = 0.02
@@ -153,19 +159,21 @@ class ModuleRig:
         self.reads = reads
         self.settle_s = settle_s
         self.dark = 0.0
+        self.lit_a = LIT_A
         self.laser = smu.drivers[1]
         self.pd = smu.drivers[2]
         self.client = smu.stream._client
         self.mode = "off"
 
     def start(self) -> None:
-        """Both channels reset (outputs off), the photodiode on at 0 V."""
+        """Both channels reset (outputs off), the photodiode on at 0 V
+        on the fixed 15 mA range."""
         for driver in (self.laser, self.pd):
             driver.reset()
         self.pd.set_source_function("voltage")
         self.pd.set_voltage_level(0.0)
         self.pd.set_current_limit(PD_LIMIT_A)
-        self.client.set_autorange(2, True)
+        self.client.set_current_range_by_limit(2, PD_LIMIT_A, disable_autorange=True)
         self.pd.output_on()
 
     def off(self) -> None:
@@ -237,6 +245,11 @@ class ModuleRig:
             raise StopRun(f"{v:.2f} V read against {MAX_V} V: the limit did not hold")
         if v * abs(i) > MAX_W:
             raise StopRun(f"{v * abs(i):.2f} W at {v:.2f} V, {i * 1e3:.1f} mA")
+        if abs(pd) > PD_CLIPPED * PD_LIMIT_A:
+            raise StopRun(
+                f"photodiode {abs(pd) * 1e3:.2f} mA, at its range's end: "
+                f"the light can't be read"
+            )
         if caps.light_a is not None and self.light(pd) > caps.light_a * 1.1:
             raise StopRun(
                 f"light {self.light(pd) * 1e6:.0f} uA against a "
@@ -258,9 +271,13 @@ def stage_dark(rig: ModuleRig, report: Report) -> None:
     rig.off()
     rig.clock.sleep(0.5)
     pds = [rig.read(1)[2] for _ in range(20)]
-    report["dark"] = {"pd_a": summary(pds)}
     rig.dark = statistics.fmean(pds)
-    say(f"dark: photodiode {rig.dark:+.3e} A, stdev {statistics.stdev(pds):.1e} A")
+    scatter = statistics.stdev(pds)
+    rig.lit_a = max(LIT_A, LIT_SCATTER * scatter)
+    report["dark"] = {"pd_a": summary(pds), "pd_range_a": PD_LIMIT_A,
+                      "lit_a": rig.lit_a}
+    say(f"dark: photodiode {rig.dark:+.3e} A, stdev {scatter:.1e} A "
+        f"(15 mA range); lit above {rig.lit_a * 1e6:.2f} uA")
 
 
 def _slope(points: list[Point], rig: ModuleRig) -> float | None:
@@ -279,6 +296,7 @@ def _slope(points: list[Point], rig: ModuleRig) -> float | None:
 def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
     """Current up from 0 until a stop; see the module's docstring."""
     dummy = caps.light_a is None
+    light_cap = caps.light_a or 0.0
     light_by = LIGHT_BY * args.i_known
     points: list[Point] = []
     best = 0.0
@@ -289,7 +307,7 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
         points.append(p)
         say(_point_line(p, rig.dark))
         light = rig.light(p.pd)
-        lit = light > LIT_A
+        lit = light > rig.lit_a
         slope = None if dummy else _slope(points, rig)
         if p.v >= AT_LIMIT * MAX_V or p.i < level - (0.03 * level + 50e-6):
             p.why = "voltage limit"
@@ -297,16 +315,16 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
             p.why = "current ceiling"
         elif dummy:
             pass
-        elif light >= caps.light_a * (1 - CREEP_STOP):
+        elif light >= light_cap * (1 - CREEP_STOP):
             p.why = "light ceiling"
         elif not lit and level >= light_by:
             raise StopRun(
                 f"no light by {level * 1e3:.1f} mA ({LIGHT_BY:g} x --i-known): "
                 f"is the beam parked on the photodiode?"
             )
-        elif len(points) >= 2 and lit and light < (1 - FALL) * rig.light(points[-2].pd) - LIT_A:
+        elif len(points) >= 2 and lit and light < (1 - FALL) * rig.light(points[-2].pd) - rig.lit_a:
             p.why = "light fell"
-        elif slope is not None and light > BEND_FROM * caps.light_a:
+        elif slope is not None and light > BEND_FROM * light_cap:
             best = max(best, slope)
             if slope < BEND * best:
                 p.why = "curve bending"
@@ -315,7 +333,7 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
             return points
         step = args.i_step
         if not dummy and lit and slope and slope > 0:
-            step = min(step, 0.5 * (caps.light_a - light) / slope)
+            step = min(step, 0.5 * (light_cap - light) / slope)
         level = min(level + max(step, MIN_STEP_A), caps.i_a)
 
 
@@ -337,22 +355,35 @@ def stage_current(rig, report, args, caps: Caps) -> dict:
     return result
 
 
-def operating_point(up: list[dict]) -> tuple[float, float, float]:
-    """(current, voltage, highest current) for the later stages: 80 % of
-    the highest current reached before the stop, and the voltage the
-    module needed there (interpolated)."""
+def _between(points: list[dict], key: str, target: float, out: str) -> float | None:
+    """`out` where `key` first reaches `target` (interpolated)."""
+    for a, b in zip(points, points[1:], strict=False):
+        if a[key] <= target <= b[key]:
+            if b[key] == a[key]:
+                return a[out]
+            return a[out] + (b[out] - a[out]) * (target - a[key]) / (b[key] - a[key])
+    return None
+
+
+def operating_point(up: list[dict], dark: float = 0.0,
+                    lit_a: float = LIT_A) -> tuple[float, float, float]:
+    """(current, voltage, highest current) for the later stages: where
+    the light reached 80 % of its peak before the stop, and the voltage
+    the module needed there (interpolated). With no light (a dummy
+    load), 80 % of the highest current. Not 80 % of the current: laser
+    4 lases from 16.5 mA and stopped at 20.5, so that put its holds
+    below threshold (2026-11-10)."""
     good = [p for p in up if not p["why"]] or up[:1]
     i_max = max(p["i"] for p in good)
-    i_op = OPERATING * i_max
-    below = [p for p in good if p["i"] <= i_op]
-    above = [p for p in good if p["i"] >= i_op]
-    if not below or not above:
-        return i_op, good[-1]["v"], i_max
-    a, b = below[-1], above[0]
-    if b["i"] == a["i"]:
-        return i_op, a["v"], i_max
-    v = a["v"] + (b["v"] - a["v"]) * (i_op - a["i"]) / (b["i"] - a["i"])
-    return i_op, v, i_max
+    lit = [dict(p, light=abs(p["pd"] - dark)) for p in good]
+    peak = max(p["light"] for p in lit)
+    i_op = None
+    if peak > lit_a:
+        i_op = _between(lit, "light", OPERATING * peak, "i")
+    if i_op is None:
+        i_op = OPERATING * i_max
+    v = _between(good, "i", i_op, "v")
+    return i_op, good[-1]["v"] if v is None else v, i_max
 
 
 def stage_voltage(rig, report, args, caps: Caps, v_op, i_max) -> dict:
@@ -725,7 +756,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every-s", type=float, default=0.5, help="hold reading interval")
     parser.add_argument("--stages", type=lambda s: [x.strip() for x in s.split(",")],
                         default=list(STAGES))
-    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover"),
+    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover", "laser4"),
                         default="regulated", help="--sim only: the simulated module")
     parser.add_argument("--yes", action="store_true", help="don't ask before lighting")
     parser.add_argument("--no-plot", action="store_true")
@@ -773,7 +804,7 @@ def main(argv: list[str] | None = None) -> int:
             report["judged_current"] = judge_current(
                 current["up"], current["down"], rig.dark, response
             )
-            i_op, v_op, i_max = operating_point(current["up"])
+            i_op, v_op, i_max = operating_point(current["up"], rig.dark, rig.lit_a)
             report["operating_point"] = {"a": i_op, "v": v_op, "i_max_a": i_max}
             if "voltage" in args.stages:
                 stage_voltage(rig, report, args, caps, v_op, i_max)

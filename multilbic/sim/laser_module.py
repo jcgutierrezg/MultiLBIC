@@ -14,7 +14,12 @@ Three kinds, the cases the probe has to tell apart:
   board gives it today (what lasers 1 and 2 look like on the 5 V LM317).
 * **rollover**: no regulator, and its light per mA falls off as it
   heats, well before the light ceiling: the bending stop.
+* **laser4**: laser 4 as measured, lasing past the 1 mA the miniSMU
+  allows a channel while autoranging.
 * **dummy**: a 100 ohm resistor, for the dry run.
+
+Channel 2 clips as the real one does: at 1 mA while autoranging, at
+its range's end on a fixed range.
 
 The numbers are plausible, not measured: they exist to exercise the
 probe's stages and its verdicts.
@@ -27,7 +32,7 @@ import random
 from dataclasses import dataclass
 
 from multilbic.clock import Clock
-from multilbic.sim.fake_smu import FakeMiniSMU
+from multilbic.sim.fake_smu import CURRENT_RANGES_A, FakeMiniSMU
 
 
 @dataclass(frozen=True)
@@ -141,6 +146,13 @@ MODULES: dict[str, ModuleModel | DummyLoad] = {
         "rollover", vf_20ma=2.05, n_vt=0.05, r_ohm=20.0, i_reg_a=None,
         v_overhead=0.0, i_th_a=0.014, pd_slope=0.05, v_known=2.6, roll_a=0.02,
     ),
+    # Laser 4 as measured on 2026-11-10: no regulator to 21 mA, lasing
+    # from 16.5 mA at 0.248 A/A on the photodiode, over 1 mA of light
+    # (which the autoranging miniSMU clipped).
+    "laser4": ModuleModel(
+        "laser4", vf_20ma=1.896, n_vt=0.03, r_ohm=25.0, i_reg_a=None,
+        v_overhead=0.0, i_th_a=0.0165, pd_slope=0.248, v_known=2.45,
+    ),
     "dummy": DummyLoad(),
 }
 
@@ -152,6 +164,7 @@ class FakeModuleSMU(FakeMiniSMU):
     voltage limit)."""
 
     PD_DARK_A = -2e-9
+    AUTORANGE_END_A = 1e-3
 
     def __init__(self, clock: Clock, module: ModuleModel | DummyLoad, seed: int = 0):
         super().__init__(clock, seed=seed)
@@ -195,8 +208,14 @@ class FakeModuleSMU(FakeMiniSMU):
             )
         if not self.enabled[2]:
             return 0.0, 0.0
-        return 0.0, (
+        pd = (
             self.PD_DARK_A
             + self.module.photocurrent(amps)
             + self._noise.gauss(0, 2e-9)
         )
+        # As the real one: autoranging, held to 1 mA whatever the limit;
+        # on a fixed range, no further than its end.
+        index = self.current_range[2]
+        end = self.AUTORANGE_END_A if self.autorange[2] or index is None \
+            else CURRENT_RANGES_A[index]
+        return 0.0, max(-end, min(end, pd))

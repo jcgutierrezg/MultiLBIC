@@ -150,7 +150,8 @@ def _assert_within_ceilings(results):
             assert abs(p["pd"] - dark) <= ceilings["light_pd_a"] * 1.01
 
 
-@pytest.mark.parametrize("module", ["regulated", "resistor", "starved", "rollover"])
+@pytest.mark.parametrize(
+    "module", ["regulated", "resistor", "starved", "rollover", "laser4"])
 def test_laser_module_stays_within_the_ceilings(tmp_path, module):
     results = _module(tmp_path, "--module", module)
     assert "stopped" not in results
@@ -192,6 +193,38 @@ def test_laser_module_stops_when_the_curve_bends(tmp_path):
     assert results["current"]["stopped_by"] == "curve bending"
     light_cap = results["ceilings"]["light_pd_a"]
     assert results["judged_current"]["peak_light_a"] < 0.5 * light_cap
+
+
+def test_laser_module_reads_light_past_1_ma(tmp_path, monkeypatch):
+    # Laser 4's first run: autoranging, the miniSMU held the photodiode
+    # to 1 mA, the light read flat and "curve bending" stopped it. On the
+    # fixed 15 mA range it reaches its light ceiling.
+    _responses(monkeypatch, 0.4559)
+    results = _module(tmp_path, "--module", "laser4", "--i-known", "23m")
+    assert results["dark"]["pd_range_a"] == laser_module.PD_LIMIT_A
+    assert results["current"]["stopped_by"] == "light ceiling"
+    judged = results["judged_current"]
+    assert judged["peak_light_a"] > 1.5e-3
+    assert judged["threshold_a"] == pytest.approx(0.0165, abs=0.001)
+    # The holds are on the lasing part of the curve, not below threshold.
+    assert results["operating_point"]["a"] > 0.0165 + 0.002
+    held = results["judged_hold"]
+    assert held["constant_current"] is not None
+
+
+def test_laser_module_operating_point_is_on_the_light():
+    up = [
+        {"set": i, "i": i, "v": 2.0 + 25 * i, "pd": -max(0.0, i - 0.0165) * 0.25,
+         "why": ""}
+        for i in (0.0, 0.005, 0.010, 0.015, 0.0165, 0.018, 0.019, 0.020, 0.0205)
+    ]
+    i_op, v_op, i_max = laser_module.operating_point(up)
+    assert i_max == 0.0205
+    assert i_op == pytest.approx(0.0165 + 0.8 * 0.004)
+    assert v_op == pytest.approx(2.0 + 25 * i_op)
+    # No light (the dummy load): 80 % of the highest current.
+    dark = [dict(p, pd=0.0) for p in up]
+    assert laser_module.operating_point(dark)[0] == pytest.approx(0.8 * 0.0205)
 
 
 def test_laser_module_stops_without_light(tmp_path):

@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.13 - The laser module test reads past 1 mA
+
+- Laser 4's first run read its light flat at 1.01 mA and stopped for
+  "curve bending" at 21 mA: the photodiode channel was autoranging,
+  which holds it to 1 mA whatever limit is set. It now sits on the
+  fixed 15 mA range, a reading near that range's end stops the run, and
+  "lit" is 0.5 uA or 10 x the dark's scatter, whichever is more.
+- The voltage stage and the holds are where the light reached 80 % of
+  its peak, not at 80 % of the highest current, which put laser 4's
+  holds below its 16.5 mA threshold.
+- The simulator's channel 2 clips as the real one does, and a `laser4`
+  module, as measured, reproduces the first run's stop.
+
 ## 0.7.12 - The lasers on the power meter
 
 - `machine.toml`: the photodiode's response to lasers 1, 3, 4, 5 and 6
