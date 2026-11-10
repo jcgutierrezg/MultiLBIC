@@ -104,17 +104,25 @@ Then it went, after the leads were swapped and swapped back. Cause
 unknown: how the leads sit in the terminals, or a state inside the SMU
 (its reset doesn't reboot it).
 
-**What sets and clears it** (2026-11-10, laser module tests, channel 1's
-output off throughout): a mode command to channel 1 (`FVMI` or `FIMV`)
-put channel 2 in it 3 times of 3, reporting +0.30 V at 0 V and reading
-+300 µA on 15 mA, +11.6 µA on 650 µA (about 2 % of each full scale);
-the next fixed-range command to channel 1 (`IRANGE`) cleared it 3 times
-of 3. Channel 2's own range commands, a channel reset, and replugging
-the power, USB and channel 2's leads did not clear it. Autorange hides
-it (−0.37 µA read in it). Runs set channel 1's range after its mode,
+**What sets and clears it** (2026-11-10, laser module tests, channel 2
+on at 0 V, channel 1 at 0 V or 0 A): channel 2 reported +0.16 to +0.30 V
+at 0 V and read 1-2 % of each range's full scale high (+155 to +300 µA
+on 15 mA, +11.6 µA on 650 µA). It is set by
+
+- a mode command to channel 1 (`FVMI` or `FIMV`);
+- channel 1 in current mode with its output off: setting its current
+  level, or switching its output off, there.
+
+It is cleared by a fixed-range command to channel 1 (`IRANGE`) or by
+switching channel 1's output on. In voltage mode a limit, a level or
+the output off after the range leave it clear. Channel 2's own range
+commands, a channel reset, and replugging the power, USB and channel
+2's leads did not clear it. Autorange hides it (−0.37 µA read in it).
+Runs keep channel 1 in voltage mode with its range after its mode,
 which is why they rarely meet it; the laser module test parks channel 1
-the same way before its dark and refuses any reading with channel 2
-more than 10 mV off 0 V.
+in voltage mode at 0 V before its dark, measures with channel 1's
+output on, and refuses any reading with channel 2 more than 10 mV off
+0 V.
 
 - A dark on the laser's own fixed range removes the offset from the
   powers; positions don't depend on it.

@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.20 - Channel 1 parked in voltage mode
+
+- 0.7.19's laser 5 run refused its dark: channel 2 at +0.156 V. On the
+  bench, channel 2 goes offset whenever channel 1 is in current mode
+  with its output off (its mode command, a current level or the output
+  off set it there), and a mode command in voltage mode sets it too;
+  channel 1's range or its output on clears it. 0.7.19 parked channel 1
+  in current mode. It now parks in voltage mode at 0 V (mode, range,
+  1 mA limit, 0 V), and three dark-only runs on the machine read +0.11
+  to +0.15 uA. The rule is in hardware/smu.md.
+- The simulator's channel 2 goes offset by the same rule, so a run
+  that reads in that state fails the tests.
+
 ## 0.7.19 - Channel 1's current limit, set after its range
 
 - Laser 5's second pass: its voltage sweep let 18.76 mA through a

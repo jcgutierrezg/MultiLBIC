@@ -285,10 +285,38 @@ class FakeModuleSMU(FakeMiniSMU):
         self.voltage_limit = {1: 12.0, 2: 12.0}
         self._noise = random.Random(seed + 7)
         self._offset_left = self.PD_OFFSET_READS
+        self.ch2_offset = False
         self._dip_left = self.PD_DIP_READS
+
+    #: Channel 2's offset state, as the real one: set by a mode command
+    #: to channel 1, and by channel 1 in current mode with its output
+    #: off; cleared by channel 1's range or its output on (2026-11-10).
+    OFFSET_STATE_V = 0.156
+    OFFSET_STATE_SHARE = 0.0103
+
+    def _ch1_changed(self) -> None:
+        if self.mode[1] == "FIMV" and not self.enabled[1]:
+            self.ch2_offset = True
+
+    def set_mode(self, channel: int, mode: str):
+        super().set_mode(channel, mode)
+        if channel == 1:
+            self.ch2_offset = True
+
+    def enable_channel(self, channel: int):
+        super().enable_channel(channel)
+        if channel == 1:
+            self.ch2_offset = False
+
+    def disable_channel(self, channel: int):
+        super().disable_channel(channel)
+        if channel == 1:
+            self._ch1_changed()
 
     def set_current(self, channel: int, current: float):
         self.level_a[channel] = current
+        if channel == 1:
+            self._ch1_changed()
 
     def set_current_range_by_limit(self, channel: int, max_current: float,
                                     disable_autorange: bool = True) -> int:
@@ -297,6 +325,8 @@ class FakeModuleSMU(FakeMiniSMU):
         index = super().set_current_range_by_limit(channel, max_current,
                                                    disable_autorange)
         self.current_limit[channel] = CURRENT_RANGES_A[index]
+        if channel == 1:
+            self.ch2_offset = False
         return index
 
     def set_voltage_protection(self, channel: int, voltage_limit: float):
@@ -345,6 +375,11 @@ class FakeModuleSMU(FakeMiniSMU):
             light *= 1 - self.PD_DIP_SHARE
         pd = self.PD_DARK_A + light + self._noise.gauss(0, 2e-9)
         volts_2 = 0.0
+        if self.ch2_offset:
+            index = self.current_range[2]
+            full = CURRENT_RANGES_A[index] if index is not None else 1e-3
+            pd += self.OFFSET_STATE_SHARE * full
+            volts_2 = self.OFFSET_STATE_V
         if self._offset_left > 0:
             self._offset_left -= 1
             pd += self.PD_OFFSET_A

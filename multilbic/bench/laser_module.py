@@ -121,11 +121,14 @@ LIT_SCATTER = 10.0
 DARK_SETTLE_S = 2.0
 DARK_MAX_A = 20e-6
 DARK_STEADY_A = 2e-6
-#: Channel 2 must report its 0 V within this. Setting channel 1's mode
-#: puts channel 2 in its offset state (+0.30 V reported, +2 % of each
-#: range's full scale read) until channel 1's range is set again
-#: (bench, 2026-11-10; hardware/smu.md).
+#: Channel 2 must report its 0 V within this. Channel 1 in current mode
+#: with its output off puts channel 2 in its offset state (+0.16-0.30 V
+#: reported, 1-2 % of each range's full scale read), as does a mode
+#: command; channel 1's range or its output on clears it (bench,
+#: 2026-11-10; hardware/smu.md).
 PD_V_MAX = 0.01
+#: Channel 1 parked: voltage mode at 0 V, this limit, output off.
+PARK_LIMIT_A = 1e-3
 #: Current steps: never below MIN_STEP_A; stop this close to the ceiling.
 MIN_STEP_A = 20e-6
 CREEP_STOP = 0.02
@@ -221,12 +224,13 @@ class ModuleRig:
         self.client.set_current_range_by_limit(2, PD_LIMIT_A, disable_autorange=True)
         self.pd.set_current_limit(PD_LIMIT_A)
         self.pd.set_voltage_level(0.0)
-        # Channel 1 parked, output off: current mode at 0 A. Its range
-        # after its mode clears channel 2's offset state (PD_V_MAX).
-        self.laser.set_source_function("current")
+        # Channel 1 parked, output off: voltage mode at 0 V. Parked in
+        # current mode, channel 2 reads offset (0.7.19's dark refused at
+        # +0.156 V); its range after its mode clears what the mode set.
+        self.laser.set_source_function("voltage")
         self._fix_range()
-        self.laser.set_voltage_limit(MAX_V)
-        self.laser.set_current_level(0.0)
+        self.laser.set_current_limit(PARK_LIMIT_A)
+        self.laser.set_voltage_level(0.0)
         self.mode = "off"
         self.pd.output_on()
 

@@ -295,6 +295,30 @@ def test_the_current_limit_survives_the_range():
     rig.off()
 
 
+def test_laser_module_parks_channel_1_clear_of_the_offset(tmp_path, monkeypatch):
+    # 0.7.19 parked channel 1 in current mode, output off: channel 2 read
+    # +0.156 V and its dark was refused. The simulator does the same.
+    def start(self):
+        for driver in (self.laser, self.pd):
+            driver.reset()
+        self.pd.set_source_function("voltage")
+        self.client.set_current_range_by_limit(2, laser_module.PD_LIMIT_A)
+        self.pd.set_current_limit(laser_module.PD_LIMIT_A)
+        self.pd.set_voltage_level(0.0)
+        self.laser.set_source_function("current")
+        self._fix_range()
+        self.laser.set_voltage_limit(laser_module.MAX_V)
+        self.laser.set_current_level(0.0)
+        self.mode = "off"
+        self.pd.output_on()
+
+    results = _module(tmp_path, "--module", "laser3", "--i-known", "16m")
+    assert "stopped" not in results            # parked in voltage mode
+    monkeypatch.setattr(laser_module.ModuleRig, "start", start)
+    results = _module(tmp_path / "old", "--module", "laser3", "--i-known", "16m")
+    assert "offset state" in results["stopped"]
+
+
 def test_laser_module_stops_if_the_current_limit_fails(tmp_path, monkeypatch):
     # The old order (limit, then range) on the simulator: the limit check
     # finds the limit gone before the voltage sweep relies on it.
