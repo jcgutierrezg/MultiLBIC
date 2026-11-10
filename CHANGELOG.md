@@ -3,6 +3,21 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.21 - Channel 1's limit clamps 1.22 x: measured and allowed for
+
+- 0.7.20's laser 5 run: the limit check read 2.69 mA under a 2.2 mA
+  limit, where 4.34 mA flows without one, and stopped the run (below
+  threshold). With 0.7.19's 18.76 mA through 15.5 mA, the miniSMU's
+  voltage-mode current limit clamps about 1.22 x what is set; the
+  range-before-limit order of 0.7.19 was not the cause (corrected in
+  hardware/smu.md).
+- The limit check now measures that gain (read over sent), stops the
+  run if the limit doesn't act (above 80 % of the current without it)
+  or the gain is past 1.5, and every later voltage-mode limit is sent at
+  what is wanted over the gain and 5 %. A current past 90 % of the
+  wanted limit counts as at it.
+- The simulator's limit has a gain; tests at 1.22 x and at 20 x.
+
 ## 0.7.20 - Channel 1 parked in voltage mode
 
 - 0.7.19's laser 5 run refused its dark: channel 2 at +0.156 V. On the

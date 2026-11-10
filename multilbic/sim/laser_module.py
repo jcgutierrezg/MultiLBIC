@@ -293,6 +293,9 @@ class FakeModuleSMU(FakeMiniSMU):
     #: off; cleared by channel 1's range or its output on (2026-11-10).
     OFFSET_STATE_V = 0.156
     OFFSET_STATE_SHARE = 0.0103
+    #: Channel 1's voltage-mode current limit clamps this times what is
+    #: set (1.22 on the real one; laser 5, 2026-11-10).
+    LIMIT_GAIN = 1.0
 
     def _ch1_changed(self) -> None:
         if self.mode[1] == "FIMV" and not self.enabled[1]:
@@ -320,8 +323,8 @@ class FakeModuleSMU(FakeMiniSMU):
 
     def set_current_range_by_limit(self, channel: int, max_current: float,
                                     disable_autorange: bool = True) -> int:
-        """As the real one: the current limit goes to the range's full
-        scale (laser 5's voltage sweep, 2026-11-10)."""
+        """The current limit goes to the range's full scale, as
+        hardware/smu.md has the real one's limit follow its range."""
         index = super().set_current_range_by_limit(channel, max_current,
                                                    disable_autorange)
         self.current_limit[channel] = CURRENT_RANGES_A[index]
@@ -339,10 +342,11 @@ class FakeModuleSMU(FakeMiniSMU):
             if isinstance(m, DriverModule):
                 m.on = False
             return 0.0, 0.0
+        limit = self.current_limit[1] * self.LIMIT_GAIN
         if isinstance(m, DriverModule):
             if self.mode[1] == "FIMV":
                 return m.fimv(self.level_a[1], self.voltage_limit[1])
-            return m.fvmi(self.voltage[1], self.current_limit[1])
+            return m.fvmi(self.voltage[1], limit)
         if self.mode[1] == "FIMV":
             amps = self.level_a[1]
             volts = m.voltage_at(amps)
@@ -352,7 +356,6 @@ class FakeModuleSMU(FakeMiniSMU):
             return volts, amps
         volts = self.voltage[1]
         amps = m.current_at(volts)
-        limit = self.current_limit[1]
         if limit and amps > limit:
             amps = limit
             volts = m.voltage_at(limit)

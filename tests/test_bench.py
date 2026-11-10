@@ -268,7 +268,8 @@ def test_laser_module_sweeps_a_bare_diode_on_a_supply(tmp_path):
     assert i_max < voltage["current_limit_a"] <= 1.5 * i_max + 1e-9
     # The limit was proven on the instrument first.
     check = results["limit_check"]
-    assert check["read_a"] == pytest.approx(check["limit_a"], rel=0.05)
+    assert check["read_a"] == pytest.approx(check["sent_a"], rel=0.05)
+    assert check["gain"] == pytest.approx(1.0, rel=0.05)
     assert results["judged_voltage"]["stopped_by"] == "current limit"
     _assert_within_ceilings(results)
 
@@ -289,7 +290,12 @@ def test_the_current_limit_survives_the_range():
     rig = laser_module.ModuleRig(smu, clock, 1, 0.0)
     rig.start()
     rig.force_voltage(0.0155)
-    assert fake.current_limit[1] == pytest.approx(0.0155)
+    # Sent under the margin (and the gain, once the limit check has one).
+    assert fake.current_limit[1] == pytest.approx(0.0155 / laser_module.LIMIT_MARGIN)
+    rig.limit_gain = 1.22
+    rig.force_voltage(0.0155)
+    assert fake.current_limit[1] == pytest.approx(
+        0.0155 / (1.22 * laser_module.LIMIT_MARGIN))
     rig.force_current(5.5)
     assert fake.voltage_limit[1] == pytest.approx(5.5)
     rig.off()
@@ -319,22 +325,24 @@ def test_laser_module_parks_channel_1_clear_of_the_offset(tmp_path, monkeypatch)
     assert "offset state" in results["stopped"]
 
 
-def test_laser_module_stops_if_the_current_limit_fails(tmp_path, monkeypatch):
-    # The old order (limit, then range) on the simulator: the limit check
-    # finds the limit gone before the voltage sweep relies on it.
-    def force_voltage(self, current_limit_a):
-        self.off()
-        self.laser.set_source_function("voltage")
-        self.laser.set_current_limit(current_limit_a)
-        self._fix_range()
-        self.laser.set_voltage_level(0.0)
-        self.laser.output_on()
-        self.mode = "voltage"
+@pytest.mark.parametrize("gain", [1.22, 20.0])
+def test_laser_module_measures_the_limit_gain(tmp_path, monkeypatch, gain):
+    # The real limit clamps 1.22 x what is set: measured and allowed for.
+    # One that barely acts (20 x) stops the run before the voltage sweep.
+    from multilbic.sim.laser_module import FakeModuleSMU
 
-    monkeypatch.setattr(laser_module.ModuleRig, "force_voltage", force_voltage)
+    monkeypatch.setattr(FakeModuleSMU, "LIMIT_GAIN", gain)
+    _responses(monkeypatch, 0.4375)
     results = _module(tmp_path, "--module", "laser3", "--i-known", "16m")
-    assert "the limit did not hold" in results["stopped"]
-    assert "voltage" not in results
+    if gain > laser_module.LIMIT_GAIN_MAX:
+        assert "the limit did not hold" in results["stopped"]
+        assert "voltage" not in results
+        return
+    assert "stopped" not in results
+    assert results["limit_check"]["gain"] == pytest.approx(gain, rel=0.03)
+    _assert_within_ceilings(results)
+    wanted = results["voltage"]["current_limit_a"]
+    assert max(p["i"] for p in results["voltage"]["points"]) <= wanted * 1.01
 
 
 def test_judge_voltage_on_laser_3s_supply_sweep():

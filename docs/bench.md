@@ -104,7 +104,9 @@ a driver switching on shows as that jump with the current falling
 (laser 3). Every module that lases then gets a voltage sweep to 5.5 V,
 its light and current on a plain supply, after a check that channel 1's
 current limit holds on the instrument (half the current a voltage drew,
-below threshold, under a limit of half that). A facet
+below threshold, under a limit of half that). The check also measures
+how far over the limit the miniSMU clamps (1.22 x), and every later
+limit is set under that. A facet
 can fail before its curve bends: the light ceiling is the guard that
 matters. The one thing the probe can't catch is reverse wiring, so
 steps 1 and 4 are about polarity.
