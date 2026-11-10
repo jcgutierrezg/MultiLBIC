@@ -103,6 +103,15 @@ What each module needs from the new laser board (a regulator inside or
 not, the voltage it needs, light against current) is measured module by
 module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-module)).
 
+- **Laser 4** (2026-11-10, `20261110T172152Z_laser_module_real`): lases
+  from 16.5 mA at 0.555 mW per mA, straight, up and down within 0.4 %.
+  Below its regulator it is the diode and about 25 ohm: 1.85 V at 1 mA,
+  2.45 V at 22 mA. Its own regulator takes over at about 22.5 mA
+  (2.72 V, then 3.55 V at 22.9 mA) and holds 3.45 mW, what the board
+  gives it today at 3.26 V (23 mA). So it sets its own power from about
+  2.7 V up, and a current held below 22.5 mA dims it. Held 60 s at
+  21.5 mA, the light moved under 1 % at constant voltage or current.
+
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of
   the others'. Readings: −47 µA (2026-10-30), −17.5 and −29 µA after the

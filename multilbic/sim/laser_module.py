@@ -15,7 +15,7 @@ Three kinds, the cases the probe has to tell apart:
 * **rollover**: no regulator, and its light per mA falls off as it
   heats, well before the light ceiling: the bending stop.
 * **laser4**: laser 4 as measured, lasing past the 1 mA the miniSMU
-  allows a channel while autoranging.
+  allows a channel while autoranging, then its regulator's soft knee.
 * **dummy**: a 100 ohm resistor, for the dry run.
 
 Channel 2 clips as the real one does: at 1 mA while autoranging, at
@@ -55,6 +55,10 @@ class ModuleModel:
     #: Light per amp falls linearly to zero this far above threshold
     #: (thermal rollover); None for a straight line.
     roll_a: float | None = None
+    #: A soft regulator: past i_reg_a the module takes more current only
+    #: at this many volts per amp, and its diode stays at i_reg_a (laser
+    #: 4's knee). None: a hard wall at i_reg_a.
+    knee_ohm: float | None = None
 
     @property
     def i_known(self) -> float:
@@ -82,9 +86,16 @@ class ModuleModel:
                 lo = mid
         return lo
 
+    def _below_reg_v(self, amps: float) -> float:
+        return self._diode_v(amps) + amps * self.r_ohm + self.v_overhead
+
     def current_at(self, volts: float) -> float:
         if self.i_reg_a is None:
             return self._diode_r_current(volts)
+        if self.knee_ohm is not None:
+            knee_v = self._below_reg_v(self.i_reg_a)
+            if volts > knee_v:
+                return self.i_reg_a + (volts - knee_v) / self.knee_ohm
         return min(self.i_reg_a, self._diode_r_current(volts - self.v_overhead))
 
     def voltage_at(self, amps: float) -> float:
@@ -92,12 +103,17 @@ class ModuleModel:
         take that much (its regulator holds it below)."""
         if self.i_reg_a is not None:
             if amps >= self.i_reg_a:
-                return math.inf
-            return self._diode_v(amps) + amps * self.r_ohm + self.v_overhead
+                if self.knee_ohm is None:
+                    return math.inf
+                return (self._below_reg_v(self.i_reg_a)
+                        + (amps - self.i_reg_a) * self.knee_ohm)
+            return self._below_reg_v(amps)
         return self._diode_v(amps) + amps * self.r_ohm
 
     def photocurrent(self, amps: float) -> float:
         """The photodiode's reading (negative, as on the machine)."""
+        if self.i_reg_a is not None:
+            amps = min(amps, self.i_reg_a)  # the diode's share
         x = max(0.0, amps - self.i_th_a)
         if self.roll_a is not None:
             x = min(x, self.roll_a)
@@ -146,12 +162,13 @@ MODULES: dict[str, ModuleModel | DummyLoad] = {
         "rollover", vf_20ma=2.05, n_vt=0.05, r_ohm=20.0, i_reg_a=None,
         v_overhead=0.0, i_th_a=0.014, pd_slope=0.05, v_known=2.6, roll_a=0.02,
     ),
-    # Laser 4 as measured on 2026-11-10: no regulator to 21 mA, lasing
-    # from 16.5 mA at 0.248 A/A on the photodiode, over 1 mA of light
-    # (which the autoranging miniSMU clipped).
+    # Laser 4 as measured on 2026-11-10: lasing from 16.5 mA at 0.248 A/A
+    # on the photodiode, past the 1 mA the autoranging miniSMU allows,
+    # and a soft regulator from 22.3 mA (25 ohm, then about 1500).
     "laser4": ModuleModel(
-        "laser4", vf_20ma=1.896, n_vt=0.03, r_ohm=25.0, i_reg_a=None,
-        v_overhead=0.0, i_th_a=0.0165, pd_slope=0.248, v_known=2.45,
+        "laser4", vf_20ma=1.896, n_vt=0.03, r_ohm=25.0, i_reg_a=0.0223,
+        v_overhead=0.0, i_th_a=0.0165, pd_slope=0.248, v_known=3.26,
+        knee_ohm=1500.0,
     ),
     "dummy": DummyLoad(),
 }

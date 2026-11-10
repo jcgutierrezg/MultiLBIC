@@ -3,6 +3,20 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.16 - The laser module test finds a regulator's knee
+
+- Laser 4 (2026-11-10): lasing from 16.5 mA at 0.555 mW/mA, then its
+  own regulator from about 22.5 mA, the voltage climbing from 25 ohm to
+  530 and 1900 ohm per amp while the light held at 3.45 mW, which is
+  what the board gives it today. The test stopped for "curve bending"
+  and called it "no regulator": it only knew a regulator by the
+  voltage reaching 5.5 V.
+- The sweep now stops at a regulator's knee, volts per amp past 8 x
+  their median over the mA before (and past 200 ohm), and the verdict
+  gives where the regulator takes over, the voltage it needs and the
+  light it holds, and the rail for the board from that voltage.
+- The simulator's `laser4` has that soft regulator.
+
 ## 0.7.15 - Channel 2's offset state, set and cleared
 
 - Every 0.7.14 run refused its dark: +298-300 uA on 15 mA. On the bench

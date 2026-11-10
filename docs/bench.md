@@ -98,7 +98,8 @@ in steps that shrink near the light ceiling, and the sweep stops at the
 first of: **5 mW of light** (80 % of it as the power-meter-calibrated
 photodiode reads, for margin), the light-against-current curve bending
 by 15 % or falling, **5.5 V**, or **120 mA**. A module's own regulator
-shows as the voltage jumping to 5.5 V, and ends the sweep too. A facet
+shows as a knee, the voltage per extra mA jumping (laser 4: 25 ohm,
+then 530), or as the voltage jumping to 5.5 V, and ends the sweep too. A facet
 can fail before its curve bends: the light ceiling is the guard that
 matters. The one thing the probe can't catch is reverse wiring, so
 steps 1 and 4 are about polarity.

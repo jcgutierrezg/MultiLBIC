@@ -198,18 +198,43 @@ def test_laser_module_stops_when_the_curve_bends(tmp_path):
 def test_laser_module_reads_light_past_1_ma(tmp_path, monkeypatch):
     # Laser 4's first run: autoranging, the miniSMU held the photodiode
     # to 1 mA, the light read flat and "curve bending" stopped it. On the
-    # fixed 15 mA range it reaches its light ceiling.
+    # fixed 15 mA range it reads on to its regulator's knee.
     _responses(monkeypatch, 0.4559)
     results = _module(tmp_path, "--module", "laser4", "--i-known", "23m")
     assert results["dark"]["pd_range_a"] == laser_module.PD_LIMIT_A
-    assert results["current"]["stopped_by"] == "light ceiling"
+    assert results["current"]["stopped_by"] == "regulator"
     judged = results["judged_current"]
-    assert judged["peak_light_a"] > 1.5e-3
+    assert judged["kind"] == "regulated"
+    assert judged["i_reg_a"] == pytest.approx(0.0223, abs=0.0006)
+    assert judged["regulated_mw"] == pytest.approx(3.24, rel=0.05)
+    assert judged["peak_light_a"] > 1.4e-3
+    assert any("sets its own power" in line for line in results["verdict"])
     assert judged["threshold_a"] == pytest.approx(0.0165, abs=0.001)
     # The holds are on the lasing part of the curve, not below threshold.
     assert results["operating_point"]["a"] > 0.0165 + 0.002
     held = results["judged_hold"]
     assert held["constant_current"] is not None
+
+
+# Laser 4's sweep, 2026-11-10 (20261110T172152Z): mA, V.
+LASER4_IV = [
+    (15.038, 2.270), (15.527, 2.283), (16.029, 2.297), (16.531, 2.310),
+    (17.036, 2.323), (17.523, 2.335), (18.029, 2.348), (18.529, 2.361),
+    (19.031, 2.373), (19.534, 2.386), (20.019, 2.398), (20.521, 2.411),
+    (21.025, 2.424), (21.525, 2.437), (22.011, 2.449), (22.517, 2.717),
+]
+
+
+def test_knee_finds_laser_4s_regulator_and_nothing_before():
+    iv = [(ma * 1e-3, v) for ma, v in LASER4_IV]
+    for n in range(2, len(iv)):
+        assert laser_module.knee(iv[:n]) is None, iv[n - 1]
+    assert laser_module.knee(iv) > 15
+    # From 0 mA, the diode turning on is steep but falling: no knee.
+    turn_on = [(0.0, 0.0), (0.5e-3, 1.506), (1.0e-3, 1.829), (1.5e-3, 1.864),
+               (2.0e-3, 1.887), (2.5e-3, 1.906)]
+    for n in range(2, len(turn_on) + 1):
+        assert laser_module.knee(turn_on[:n]) is None
 
 
 def test_laser_module_operating_point_is_on_the_light():

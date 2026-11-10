@@ -134,6 +134,12 @@ BEND_SPAN_A = 1e-3
 BEND_FROM = 0.05
 #: Light falling by more than this share between steps.
 FALL = 0.01
+#: A regulator's knee: the volts per amp over the last step past KNEE x
+#: their median over the KNEE_SPAN_A before it, and past KNEE_MIN_OHM.
+#: Laser 4's regulator: 25 ohm to 22 mA, then 530 and 1900 (2026-11-10).
+KNEE = 8.0
+KNEE_SPAN_A = 1e-3
+KNEE_MIN_OHM = 200.0
 #: A reading this close to a limit is the limit.
 AT_LIMIT = 0.97
 #: The operating point for the voltage stage and the holds.
@@ -348,6 +354,27 @@ def _slope(points: list[Point], rig: ModuleRig) -> float | None:
     return slope
 
 
+def knee(iv: list[tuple[float, float]]) -> float | None:
+    """How many times steeper the last step's volts per amp are than
+    the steps over KNEE_SPAN_A before it, if that is a regulator's knee;
+    else None. `iv` is (amps, volts) as measured, in sweep order."""
+    steps = [
+        (b[0], (b[1] - a[1]) / (b[0] - a[0]))
+        for a, b in zip(iv, iv[1:], strict=False)
+        if b[0] - a[0] > 5e-6
+    ]
+    if len(steps) < 3:
+        return None
+    end, last = steps[-1]
+    before = [r for i, r in steps[:-1] if i > end - KNEE_SPAN_A - 1e-9]
+    if len(before) < 2:
+        return None
+    reference = statistics.median(before)
+    if reference <= 0 or last < KNEE_MIN_OHM or last < KNEE * reference:
+        return None
+    return last / reference
+
+
 def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
     """Current up from 0 until a stop; see the module's docstring."""
     dummy = caps.light_a is None
@@ -370,6 +397,8 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
             p.why = "voltage limit"
         elif level >= caps.i_a:
             p.why = "current ceiling"
+        elif knee([(q.i, q.v) for q in points]) is not None:
+            p.why = "regulator"
         elif dummy:
             pass
         elif light >= light_cap * (1 - CREEP_STOP):
@@ -515,24 +544,28 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
         return out
     out["i_max_a"] = max(p["i"] for p in good)
     out["v_at_max"] = good[-1]["v"]
-    if stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3:
-        # The voltage jumped from well below the limit: a regulator
-        # refused more current.
+    if stop == "regulator" or (stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3):
+        # The voltage climbed steeply (a knee), or jumped to the limit
+        # from well below it: a regulator took over.
         out["kind"] = "regulated"
         out["i_reg_a"] = up[-1]["i"]
         out["v_reg"] = good[-1]["v"]
+        out["v_at_reg"] = up[-1]["v"]
+        out["regulated_light_a"] = abs(up[-1]["pd"] - dark)
+        if response:
+            out["regulated_mw"] = out["regulated_light_a"] / response * 1e3
     elif stop == "voltage limit":
         out["kind"] = "needs more than the voltage limit"
     else:
         out["kind"] = "no regulator reached"
     light = [abs(p["pd"] - dark) for p in good]
-    peak = max(light)
+    peak = max(light + [out.get("regulated_light_a", 0.0)])
     out["peak_light_a"] = peak
     if response:
         out["peak_mw"] = peak / response * 1e3
     if peak < LIT_A:
         return out
-    upper = [(p["i"], li) for p, li in zip(good, light, strict=True) if li >= 0.2 * peak]
+    upper = [(p["i"], li) for p, li in zip(good, light, strict=True) if li >= 0.2 * max(light)]
     if len(upper) >= 2:
         slope, intercept = linear_fit([u[0] for u in upper], [u[1] for u in upper])
         out["slope_a_per_a"] = slope
@@ -551,8 +584,9 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
 
 
 def current_at_voltage(up: list[dict], volts: float) -> float | None:
-    """The current the module took at `volts`, from the current sweep."""
-    good = [p for p in up if not p["why"]]
+    """The current the module took at `volts`, from the current sweep
+    (its regulator's knee included)."""
+    good = [p for p in up if p["why"] in ("", "regulator")]
     for a, b in zip(good, good[1:], strict=False):
         if a["v"] <= volts <= b["v"] and b["v"] > a["v"]:
             return a["i"] + (b["i"] - a["i"]) * (volts - a["v"]) / (b["v"] - a["v"])
@@ -585,10 +619,17 @@ def verdict(results: dict, args) -> list[str]:
     mw = c.get("peak_mw")
     mw_text = f" ({mw:.2f} mW as it reads)" if mw is not None else ""
     if c["kind"] == "regulated":
+        held = ""
+        if c.get("regulated_light_a"):
+            mw_reg = c.get("regulated_mw")
+            held = (f", holding {c['regulated_light_a'] * 1e6:.0f} uA on the photodiode"
+                    + (f" ({mw_reg:.2f} mW)" if mw_reg is not None else ""))
         lines.append(
-            f"Regulated inside: it took no more than {c['i_reg_a'] * 1e3:.1f} mA, "
-            f"needing {c['v_reg']:.2f} V just below that. The board's current "
-            f"regulator can dim it by holding it below {c['i_reg_a'] * 1e3:.1f} mA."
+            f"Regulated inside: from {c['i_reg_a'] * 1e3:.1f} mA its voltage climbs "
+            f"steeply ({c['v_reg']:.2f} V just below, {c['v_at_reg']:.2f} V at it): "
+            f"its own regulator takes over there{held}. At {c['v_at_reg']:.2f} V or "
+            f"more it sets its own power; the board can dim it by holding it "
+            f"below {c['i_reg_a'] * 1e3:.1f} mA."
         )
     elif c["kind"] == "needs more than the voltage limit":
         lines.append(
@@ -609,10 +650,17 @@ def verdict(results: dict, args) -> list[str]:
             f"{c['threshold_a'] * 1e3:.1f} mA{slope}, up to "
             f"{c['peak_light_a'] * 1e6:.0f} uA on the photodiode{mw_text}."
         )
-    lines.append(
-        f"For the board: up to {c['i_max_a'] * 1e3:.0f} mA at {c['v_at_max']:.2f} V, "
-        f"so about {c['v_at_max'] + 1.0:.1f} V of rail (1 V for the regulator)."
-    )
+    if c["kind"] == "regulated":
+        lines.append(
+            f"For the board: at least {c['v_at_reg']:.2f} V at the module for its "
+            f"own power, so about {c['v_at_reg'] + 1.0:.1f} V of rail (1 V for the "
+            f"switch or a dimming regulator)."
+        )
+    else:
+        lines.append(
+            f"For the board: up to {c['i_max_a'] * 1e3:.0f} mA at {c['v_at_max']:.2f} V, "
+            f"so about {c['v_at_max'] + 1.0:.1f} V of rail (1 V for the regulator)."
+        )
     if args.v_known is not None and "current" in results:
         today = current_at_voltage(results["current"]["up"], args.v_known)
         if today is not None:
