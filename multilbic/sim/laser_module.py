@@ -271,6 +271,11 @@ class FakeModuleSMU(FakeMiniSMU):
     PD_OFFSET_A = 0.0
     PD_OFFSET_V = 0.0
     PD_OFFSET_READS = 0
+    #: A fault: from this module current, the light reads this share low
+    #: for this many readings (laser 5's dips, 2026-11-10).
+    PD_DIP_FROM_A: float | None = None
+    PD_DIP_SHARE = 0.3
+    PD_DIP_READS = 0
 
     def __init__(self, clock: Clock, module: ModuleModel | DummyLoad | DriverModule,
                  seed: int = 0):
@@ -280,6 +285,7 @@ class FakeModuleSMU(FakeMiniSMU):
         self.voltage_limit = {1: 12.0, 2: 12.0}
         self._noise = random.Random(seed + 7)
         self._offset_left = self.PD_OFFSET_READS
+        self._dip_left = self.PD_DIP_READS
 
     def set_current(self, channel: int, current: float):
         self.level_a[channel] = current
@@ -324,6 +330,10 @@ class FakeModuleSMU(FakeMiniSMU):
             return 0.0, 0.0
         light = (self.module.light(volts, amps) if isinstance(self.module, DriverModule)
                  else self.module.photocurrent(amps))
+        if self._dip_left > 0 and self.PD_DIP_FROM_A is not None \
+                and amps >= self.PD_DIP_FROM_A:
+            self._dip_left -= 1
+            light *= 1 - self.PD_DIP_SHARE
         pd = self.PD_DARK_A + light + self._noise.gauss(0, 2e-9)
         volts_2 = 0.0
         if self._offset_left > 0:

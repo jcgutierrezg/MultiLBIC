@@ -3,6 +3,21 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.18 - Every lasing module on a plain supply
+
+- Laser 5's first pass stopped for "curve bending" at 14 mA: one dip in
+  its light (its 60 s holds dipped up to 6 % at random). A bend or fall
+  is now read again at the same current, no higher, and stops the sweep
+  only if it holds; the points read again are in the report.
+- On the board laser 5 draws 16 mA for twice the light its diode curve
+  gives there, so it too has a driver; but only a module already seen
+  regulating got the voltage sweep to 5.5 V. Every module that lases
+  now does, under a limit from the straight diode curve (the highest
+  current reached, if it bent); my 1.25 x cap on it is gone.
+- The verdict describes a gradual hand-over on a plain supply (laser 3:
+  current peaking at 22.8 mA at 2.50 V, falling to 16.0 mA by 3.9 V) and
+  a sweep that sat at its limit. Lasers 3 and 5 in hardware/lasers.md.
+
 ## 0.7.17 - Laser 3's driver, and modules on a plain supply
 
 - Laser 3 (2026-11-10): a plain diode to 22.5 mA; forced to 23 mA the

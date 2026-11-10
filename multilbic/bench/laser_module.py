@@ -62,12 +62,11 @@ Stages (`--stages`, default all, in this order):
    over the same levels: light against current (threshold, slope, kinks,
    up/down hysteresis) and the voltage it needs. This is how the new
    board would drive it.
-3. **voltage**: voltage forced from 0 to the voltage the module needed
-   where its light reached 80 % of its peak, under the highest current
-   reached as a limit: the module on a plain supply, as today. For a
-   module with a regulator or driver inside, to 5.5 V, under a limit
-   that keeps the plain-diode curve below the light ceiling: light and
-   current against supply voltage, as the new board would drive it.
+3. **voltage**: for a module that lases, voltage forced from 0 to 5.5 V
+   under a limit that keeps the plain-diode curve below the light
+   ceiling (or the highest current reached, if the curve bent): light
+   and current against supply voltage, as the new board would drive it.
+   A dummy load to the voltage at 80 % of its highest current.
 4. **hold**: `--hold-s` at that voltage, dark for `--gap-s`, then
    `--hold-s` at that current: which keeps the light steadier.
 
@@ -198,6 +197,8 @@ class ModuleRig:
         self.lit_a = LIT_A
         #: Channel 2's voltage over the last read: 0 V unless offset.
         self.pd_v = 0.0
+        #: Points whose bend or fall was read again (and didn't hold).
+        self.read_again: list[Point] = []
         self.laser = smu.drivers[1]
         self.pd = smu.drivers[2]
         self.client = smu.stream._client
@@ -398,6 +399,7 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
     points: list[Point] = []
     best = 0.0
     level = 0.0
+    again = False
     rig.force_current(MAX_V)
     while True:
         p = rig.step(level, caps)
@@ -429,9 +431,17 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
             best = max(best, slope)
             if slope < BEND * best:
                 p.why = "curve bending"
+        if p.why in ("light fell", "curve bending") and not again:
+            # Once more at the same current, no higher: laser 5's light
+            # dipped up to 6 % at random, and one dip read as a bend.
+            say(f"  {p.why}? reading it again")
+            rig.read_again.append(points.pop())
+            again = True
+            continue
         if p.why:
             say(f"  {p.why}: turning back")
             return points
+        again = False
         step = args.i_step
         if not dummy and lit and slope and slope > 0:
             step = min(step, 0.5 * (light_cap - light) / slope)
@@ -451,6 +461,7 @@ def stage_current(rig, report, args, caps: Caps) -> dict:
         "up": [asdict(p) for p in up],
         "down": [asdict(p) for p in down],
         "stopped_by": up[-1].why,
+        "read_again": [asdict(p) for p in rig.read_again],
     }
     report["current"] = result
     if down and down[-1].set == 0:
@@ -490,25 +501,29 @@ def operating_point(up: list[dict], dark: float = 0.0,
 
 
 def sweep_limit(judged: dict, caps: Caps, i_max: float) -> float:
-    """The current limit for a regulated module's voltage sweep: where the
-    plain-diode curve would put the light SWEEP_LIGHT_SHARE of the way
-    from the light reached to the ceiling. A voltage sweep has to pass
-    the current where a driver switches on (laser 3's, past 22.5 mA)."""
+    """The current limit for the voltage sweep: where the plain-diode
+    curve, straight to its end, would put the light SWEEP_LIGHT_SHARE of
+    the way from the light reached to the ceiling. A voltage sweep has
+    to pass the current where a driver takes over (laser 3's, past
+    22.5 mA; laser 5's, past 14). A curve that bent or fell is not
+    extrapolated: the highest current reached."""
     limit = i_max
     slope = judged.get("slope_a_per_a")
     peak = judged.get("diode_peak_light_a")
-    if caps.light_a and slope and slope > 0 and peak is not None:
+    straight = judged.get("stopped_by") not in ("curve bending", "light fell")
+    if straight and caps.light_a and slope and slope > 0 and peak is not None:
         room = max(0.0, caps.light_a - peak)
         limit = i_max + SWEEP_LIGHT_SHARE * room / slope
-    return min(limit, caps.i_a, 1.25 * i_max)
+    return min(limit, caps.i_a)
 
 
 def stage_voltage(rig, report, args, caps: Caps, v_op, i_max,
                   judged: dict | None = None) -> dict:
-    """Voltage forced up: to the operating point's voltage, or for a
-    module with a regulator or driver inside, to MAX_V, the module on a
-    plain supply as the new board would drive it."""
-    regulated = (judged or {}).get("kind") in ("regulated", "driver")
+    """Voltage forced up: for a module that lases, to MAX_V, the module
+    on a plain supply as the new board would drive it (a dummy load to
+    the operating point's voltage)."""
+    regulated = (caps.light_a is not None
+                 and (judged or {}).get("peak_light_a", 0.0) > LIT_A)
     top = MAX_V if regulated else v_op
     i_limit = sweep_limit(judged or {}, caps, i_max) if regulated else min(i_max, caps.i_a)
     limit = Caps(i_limit, caps.light_a)
@@ -698,7 +713,18 @@ def judge_voltage(points: list[dict], dark: float, response: float | None,
     good = [p for p in points if not p["why"]] or points
     if len(good) < 3:
         return None
-    out: dict = {"top_v": max(p["v"] for p in good)}
+    out: dict = {"top_v": max(p["v"] for p in good),
+                 "stopped_by": points[-1]["why"] if points else ""}
+    peak = max(good, key=lambda p: p["i"])
+    out["peak_a"], out["peak_v"] = peak["i"], peak["v"]
+    out["peak_light_a"] = abs(peak["pd"] - dark)
+    after = [p for p in good if p["v"] > peak["v"]]
+    if after:
+        low = min(after, key=lambda p: p["i"])
+        if low["i"] < SWITCHED * peak["i"]:
+            # Its current falls as the voltage rises: a driver taking over.
+            settled = next(p for p in after if p["i"] <= low["i"] * 1.02)
+            out["handover_to_a"], out["handover_v"] = low["i"], settled["v"]
     for a, b in zip(good, good[1:], strict=False):
         if b["i"] < SWITCHED * a["i"] and a["i"] > 1e-3:
             out["switch_v"] = b["v"]
@@ -776,6 +802,14 @@ def verdict(results: dict, args) -> list[str]:
         if "switch_v" in vj:
             text += (f", it switched over at {vj['switch_v']:.2f} V (current "
                      f"{vj['switch_from_a'] * 1e3:.1f} -> {vj['switch_to_a'] * 1e3:.1f} mA)")
+        elif "handover_to_a" in vj:
+            text += (f", its current peaks at {vj['peak_a'] * 1e3:.1f} mA at "
+                     f"{vj['peak_v']:.2f} V ({vj['peak_light_a'] * 1e6:.0f} uA) and falls "
+                     f"to {vj['handover_to_a'] * 1e3:.1f} mA by {vj['handover_v']:.2f} V, "
+                     f"its driver taking over")
+        elif vj.get("stopped_by") == "current limit":
+            text += (f", it reached the sweep's current limit at "
+                     f"{vj['top_v']:.2f} V: no driver took over")
         quoted = [
             f"at {q['v']:.2f} V {q['a'] * 1e3:.1f} mA for {q['light_a'] * 1e6:.0f} uA"
             + (f" ({q['mw']:.2f} mW)" if q.get("mw") is not None else "")

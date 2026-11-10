@@ -244,6 +244,49 @@ def test_laser_module_finds_a_driver_and_maps_it_on_a_supply(tmp_path, monkeypat
     _assert_within_ceilings(results)
 
 
+def test_laser_module_reads_a_bend_again(tmp_path, monkeypatch):
+    # Laser 5, 2026-11-10: one dip in its light read as the curve bending.
+    from multilbic.sim.laser_module import FakeModuleSMU
+
+    monkeypatch.setattr(FakeModuleSMU, "PD_DIP_FROM_A", 0.020)
+    monkeypatch.setattr(FakeModuleSMU, "PD_DIP_READS", 3)
+    _responses(monkeypatch, 0.4375)
+    results = _module(tmp_path, "--module", "laser3", "--i-known", "16m")
+    again = results["current"]["read_again"]
+    assert len(again) == 1 and again[0]["set"] == pytest.approx(0.020)
+    assert results["judged_current"]["kind"] == "driver"
+
+
+def test_laser_module_sweeps_a_bare_diode_on_a_supply(tmp_path):
+    # No regulator: the voltage sweep sits at its limit and stops there.
+    results = _module(tmp_path, "--module", "rollover")
+    voltage = results["voltage"]
+    assert voltage["to_v"] == laser_module.MAX_V
+    assert voltage["stopped_by"] == "current limit"
+    # It bent, so the limit is the highest current reached, no more.
+    assert voltage["current_limit_a"] == pytest.approx(
+        results["judged_current"]["i_max_a"])
+    assert results["judged_voltage"]["stopped_by"] == "current limit"
+    _assert_within_ceilings(results)
+
+
+def test_judge_voltage_on_laser_3s_supply_sweep():
+    # Laser 3 on a plain supply, 2026-11-10 (20261110T175436Z): V, mA, uA.
+    sweep = [(2.30, 16.108, 466.6), (2.35, 19.208, 935.2), (2.40, 22.038, 1369.0),
+             (2.45, 22.704, 1467.9), (2.50, 22.845, 1488.5), (2.55, 22.669, 1457.0),
+             (2.60, 21.550, 1344.8), (2.70, 19.381, 1252.8), (2.80, 17.950, 1211.0),
+             (3.00, 16.812, 1192.4), (3.30, 16.299, 1205.2), (3.60, 16.096, 1225.9),
+             (3.90, 16.028, 1248.0), (4.00, 16.027, 1255.8), (5.00, 16.319, 1335.0)]
+    points = [{"set": v, "v": v, "i": ma * 1e-3, "pd": -ua * 1e-6, "why": ""}
+              for v, ma, ua in sweep]
+    vj = laser_module.judge_voltage(points, 0.0, 0.4375, (3.3, 5.0))
+    assert vj["peak_a"] == pytest.approx(0.022845)
+    assert vj["peak_v"] == pytest.approx(2.50)
+    assert vj["handover_to_a"] == pytest.approx(0.016027)
+    assert vj["handover_v"] == pytest.approx(3.30)
+    assert vj["at"]["3.30"]["mw"] == pytest.approx(2.755, rel=0.01)
+
+
 def test_judge_current_on_laser_3s_snap():
     # The last points of laser 3's real sweep (20261110T174053Z).
     def pt(set_ma, v, ma, light_ua, why=""):
