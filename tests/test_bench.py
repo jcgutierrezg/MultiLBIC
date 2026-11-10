@@ -227,6 +227,21 @@ def test_laser_module_operating_point_is_on_the_light():
     assert laser_module.operating_point(dark)[0] == pytest.approx(0.8 * 0.0205)
 
 
+@pytest.mark.parametrize("offset_a, says", [
+    (297e-6, "with the laser off"),     # laser 4's second run
+    (-8e-6, "the dark isn't steady"),   # small, and the dangerous sign
+])
+def test_laser_module_refuses_a_bad_dark(tmp_path, monkeypatch, offset_a, says):
+    from multilbic.sim.laser_module import FakeModuleSMU
+
+    monkeypatch.setattr(FakeModuleSMU, "PD_OFFSET_A", offset_a)
+    monkeypatch.setattr(FakeModuleSMU, "PD_OFFSET_READS", 20)
+    results = _module(tmp_path, "--module", "laser4", "--i-known", "23m")
+    assert says in results["stopped"]
+    up = results.get("current", {}).get("up", [])
+    assert max((p["i"] for p in up), default=0.0) < 1e-4
+
+
 def test_laser_module_stops_without_light(tmp_path):
     # Today's current says the laser lights by 1 mA; at 1.5 mA nothing:
     # the beam is not on the photodiode, so nothing goes higher.

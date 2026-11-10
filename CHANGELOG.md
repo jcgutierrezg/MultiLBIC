@@ -3,6 +3,18 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.14 - The laser module test checks its dark
+
+- Laser 4's second run read the photodiode +297 uA dark for its first
+  second on the 15 mA range and -0.25 uA after, so all its "light" was
+  that offset (curve bending stopped it at 1.5 mA). With the offset the
+  other way the light would read low and the ceiling sit high. The dark
+  is now read 2 s after channel 2 is set up, refused if more than 20 uA
+  from 0, and read again at 0 mA before and after the current sweep:
+  more than 2 uA from the dark stops the run.
+- The prompt says the beam check's current (1.5 x `--i-known`).
+- The simulator can offset channel 2's first readings.
+
 ## 0.7.13 - The laser module test reads past 1 mA
 
 - Laser 4's first run read its light flat at 1.01 mA and stopped for

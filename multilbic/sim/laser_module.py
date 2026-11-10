@@ -165,6 +165,10 @@ class FakeModuleSMU(FakeMiniSMU):
 
     PD_DARK_A = -2e-9
     AUTORANGE_END_A = 1e-3
+    #: A fault: channel 2's first `PD_OFFSET_READS` readings off by
+    #: `PD_OFFSET_A`, as laser 4's second run read its dark (2026-11-10).
+    PD_OFFSET_A = 0.0
+    PD_OFFSET_READS = 0
 
     def __init__(self, clock: Clock, module: ModuleModel | DummyLoad, seed: int = 0):
         super().__init__(clock, seed=seed)
@@ -172,6 +176,7 @@ class FakeModuleSMU(FakeMiniSMU):
         self.level_a = {1: 0.0, 2: 0.0}
         self.voltage_limit = {1: 12.0, 2: 12.0}
         self._noise = random.Random(seed + 7)
+        self._offset_left = self.PD_OFFSET_READS
 
     def set_current(self, channel: int, current: float):
         self.level_a[channel] = current
@@ -213,6 +218,9 @@ class FakeModuleSMU(FakeMiniSMU):
             + self.module.photocurrent(amps)
             + self._noise.gauss(0, 2e-9)
         )
+        if self._offset_left > 0:
+            self._offset_left -= 1
+            pd += self.PD_OFFSET_A
         # As the real one: autoranging, held to 1 mA whatever the limit;
         # on a fixed range, no further than its end.
         index = self.current_range[2]

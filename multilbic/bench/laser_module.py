@@ -55,7 +55,9 @@ the guard that matters, the curve a second one.
 
 Stages (`--stages`, default all, in this order):
 
-1. **dark**: the photodiode with the laser off.
+1. **dark**: the photodiode with the laser off, 2 s after channel 2 is
+   set up; refused if more than 20 uA from 0, and read again at 0 mA
+   before and after the current sweep (an offset is not light).
 2. **current**: current forced up until a stop above, then back down
    over the same levels: light against current (threshold, slope, kinks,
    up/down hysteresis) and the voltage it needs. This is how the new
@@ -109,6 +111,14 @@ PD_CLIPPED = 0.9
 #: if more: the 15 mA range is coarser than autorange).
 LIT_A = 0.5e-6
 LIT_SCATTER = 10.0
+#: The dark: read this long after channel 2 is set up, never further
+#: from 0 than DARK_MAX_A (room light is uA at most), and the photodiode
+#: back within DARK_STEADY_A of it whenever channel 1 is at 0 mA. Laser
+#: 4's second run read +297 uA dark for its first second on the 15 mA
+#: range, -0.25 uA after (2026-11-10): its light was all offset.
+DARK_SETTLE_S = 2.0
+DARK_MAX_A = 20e-6
+DARK_STEADY_A = 2e-6
 #: Current steps: never below MIN_STEP_A; stop this close to the ceiling.
 MIN_STEP_A = 20e-6
 CREEP_STOP = 0.02
@@ -269,7 +279,7 @@ class ModuleRig:
 
 def stage_dark(rig: ModuleRig, report: Report) -> None:
     rig.off()
-    rig.clock.sleep(0.5)
+    rig.clock.sleep(DARK_SETTLE_S)
     pds = [rig.read(1)[2] for _ in range(20)]
     rig.dark = statistics.fmean(pds)
     scatter = statistics.stdev(pds)
@@ -278,6 +288,23 @@ def stage_dark(rig: ModuleRig, report: Report) -> None:
                       "lit_a": rig.lit_a}
     say(f"dark: photodiode {rig.dark:+.3e} A, stdev {scatter:.1e} A "
         f"(15 mA range); lit above {rig.lit_a * 1e6:.2f} uA")
+    if abs(rig.dark) > DARK_MAX_A:
+        raise StopRun(
+            f"the photodiode reads {rig.dark * 1e6:+.1f} uA with the laser off: "
+            f"an offset, not light (hardware/smu.md, the channel-2 offset "
+            f"state). Run it again; if it stays, switch the miniSMU off and on"
+        )
+
+
+def check_dark(rig: ModuleRig, p: Point, when: str) -> None:
+    """Channel 1 at 0 mA: the photodiode must read its dark again."""
+    off_by = abs(p.pd - rig.dark)
+    if off_by > max(DARK_STEADY_A, rig.lit_a):
+        raise StopRun(
+            f"{when}, channel 1 at 0 mA, the photodiode reads "
+            f"{off_by * 1e6:.1f} uA from its dark: the dark isn't steady, "
+            f"so the light can't be trusted"
+        )
 
 
 def _slope(points: list[Point], rig: ModuleRig) -> float | None:
@@ -306,6 +333,8 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
         p = rig.step(level, caps)
         points.append(p)
         say(_point_line(p, rig.dark))
+        if level == 0:
+            check_dark(rig, p, "before the sweep")
         light = rig.light(p.pd)
         lit = light > rig.lit_a
         slope = None if dummy else _slope(points, rig)
@@ -352,6 +381,8 @@ def stage_current(rig, report, args, caps: Caps) -> dict:
         "stopped_by": up[-1].why,
     }
     report["current"] = result
+    if down and down[-1].set == 0:
+        check_dark(rig, down[-1], "after the sweep")
     return result
 
 
@@ -695,6 +726,8 @@ def _confirm(args, light_a, source) -> None:
         f"Current forced up to the first of: {args.max_mw:g} mW of light "
         f"(stops at {light_a * 1e6:.0f} uA on the photodiode, response from the "
         f"{source}), the curve bending, {MAX_V} V, {args.max_ma:g} mA.\n"
+        f"No light by {LIGHT_BY * args.i_known * 1e3:.1f} mA "
+        f"({LIGHT_BY:g} x --i-known) stops it: the beam is off the photodiode.\n"
         f"The laser lights: goggles on, beam on the photodiode."
     )
     if input("Type yes to go on: ").strip().lower() != "yes":
