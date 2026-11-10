@@ -82,6 +82,68 @@ Wait on the job's PID or its log, not on `pgrep -f multilbic` (that
 matches the watching shell too). Calibration files live in `~/cal`,
 runs in `~/multilbic-runs`.
 
+## Testing a laser module
+
+For the new laser board: how each module takes power (a regulator
+inside or not, the voltage it needs, light against current), with
+`python -m multilbic.bench.laser_module`. The module goes straight onto
+the miniSMU's channel 1, the photodiode stays on channel 2, and nothing
+else is in the circuit. Its docstring has every stage and limit. About
+5 minutes a laser, run **at the Pi's own terminal**: it asks before
+lighting, so not under `nohup`.
+
+**The limits are absolute, not today's operating point**, which says
+nothing about lasers 1 and 2 on their starved supply. Current is forced
+in steps that shrink near the light ceiling, and the sweep stops at the
+first of: **5 mW of light** (80 % of it as the power-meter-calibrated
+photodiode reads, for margin), the light-against-current curve bending
+by 15 % or falling, **5.5 V**, or **120 mA**. A module's own regulator
+shows as the voltage jumping to 5.5 V, and ends the sweep too. A facet
+can fail before its curve bends: the light ceiling is the guard that
+matters. The one thing the probe can't catch is reverse wiring, so
+steps 1 and 4 are about polarity.
+
+Once, before any laser:
+
+1. **Which terminal is +**: with nothing on channel 1,
+   `python -m multilbic.bench.laser_module --real --polarity-check`
+   holds +1.00 V (1 mA limit) until Enter. The terminal the multimeter's
+   red probe reads +1.00 V on is channel 1's +.
+2. **Dry run on a resistor**: 100 Ω, ½ W, on channel 1, then
+   `python -m multilbic.bench.laser_module --real --dummy-load --i-known 20m`.
+   It ends with "the limits held" or "THE LIMITS DID NOT HOLD". On the
+   second, stop: no laser goes on the instrument.
+
+Each laser (start with laser 4, not the reference laser 3 or the weak
+laser 2):
+
+3. **Its power-meter response** (the Maintenance window's Power tab), so
+   the light ceiling is in real mW. The probe refuses a laser without
+   one unless given `--datasheet-response`, which stops at 65 % instead.
+4. **Today's numbers**, on the laser board, the laser lit from the
+   window, goggles on:
+   - the multimeter in volts across the module's two wires at its
+     connector: `--v-known`, and **the wire under the red probe is the
+     module's +** (mark it);
+   - the multimeter in mA, in series in the + wire: `--i-known`. It is
+     only used to check the beam is seen (light by 1.5 x it), not as a
+     limit.
+5. Laser off. Unplug the module from the laser board and the cell from
+   channel 1. Module + to channel 1's +, the other wire to its −, by
+   screw terminal or solder, not crocodile clips.
+6. In the window, select the laser (it turns the revolver; nothing
+   lights) and **Go to photodiode**. Close the window: the probe needs
+   the miniSMU. The box closed for lasers 5 and 6.
+7. `python -m multilbic.bench.laser_module --real --laser <n> --i-known <mA>m --v-known <V>`
+   and type `yes`. It prints what it finds and saves a report and a PNG
+   in `bench-results/`.
+8. The module back on the laser board, the cell back on channel 1.
+   After all the modules, commission all six: handling in the box
+   moves lasers ([lasers](hardware/lasers.md)).
+
+A run that stops ("no light by", "did not hold") has switched channel 1
+off; its reason is in the report.
+
 ## Bringing results back
 
 ```bash

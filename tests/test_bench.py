@@ -8,7 +8,7 @@ import json
 
 import pytest
 
-from multilbic.bench import laser, marlin, ports, smu
+from multilbic.bench import laser, laser_module, marlin, ports, smu
 
 
 def _report(tmp_path, probe):
@@ -109,3 +109,120 @@ def test_smu(tmp_path):
 def test_smu_real_requires_a_load_description():
     with pytest.raises(SystemExit):
         smu.main(["--real", "--port", "COM99"])
+
+
+def _module(tmp_path, *extra):
+    argv = [
+        "--sim", "--hold-s", "3", "--no-plot", "--out", str(tmp_path), *extra,
+    ]
+    assert laser_module.main(argv) == 0
+    return _report(tmp_path, "laser_module")["results"]
+
+
+def _assert_within_ceilings(results):
+    ceilings = results["ceilings"]
+    dark = results["dark"]["pd_a"]["mean"]
+    for p in laser_module._every_reading(results):
+        assert p["set"] >= 0
+        assert p["v"] <= laser_module.MAX_V * 1.01
+        assert abs(p["i"]) <= ceilings["current_a"] * 1.01
+        if ceilings["light_pd_a"] is not None:
+            assert abs(p["pd"] - dark) <= ceilings["light_pd_a"] * 1.01
+
+
+@pytest.mark.parametrize("module", ["regulated", "resistor", "starved", "rollover"])
+def test_laser_module_stays_within_the_ceilings(tmp_path, module):
+    results = _module(tmp_path, "--module", module)
+    assert "stopped" not in results
+    assert {"current", "voltage", "hold"} <= results.keys()
+    _assert_within_ceilings(results)
+
+
+def test_laser_module_finds_a_regulator(tmp_path):
+    results = _module(tmp_path, "--module", "regulated")
+    judged = results["judged_current"]
+    assert judged["kind"] == "regulated"
+    assert judged["i_reg_a"] == pytest.approx(0.028, rel=0.02)
+    assert judged["threshold_a"] == pytest.approx(0.016, abs=0.001)
+    assert judged["kinks"] == 0
+    held = results["judged_hold"]
+    assert held["constant_voltage"] and held["constant_current"]
+    assert any("Regulated inside" in line for line in results["verdict"])
+
+
+def test_laser_module_finds_a_starved_regulator_above_todays_point(tmp_path):
+    # Today's point says nothing about the limit: the sweep goes past
+    # today's current to find the regulator at 35 mA.
+    results = _module(tmp_path, "--module", "starved", "--v-known", "4.5")
+    judged = results["judged_current"]
+    assert judged["kind"] == "regulated"
+    assert judged["i_reg_a"] == pytest.approx(0.035, rel=0.02)
+    assert judged["v_reg"] > 4.5
+    assert judged["i_max_a"] > 1.2 * results["ceilings"]["light_by_a"] / 1.5
+
+
+def test_laser_module_without_a_regulator_stops_at_the_light_ceiling(tmp_path):
+    results = _module(tmp_path, "--module", "resistor")
+    assert results["current"]["stopped_by"] == "light ceiling"
+    assert results["judged_current"]["kind"] == "no regulator reached"
+
+
+def test_laser_module_stops_when_the_curve_bends(tmp_path):
+    results = _module(tmp_path, "--module", "rollover")
+    assert results["current"]["stopped_by"] == "curve bending"
+    light_cap = results["ceilings"]["light_pd_a"]
+    assert results["judged_current"]["peak_light_a"] < 0.5 * light_cap
+
+
+def test_laser_module_stops_without_light(tmp_path):
+    # Today's current says the laser lights by 1 mA; at 1.5 mA nothing:
+    # the beam is not on the photodiode, so nothing goes higher.
+    results = _module(tmp_path, "--module", "regulated", "--i-known", "1m")
+    assert "no light" in results["stopped"]
+    assert max(p["i"] for p in results.get("current", {}).get("up", [])
+               or [{"i": 0}]) <= 1.6e-3
+
+
+def test_laser_module_dry_run_on_a_resistor(tmp_path):
+    results = _module(tmp_path, "--dummy-load")
+    assert "stopped" not in results
+    assert results["dummy_load"] is True
+    assert results["current"]["stopped_by"] == "voltage limit"
+    _assert_within_ceilings(results)
+    assert any("the limits held" in line for line in results["verdict"])
+
+
+def test_laser_module_light_ceiling_comes_from_the_response(tmp_path):
+    results = _module(tmp_path, "--module", "regulated", "--max-mw", "2")
+    ceilings = results["ceilings"]
+    assert ceilings["response_from"] == "S1223-01 datasheet"
+    expected = laser_module.MARGIN_DATASHEET * 2e-3 * ceilings["pd_response_a_w"]
+    assert ceilings["light_pd_a"] == pytest.approx(expected)
+
+
+def test_laser_module_polarity_check(capsys):
+    assert laser_module.main(["--sim", "--polarity-check"]) == 0
+    out = capsys.readouterr().out
+    assert "+1.000 V" in out and "Channel 1 off." in out
+
+
+def test_laser_module_refuses_unsafe_arguments():
+    real = ["--real", "--port", "COM99"]
+    for extra in (
+        ["--laser", "3"],                                    # no --i-known
+        ["--i-known", "30m"],                                # no --laser
+        ["--laser", "3", "--i-known", "30m"],                # no power-meter response
+        ["--laser", "3", "--i-known", "30m", "--datasheet-response", "--max-mw", "6"],
+        ["--laser", "3", "--i-known", "30m", "--datasheet-response", "--max-ma", "150"],
+        ["--laser", "3", "--i-known", "30m", "--datasheet-response", "--v-known", "6"],
+        ["--dummy-load", "--laser", "3", "--i-known", "20m"],
+    ):
+        with pytest.raises(SystemExit):
+            laser_module.main(real + extra)
+
+
+def test_parse_amps():
+    assert laser_module.parse_amps("32m") == pytest.approx(0.032)
+    assert laser_module.parse_amps("32 mA") == pytest.approx(0.032)
+    assert laser_module.parse_amps("0.032") == pytest.approx(0.032)
+    assert laser_module.parse_amps("500u") == pytest.approx(5e-4)

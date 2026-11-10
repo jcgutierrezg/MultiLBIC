@@ -3,6 +3,33 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.11 - A laser module on the miniSMU
+
+- For the new laser board: `python -m multilbic.bench.laser_module`
+  measures how a module takes power, wired straight to channel 1 with
+  the photodiode on channel 2. Stages: dark; current forced up to a
+  stop and back down (the voltage it needs, light against current:
+  threshold, slope, kinks, hysteresis, and a regulator showing as the
+  voltage jumping to the limit); voltage forced up to the voltage at
+  80 % of the highest current reached; and 60 s held at that voltage,
+  then that current. A verdict, a JSON report and a PNG.
+- The limits are absolute, not today's operating point (lasers 1 and 2
+  are starved there): current steps shrink near the light ceiling, and
+  the sweep stops at the first of 5 mW of light (80 % of it as the
+  power-meter-calibrated photodiode reads; 65 % with
+  `--datasheet-response`, refused otherwise), the curve bending 15 % or
+  falling, 5.5 V or 120 mA. Every level is zero or positive, zero before
+  off or a mode change; a reading past a ceiling ends the run.
+  `--i-known` (today's current) only checks the beam is seen: light by
+  1.5 x it.
+- `--polarity-check` (+1 V, 1 mA limit, nothing connected) finds
+  channel 1's +; `--dummy-load` dry-runs every stage on a resistor and
+  says whether the instrument held its limits.
+- `sim/laser_module.py`: regulated, resistor, starved, rollover and
+  dummy modules on a fake miniSMU that sources current as well as
+  voltage.
+- Runbook: [bench](docs/bench.md#testing-a-laser-module).
+
 ## 0.7.10 - Flip the photocurrent's sign in the viewer
 
 - **Flip sign**, beside the viewer's Show switch: the photocurrent

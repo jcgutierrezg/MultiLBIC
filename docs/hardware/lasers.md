@@ -80,6 +80,10 @@ modules hold their own current, moved 1–5 %. It is at its ceiling. The
 fix for lasers 1 and 2 is hardware: a supply above 5 V, or a low-dropout
 constant-current driver for those two.
 
+What each module needs from the new laser board (a regulator inside or
+not, the voltage it needs, light against current) is measured module by
+module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-module)).
+
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of
   the others'. Readings: −47 µA (2026-10-30), −17.5 and −29 µA after the

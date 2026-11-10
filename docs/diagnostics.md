@@ -123,6 +123,7 @@ laser.
 | `python -m multilbic.bench.marlin --real --home --motion --speeds 3,4,5 --speed-span 1,39` | **at the machine** | speed trials over the travel; note what you see and hear |
 | `python -m multilbic.bench.laser --real [--lasers]` | `--lasers` lights them | firmware, angles, switching and settle times |
 | `python -m multilbic.bench.smu --real --port <smu port> --load "<what is connected>"` | no | stream rates, stamps, clock drift, noise per range (the port is the `smu` one in `machine.toml`) |
+| `python -m multilbic.bench.laser_module --real --laser <n> --i-known <mA>m` | **lights one module**, rewired onto channel 1 | how the module takes power: regulator or not, voltage needed, light against current ([runbook](bench.md#testing-a-laser-module)) |
 
 A probe that fails partway still saves what it had, and a Marlin probe
 that fails mid-move sends a quickstop first.

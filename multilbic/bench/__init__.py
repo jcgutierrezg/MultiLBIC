@@ -16,4 +16,5 @@ says so.
     python -m multilbic.bench.marlin    timing, speed, stop behaviour
     python -m multilbic.bench.laser     switching and settle times
     python -m multilbic.bench.smu       stream rate, timestamps, noise
+    python -m multilbic.bench.laser_module  a laser module on the SMU
 """
