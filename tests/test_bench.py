@@ -151,7 +151,7 @@ def _assert_within_ceilings(results):
 
 
 @pytest.mark.parametrize(
-    "module", ["regulated", "resistor", "starved", "rollover", "laser4"])
+    "module", ["regulated", "resistor", "starved", "rollover", "laser4", "laser3"])
 def test_laser_module_stays_within_the_ceilings(tmp_path, module):
     results = _module(tmp_path, "--module", module)
     assert "stopped" not in results
@@ -214,6 +214,53 @@ def test_laser_module_reads_light_past_1_ma(tmp_path, monkeypatch):
     assert results["operating_point"]["a"] > 0.0165 + 0.002
     held = results["judged_hold"]
     assert held["constant_current"] is not None
+
+
+def test_laser_module_finds_a_driver_and_maps_it_on_a_supply(tmp_path, monkeypatch):
+    # Laser 3, 2026-11-10: a plain diode to 22.5 mA; forced past it, 5.5 V
+    # and 16.6 mA with more light; on a supply, 16 mA at the board's 3.26 V.
+    _responses(monkeypatch, 0.4375)
+    results = _module(tmp_path, "--module", "laser3", "--i-known", "16m",
+                      "--v-known", "3.26")
+    judged = results["judged_current"]
+    assert judged["kind"] == "driver"
+    assert judged["i_switch_a"] == pytest.approx(0.0225, abs=0.0006)
+    assert judged["i_after_a"] == pytest.approx(0.0166, abs=0.0003)
+    assert judged["down_still_switched_to_a"] == pytest.approx(0.016, abs=0.0006)
+    # The two states are not hysteresis.
+    assert judged["hysteresis_fraction"] < 0.02
+    # The voltage sweep went to 5.5 V, through the switch, under the light.
+    voltage = results["voltage"]
+    assert voltage["to_v"] == laser_module.MAX_V
+    assert max(p["v"] for p in voltage["points"]) > 5.3
+    vj = results["judged_voltage"]
+    assert vj["switch_v"] == pytest.approx(2.42, abs=0.05)
+    assert vj["at"]["3.30"]["a"] == pytest.approx(0.016, abs=0.0005)
+    assert vj["at"]["3.30"]["light_a"] == pytest.approx(1206e-6, rel=0.03)
+    # Held at today's voltage, on its driver.
+    assert results["hold"]["constant_voltage"]["v"] == 3.26
+    text = " ".join(results["verdict"])
+    assert "A driver inside" in text and "a fixed voltage" in text
+    _assert_within_ceilings(results)
+
+
+def test_judge_current_on_laser_3s_snap():
+    # The last points of laser 3's real sweep (20261110T174053Z).
+    def pt(set_ma, v, ma, light_ua, why=""):
+        return {"set": set_ma * 1e-3, "v": v, "i": ma * 1e-3,
+                "pd": -light_ua * 1e-6, "why": why}
+
+    up = [pt(20.0, 2.362, 20.010, 1054.7), pt(20.5, 2.369, 20.509, 1130.2),
+          pt(21.0, 2.378, 21.012, 1208.3), pt(21.5, 2.386, 21.517, 1285.4),
+          pt(22.0, 2.398, 22.003, 1359.3), pt(22.5, 2.421, 22.506, 1435.3),
+          pt(23.0, 5.539, 16.632, 1382.2, "voltage limit")]
+    down = [pt(22.0, 5.539, 16.638, 1382.4), pt(21.0, 5.539, 16.632, 1381.6),
+            pt(20.0, 5.539, 16.627, 1380.6)]
+    judged = laser_module.judge_current(up, down, 0.0, 0.4375)
+    assert judged["kind"] == "driver"
+    assert judged["i_switch_a"] == pytest.approx(0.022506)
+    assert judged["down_still_switched_to_a"] == pytest.approx(0.020)
+    assert judged["hysteresis_fraction"] is None
 
 
 # Laser 4's sweep, 2026-11-10 (20261110T172152Z): mA, V.

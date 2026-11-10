@@ -111,6 +111,17 @@ module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-modu
   gives it today at 3.26 V (23 mA). So it sets its own power from about
   2.7 V up, and a current held below 22.5 mA dims it. Held 60 s at
   21.5 mA, the light moved under 1 % at constant voltage or current.
+- **Laser 3** (2026-11-10, `20261110T174053Z_laser_module_real`): a
+  plain diode up to 22.5 mA (2.42 V, about 16 ohm), lasing from 13.1 mA
+  at 0.347 mW per mA, to 3.28 mW. Forced to 23 mA, the voltage jumped to
+  5.5 V and the current fell to 16.6 mA while the light held 3.16 mW,
+  more than 16.6 mA gives it as a diode: a driver inside, switching
+  most likely. Coming down it stayed so until 16 mA (4.16 V, 2.89 mW),
+  then fell back to the diode (15.5 mA, 2.29 V, 0.85 mW). On the board
+  it runs on that driver: 16 mA at 3.26 V, 2.75 mW. At 16 mA it has two
+  states, 0.9 mW at 2.3 V or 2.9 mW at 4.2 V, so it wants a fixed
+  voltage, not a current; on its driver the light rose about 15 % from
+  3.26 to 5.5 V.
 
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of

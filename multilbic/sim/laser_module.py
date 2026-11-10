@@ -16,6 +16,8 @@ Three kinds, the cases the probe has to tell apart:
   heats, well before the light ceiling: the bending stop.
 * **laser4**: laser 4 as measured, lasing past the 1 mA the miniSMU
   allows a channel while autoranging, then its regulator's soft knee.
+* **laser3**: laser 3 as measured, a plain diode until its driver
+  switches on, then less current for more light.
 * **dummy**: a 100 ohm resistor, for the dry run.
 
 Channel 2 clips as the real one does: at 1 mA while autoranging, at
@@ -145,7 +147,71 @@ class DummyLoad:
         return 0.0
 
 
-MODULES: dict[str, ModuleModel | DummyLoad] = {
+@dataclass
+class DriverModule:
+    """A module with a driver inside that switches on (laser 3,
+    2026-11-10). Below `v_on` its driver is fully on and the module is
+    its plain diode; from `v_on` the driver runs it, taking
+    `i0_a + di_dv * V` and giving `light0_a + dlight_dv * V` on the
+    photodiode, more light than that current gives the diode, until the
+    voltage falls below `v_off` or the module is switched off."""
+
+    diode: ModuleModel
+    v_on: float
+    v_off: float
+    i0_a: float
+    di_dv: float
+    light0_a: float
+    dlight_dv: float
+    v_known: float
+    kind: str = "driver"
+    on: bool = False
+
+    @property
+    def i_known(self) -> float:
+        return self.i0_a + self.di_dv * self.v_known
+
+    def fimv(self, amps: float, v_limit: float) -> tuple[float, float]:
+        """(volts, amps) with `amps` forced, held to `v_limit`."""
+        if not self.on:
+            volts = self.diode.voltage_at(amps)
+            if volts < self.v_on:
+                return min(volts, v_limit), amps
+            self.on = True
+        volts = (amps - self.i0_a) / self.di_dv
+        if volts < self.v_off:
+            self.on = False
+            return min(self.diode.voltage_at(amps), v_limit), amps
+        if volts > v_limit:
+            volts = v_limit
+            amps = self.i0_a + self.di_dv * volts
+        return volts, amps
+
+    def fvmi(self, volts: float, i_limit: float) -> tuple[float, float]:
+        """(volts, amps) with `volts` forced, held to `i_limit`."""
+        if self.on and volts < self.v_off:
+            self.on = False
+        if not self.on and volts >= self.v_on:
+            self.on = True
+        if self.on:
+            amps = self.i0_a + self.di_dv * volts
+            if i_limit and amps > i_limit:
+                amps = i_limit
+                volts = (amps - self.i0_a) / self.di_dv
+            return volts, amps
+        amps = self.diode.current_at(volts)
+        if i_limit and amps > i_limit:
+            amps = i_limit
+            volts = self.diode.voltage_at(amps)
+        return volts, amps
+
+    def light(self, volts: float, amps: float) -> float:
+        if self.on:
+            return -(self.light0_a + self.dlight_dv * volts)
+        return self.diode.photocurrent(amps)
+
+
+MODULES: dict[str, ModuleModel | DummyLoad | DriverModule] = {
     "regulated": ModuleModel(
         "regulated", vf_20ma=2.05, n_vt=0.05, r_ohm=2.0, i_reg_a=0.028,
         v_overhead=0.35, i_th_a=0.016, pd_slope=0.06, v_known=3.0,
@@ -173,6 +239,24 @@ MODULES: dict[str, ModuleModel | DummyLoad] = {
     "dummy": DummyLoad(),
 }
 
+#: Laser 3 as measured on 2026-11-10: a plain diode (lasing from 13.1 mA
+#: at 0.152 A/A) to 22.5 mA and 2.42 V; past that its driver, 16.0 mA at
+#: 3.26 V (the board) to 16.6 mA at 5.5 V, giving 1203 to 1382 uA.
+LASER3_DIODE = ModuleModel(
+    "laser3", vf_20ma=2.065, n_vt=0.03, r_ohm=15.0, i_reg_a=None,
+    v_overhead=0.0, i_th_a=0.01306, pd_slope=0.1518, v_known=2.4,
+)
+
+
+def module(name: str) -> ModuleModel | DummyLoad | DriverModule:
+    """A fresh simulated module (a driver keeps state)."""
+    if name == "laser3":
+        return DriverModule(
+            LASER3_DIODE, v_on=2.41, v_off=2.4, i0_a=15.2e-3, di_dv=0.25e-3,
+            light0_a=947e-6, dlight_dv=78.5e-6, v_known=3.26,
+        )
+    return MODULES[name]
+
 
 class FakeModuleSMU(FakeMiniSMU):
     """The fake miniSMU with a laser module on channel 1 and the
@@ -188,7 +272,8 @@ class FakeModuleSMU(FakeMiniSMU):
     PD_OFFSET_V = 0.0
     PD_OFFSET_READS = 0
 
-    def __init__(self, clock: Clock, module: ModuleModel | DummyLoad, seed: int = 0):
+    def __init__(self, clock: Clock, module: ModuleModel | DummyLoad | DriverModule,
+                 seed: int = 0):
         super().__init__(clock, seed=seed)
         self.module = module
         self.level_a = {1: 0.0, 2: 0.0}
@@ -204,9 +289,15 @@ class FakeModuleSMU(FakeMiniSMU):
 
     def _module_state(self) -> tuple[float, float]:
         """(volts, amps) on channel 1 as it is set now."""
-        if not self.enabled[1]:
-            return 0.0, 0.0
         m = self.module
+        if not self.enabled[1]:
+            if isinstance(m, DriverModule):
+                m.on = False
+            return 0.0, 0.0
+        if isinstance(m, DriverModule):
+            if self.mode[1] == "FIMV":
+                return m.fimv(self.level_a[1], self.voltage_limit[1])
+            return m.fvmi(self.voltage[1], self.current_limit[1])
         if self.mode[1] == "FIMV":
             amps = self.level_a[1]
             volts = m.voltage_at(amps)
@@ -231,11 +322,9 @@ class FakeModuleSMU(FakeMiniSMU):
             )
         if not self.enabled[2]:
             return 0.0, 0.0
-        pd = (
-            self.PD_DARK_A
-            + self.module.photocurrent(amps)
-            + self._noise.gauss(0, 2e-9)
-        )
+        light = (self.module.light(volts, amps) if isinstance(self.module, DriverModule)
+                 else self.module.photocurrent(amps))
+        pd = self.PD_DARK_A + light + self._noise.gauss(0, 2e-9)
         volts_2 = 0.0
         if self._offset_left > 0:
             self._offset_left -= 1

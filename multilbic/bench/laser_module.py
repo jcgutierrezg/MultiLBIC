@@ -64,7 +64,10 @@ Stages (`--stages`, default all, in this order):
    board would drive it.
 3. **voltage**: voltage forced from 0 to the voltage the module needed
    where its light reached 80 % of its peak, under the highest current
-   reached as a limit: the module on a plain supply, as today.
+   reached as a limit: the module on a plain supply, as today. For a
+   module with a regulator or driver inside, to 5.5 V, under a limit
+   that keeps the plain-diode curve below the light ceiling: light and
+   current against supply voltage, as the new board would drive it.
 4. **hold**: `--hold-s` at that voltage, dark for `--gap-s`, then
    `--hold-s` at that current: which keeps the light steadier.
 
@@ -140,6 +143,18 @@ FALL = 0.01
 KNEE = 8.0
 KNEE_SPAN_A = 1e-3
 KNEE_MIN_OHM = 200.0
+#: A driver switching on: forced past it, the current at the voltage
+#: limit falls below this share of the last current before (laser 3:
+#: 22.5 mA, then 16.6 mA at 5.5 V, 2026-11-10).
+SWITCHED = 0.9
+#: A regulated module's voltage sweep goes to MAX_V under a current
+#: limit that keeps the light, as the plain-diode curve rises, this
+#: share of the way from the light reached to the ceiling; and may sit
+#: at that limit this far past where it first did.
+SWEEP_LIGHT_SHARE = 0.9
+SWEEP_AT_LIMIT_V = 0.5
+#: Voltages the verdict quotes from a regulated module's voltage sweep.
+QUOTE_V = (3.3, 5.0)
 #: A reading this close to a limit is the limit.
 AT_LIMIT = 0.97
 #: The operating point for the voltage stage and the holds.
@@ -474,22 +489,57 @@ def operating_point(up: list[dict], dark: float = 0.0,
     return i_op, good[-1]["v"] if v is None else v, i_max
 
 
-def stage_voltage(rig, report, args, caps: Caps, v_op, i_max) -> dict:
-    say(f"voltage: 0 -> {v_op:.2f} V, limit {i_max * 1e3:.1f} mA")
-    limit = Caps(min(i_max, caps.i_a), caps.light_a)
+def sweep_limit(judged: dict, caps: Caps, i_max: float) -> float:
+    """The current limit for a regulated module's voltage sweep: where the
+    plain-diode curve would put the light SWEEP_LIGHT_SHARE of the way
+    from the light reached to the ceiling. A voltage sweep has to pass
+    the current where a driver switches on (laser 3's, past 22.5 mA)."""
+    limit = i_max
+    slope = judged.get("slope_a_per_a")
+    peak = judged.get("diode_peak_light_a")
+    if caps.light_a and slope and slope > 0 and peak is not None:
+        room = max(0.0, caps.light_a - peak)
+        limit = i_max + SWEEP_LIGHT_SHARE * room / slope
+    return min(limit, caps.i_a, 1.25 * i_max)
+
+
+def stage_voltage(rig, report, args, caps: Caps, v_op, i_max,
+                  judged: dict | None = None) -> dict:
+    """Voltage forced up: to the operating point's voltage, or for a
+    module with a regulator or driver inside, to MAX_V, the module on a
+    plain supply as the new board would drive it."""
+    regulated = (judged or {}).get("kind") in ("regulated", "driver")
+    top = MAX_V if regulated else v_op
+    i_limit = sweep_limit(judged or {}, caps, i_max) if regulated else min(i_max, caps.i_a)
+    limit = Caps(i_limit, caps.light_a)
+    say(f"voltage: 0 -> {top:.2f} V, limit {i_limit * 1e3:.1f} mA")
     rig.force_voltage(limit.i_a)
-    n = max(1, round(v_op / args.v_step))
+    n = max(1, round(top / args.v_step))
     points = []
+    limited_from = None
     for k in range(n + 1):
-        p = rig.step(v_op * k / n, limit)
-        if abs(p.i) >= AT_LIMIT * limit.i_a:
+        level = top * k / n
+        p = rig.step(level, limit)
+        at_limit = abs(p.i) >= AT_LIMIT * limit.i_a
+        if at_limit and limited_from is None:
+            limited_from = level
+        elif not at_limit:
+            limited_from = None
+        if at_limit and (not regulated or level - limited_from >= SWEEP_AT_LIMIT_V):
             p.why = "current limit"
+        elif caps.light_a and rig.light(p.pd) >= caps.light_a * (1 - CREEP_STOP):
+            p.why = "light ceiling"
         points.append(p)
         say(_point_line(p, rig.dark))
         if p.why:
             break
     rig.off()
-    result = {"current_limit_a": limit.i_a, "points": [asdict(p) for p in points]}
+    result = {
+        "to_v": top,
+        "current_limit_a": limit.i_a,
+        "points": [asdict(p) for p in points],
+        "stopped_by": points[-1].why if points else "",
+    }
     report["voltage"] = result
     return result
 
@@ -510,8 +560,17 @@ def ramp(rig, level, caps, steps=5) -> None:
         rig.step(level * k / steps, caps)
 
 
-def stage_hold(rig, report, args, caps: Caps, i_op, v_op, i_max) -> dict:
+def stage_hold(rig, report, args, caps: Caps, i_op, v_op, i_max,
+               voltage: dict | None = None) -> dict:
+    """At a voltage, then at a current. For a regulated module whose
+    voltage sweep passed today's voltage (--v-known), at that voltage,
+    on its own regulator, under that sweep's limit."""
     limit = Caps(min(i_max, caps.i_a), caps.light_a)
+    if voltage and voltage.get("to_v", 0) >= MAX_V and args.v_known:
+        reached = max((p["v"] for p in voltage["points"]), default=0.0)
+        if args.v_known <= reached:
+            v_op = args.v_known
+            limit = Caps(voltage["current_limit_a"], caps.light_a)
     say(f"hold: {args.hold_s:g} s at {v_op:.2f} V (limit {limit.i_a * 1e3:.1f} mA)")
     rig.force_voltage(limit.i_a)
     ramp(rig, v_op, limit)
@@ -544,7 +603,20 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
         return out
     out["i_max_a"] = max(p["i"] for p in good)
     out["v_at_max"] = good[-1]["v"]
-    if stop == "regulator" or (stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3):
+    switched = (stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3
+                and up[-1]["i"] < SWITCHED * good[-1]["i"])
+    if switched:
+        # Forced past it, the voltage jumped to the limit and the current
+        # fell: a driver inside switched on (laser 3).
+        out["kind"] = "driver"
+        out["i_switch_a"] = good[-1]["i"]
+        out["v_switch"] = good[-1]["v"]
+        out["i_after_a"] = up[-1]["i"]
+        out["v_after"] = up[-1]["v"]
+        out["light_after_a"] = abs(up[-1]["pd"] - dark)
+        if response:
+            out["mw_after"] = out["light_after_a"] / response * 1e3
+    elif stop == "regulator" or (stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3):
         # The voltage climbed steeply (a knee), or jumped to the limit
         # from well below it: a regulator took over.
         out["kind"] = "regulated"
@@ -559,7 +631,8 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
     else:
         out["kind"] = "no regulator reached"
     light = [abs(p["pd"] - dark) for p in good]
-    peak = max(light + [out.get("regulated_light_a", 0.0)])
+    out["diode_peak_light_a"] = max(light)
+    peak = max(light + [out.get("regulated_light_a", 0.0), out.get("light_after_a", 0.0)])
     out["peak_light_a"] = peak
     if response:
         out["peak_mw"] = peak / response * 1e3
@@ -574,12 +647,21 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
             out["slope_mw_per_ma"] = slope / response
     tolerance = max(FALL * peak, LIT_A)
     out["kinks"] = sum(1 for a, b in zip(light, light[1:], strict=False) if b < a - tolerance)
-    by_set = {round(p["set"], 9): abs(p["pd"] - dark) for p in good}
-    gaps = [
-        abs(abs(p["pd"] - dark) - by_set[round(p["set"], 9)])
-        for p in down if round(p["set"], 9) in by_set
-    ]
-    out["hysteresis_fraction"] = max(gaps) / peak if gaps else None
+    # Up against down at each level, on the same branch only: down
+    # points far from the up point's voltage are a driver still on.
+    by_set = {round(p["set"], 9): p for p in good}
+    gaps, still_on = [], []
+    for p in down:
+        u = by_set.get(round(p["set"], 9))
+        if u is None:
+            continue
+        if abs(p["v"] - u["v"]) > 0.2:
+            still_on.append(p["set"])
+            continue
+        gaps.append(abs(abs(p["pd"] - dark) - abs(u["pd"] - dark)))
+    out["hysteresis_fraction"] = max(gaps) / max(light) if gaps else None
+    if still_on:
+        out["down_still_switched_to_a"] = min(still_on)
     return out
 
 
@@ -609,6 +691,32 @@ def judge_hold(points: list[dict], dark: float) -> dict | None:
     }
 
 
+def judge_voltage(points: list[dict], dark: float, response: float | None,
+                  quote: tuple[float, ...]) -> dict | None:
+    """A regulated module on a plain supply: where it switched over, and
+    current and light at the voltages quoted."""
+    good = [p for p in points if not p["why"]] or points
+    if len(good) < 3:
+        return None
+    out: dict = {"top_v": max(p["v"] for p in good)}
+    for a, b in zip(good, good[1:], strict=False):
+        if b["i"] < SWITCHED * a["i"] and a["i"] > 1e-3:
+            out["switch_v"] = b["v"]
+            out["switch_from_a"], out["switch_to_a"] = a["i"], b["i"]
+            break
+    at: dict[str, dict] = {}
+    for volts in quote:
+        near = min(good, key=lambda p: abs(p["v"] - volts))
+        if abs(near["v"] - volts) <= 0.06:
+            light = abs(near["pd"] - dark)
+            at[f"{volts:.2f}"] = {
+                "v": near["v"], "a": near["i"], "light_a": light,
+                "mw": light / response * 1e3 if response else None,
+            }
+    out["at"] = at
+    return out
+
+
 def verdict(results: dict, args) -> list[str]:
     lines: list[str] = []
     if results.get("dummy_load"):
@@ -618,7 +726,19 @@ def verdict(results: dict, args) -> list[str]:
         return lines
     mw = c.get("peak_mw")
     mw_text = f" ({mw:.2f} mW as it reads)" if mw is not None else ""
-    if c["kind"] == "regulated":
+    if c["kind"] == "driver":
+        mw_after = c.get("mw_after")
+        lines.append(
+            f"A driver inside: a plain diode up to {c['i_switch_a'] * 1e3:.1f} mA "
+            f"({c['v_switch']:.2f} V); forced past it, the voltage jumped to "
+            f"{c['v_after']:.2f} V and the current fell to {c['i_after_a'] * 1e3:.1f} mA "
+            f"with {c['light_after_a'] * 1e6:.0f} uA of light"
+            + (f" ({mw_after:.2f} mW)" if mw_after is not None else "")
+            + ", more than that current gives it as a diode"
+            + (f"; it stayed switched down to {c['down_still_switched_to_a'] * 1e3:.1f} mA."
+               if c.get("down_still_switched_to_a") else ".")
+        )
+    elif c["kind"] == "regulated":
         held = ""
         if c.get("regulated_light_a"):
             mw_reg = c.get("regulated_mw")
@@ -650,7 +770,25 @@ def verdict(results: dict, args) -> list[str]:
             f"{c['threshold_a'] * 1e3:.1f} mA{slope}, up to "
             f"{c['peak_light_a'] * 1e6:.0f} uA on the photodiode{mw_text}."
         )
-    if c["kind"] == "regulated":
+    vj = results.get("judged_voltage")
+    if vj:
+        text = f"On a plain supply (voltage forced to {vj['top_v']:.2f} V)"
+        if "switch_v" in vj:
+            text += (f", it switched over at {vj['switch_v']:.2f} V (current "
+                     f"{vj['switch_from_a'] * 1e3:.1f} -> {vj['switch_to_a'] * 1e3:.1f} mA)")
+        quoted = [
+            f"at {q['v']:.2f} V {q['a'] * 1e3:.1f} mA for {q['light_a'] * 1e6:.0f} uA"
+            + (f" ({q['mw']:.2f} mW)" if q.get("mw") is not None else "")
+            for q in vj["at"].values()
+        ]
+        lines.append(text + (": " + "; ".join(quoted) if quoted else "") + ".")
+    if c["kind"] == "driver":
+        lines.append(
+            "For the board: a fixed voltage, not a current. Near its switching "
+            "current it has two states, as a diode or on its driver, and a "
+            "current limit can leave it in either."
+        )
+    elif c["kind"] == "regulated":
         lines.append(
             f"For the board: at least {c['v_at_reg']:.2f} V at the module for its "
             f"own power, so about {c['v_at_reg'] + 1.0:.1f} V of rail (1 V for the "
@@ -733,10 +871,9 @@ def _point_line(p: Point, dark: float) -> str:
 def _open(args, clock) -> PhotocurrentSmu:
     if args.sim:
         from multilbic.sim.fake_smu import FakeMiniSMUTransport
-        from multilbic.sim.laser_module import MODULES, FakeModuleSMU
+        from multilbic.sim.laser_module import FakeModuleSMU, module
 
-        module = MODULES["dummy" if args.dummy_load else args.module]
-        fake = FakeModuleSMU(clock, module)
+        fake = FakeModuleSMU(clock, module("dummy" if args.dummy_load else args.module))
         return PhotocurrentSmu(FakeMiniSMUTransport(fake), clock, (1, 2))
     return open_smu(args.port, clock, (1, 2))
 
@@ -764,9 +901,9 @@ def _check_args(parser, args, machine) -> None:
     if args.sim and args.laser is None and not args.dummy_load:
         args.laser = 3
     if args.sim and args.i_known is None:
-        from multilbic.sim.laser_module import MODULES
+        from multilbic.sim.laser_module import module
 
-        args.i_known = MODULES["dummy" if args.dummy_load else args.module].i_known
+        args.i_known = module("dummy" if args.dummy_load else args.module).i_known
     if args.dummy_load and args.laser:
         parser.error("--dummy-load is a resistor, not laser --laser")
     if args.i_known is None:
@@ -865,7 +1002,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every-s", type=float, default=0.5, help="hold reading interval")
     parser.add_argument("--stages", type=lambda s: [x.strip() for x in s.split(",")],
                         default=list(STAGES))
-    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover", "laser4"),
+    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover", "laser4", "laser3"),
                         default="regulated", help="--sim only: the simulated module")
     parser.add_argument("--yes", action="store_true", help="don't ask before lighting")
     parser.add_argument("--no-plot", action="store_true")
@@ -915,10 +1052,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             i_op, v_op, i_max = operating_point(current["up"], rig.dark, rig.lit_a)
             report["operating_point"] = {"a": i_op, "v": v_op, "i_max_a": i_max}
+            voltage = None
             if "voltage" in args.stages:
-                stage_voltage(rig, report, args, caps, v_op, i_max)
+                voltage = stage_voltage(rig, report, args, caps, v_op, i_max,
+                                        report["judged_current"])
+                if voltage["to_v"] >= MAX_V:
+                    report["judged_voltage"] = judge_voltage(
+                        voltage["points"], rig.dark, response,
+                        QUOTE_V + ((args.v_known,) if args.v_known else ()),
+                    )
             if "hold" in args.stages:
-                held = stage_hold(rig, report, args, caps, i_op, v_op, i_max)
+                held = stage_hold(rig, report, args, caps, i_op, v_op, i_max, voltage)
                 report["judged_hold"] = {
                     key: judge_hold(held[key]["points"], rig.dark)
                     for key in ("constant_voltage", "constant_current")
@@ -960,7 +1104,7 @@ def _plot(results: dict, path) -> None:
         return
     dark = results.get("dark", {}).get("pd_a", {}).get("mean", 0.0)
     current = results.get("current", {})
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5))
+    fig, axes = plt.subplots(1, 4, figsize=(20, 4.5))
     ax = axes[0]
     for key, style in (("up", "o-"), ("down", "x--")):
         pts = current.get(key, [])
@@ -985,6 +1129,17 @@ def _plot(results: dict, path) -> None:
     ax.set(xlabel="mA", ylabel="photodiode, uA", title="Light against current")
     ax.legend()
     ax = axes[2]
+    pts = results.get("voltage", {}).get("points", [])
+    if pts:
+        ax.plot([p["v"] for p in pts], [abs(p["pd"] - dark) * 1e6 for p in pts],
+                "o-", ms=3, label="light")
+        ax.set(xlabel="V forced", ylabel="photodiode, uA", title="On a plain supply")
+        twin = ax.twinx()
+        twin.plot([p["v"] for p in pts], [p["i"] * 1e3 for p in pts], "s:",
+                  ms=2, color="grey", label="current")
+        twin.set_ylabel("mA")
+        ax.legend(loc="upper left")
+    ax = axes[3]
     for key in ("constant_voltage", "constant_current"):
         pts = results.get("hold", {}).get(key, {}).get("points", [])
         light = [abs(p["pd"] - dark) for p in pts]

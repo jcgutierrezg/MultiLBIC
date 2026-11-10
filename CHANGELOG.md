@@ -3,6 +3,25 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.17 - Laser 3's driver, and modules on a plain supply
+
+- Laser 3 (2026-11-10): a plain diode to 22.5 mA; forced to 23 mA the
+  voltage jumped to 5.5 V and the current fell to 16.6 mA while the
+  light held 3.16 mW, more than that current gives it as a diode. It
+  stayed so coming down to 16 mA. The test called it "regulated from
+  16.6 mA, needing 5.54 V" and the two states 58 % hysteresis.
+- A jump to the voltage limit with the current falling is now "a driver
+  inside": where it switched, the current, voltage and light after, and
+  down to where it stayed switched. Hysteresis compares up and down on
+  the same branch only.
+- For a module with a regulator or driver, the voltage sweep goes to
+  5.5 V under a limit that keeps the plain-diode curve below the light
+  ceiling, and the verdict gives where it switched over and its current
+  and light at 3.3 V, 5 V and `--v-known`; the voltage hold is at
+  `--v-known` when the sweep passed it. The PNG has a fourth panel,
+  light and current against the voltage.
+- The simulator's `laser3` has that driver.
+
 ## 0.7.16 - The laser module test finds a regulator's knee
 
 - Laser 4 (2026-11-10): lasing from 16.5 mA at 0.555 mW/mA, then its
