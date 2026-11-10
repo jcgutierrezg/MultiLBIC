@@ -152,6 +152,10 @@ SWITCHED = 0.9
 #: at that limit this far past where it first did.
 SWEEP_LIGHT_SHARE = 0.9
 SWEEP_AT_LIMIT_V = 0.5
+#: After a curve that bent, the voltage sweep's limit is at most this
+#: times the highest current reached (laser 5's bend was its light per
+#: mA easing from 87 to 74 uA; its driver takes over above that).
+BENT_SWEEP = 1.5
 #: Voltages the verdict quotes from a regulated module's voltage sweep.
 QUOTE_V = (3.3, 5.0)
 #: A reading this close to a limit is the limit.
@@ -209,16 +213,20 @@ class ModuleRig:
         on the fixed 15 mA range."""
         for driver in (self.laser, self.pd):
             driver.reset()
+        # Each channel: mode, range, then limits and level. A range
+        # command sets the current limit to the range's full scale, so a
+        # limit set before it is lost (laser 5's voltage sweep, 18.76 mA
+        # through a 15.5 mA limit, 2026-11-10).
         self.pd.set_source_function("voltage")
-        self.pd.set_voltage_level(0.0)
-        self.pd.set_current_limit(PD_LIMIT_A)
         self.client.set_current_range_by_limit(2, PD_LIMIT_A, disable_autorange=True)
-        # Channel 1 parked, output off: current mode at 0 A, its range
-        # last, which clears channel 2's offset state (PD_V_MAX).
+        self.pd.set_current_limit(PD_LIMIT_A)
+        self.pd.set_voltage_level(0.0)
+        # Channel 1 parked, output off: current mode at 0 A. Its range
+        # after its mode clears channel 2's offset state (PD_V_MAX).
         self.laser.set_source_function("current")
-        self.laser.set_current_level(0.0)
-        self.laser.set_voltage_limit(MAX_V)
         self._fix_range()
+        self.laser.set_voltage_limit(MAX_V)
+        self.laser.set_current_level(0.0)
         self.mode = "off"
         self.pd.output_on()
 
@@ -235,9 +243,9 @@ class ModuleRig:
         """Voltage mode at 0 V, the current limit set before output on."""
         self.off()
         self.laser.set_source_function("voltage")
-        self.laser.set_voltage_level(0.0)
-        self.laser.set_current_limit(min(current_limit_a, MAX_I_A))
         self._fix_range()
+        self.laser.set_current_limit(min(current_limit_a, MAX_I_A))
+        self.laser.set_voltage_level(0.0)
         self.laser.output_on()
         self.mode = "voltage"
 
@@ -245,9 +253,9 @@ class ModuleRig:
         """Current mode at 0 A, the voltage limit set before output on."""
         self.off()
         self.laser.set_source_function("current")
-        self.laser.set_current_level(0.0)
-        self.laser.set_voltage_limit(min(voltage_limit_v, MAX_V))
         self._fix_range()
+        self.laser.set_voltage_limit(min(voltage_limit_v, MAX_V))
+        self.laser.set_current_level(0.0)
         self.laser.output_on()
         self.mode = "current"
 
@@ -500,20 +508,50 @@ def operating_point(up: list[dict], dark: float = 0.0,
     return i_op, good[-1]["v"] if v is None else v, i_max
 
 
+def prove_current_limit(rig, report, judged: dict, up: list[dict], caps: Caps) -> None:
+    """Channel 1's current limit, proven on the instrument before the
+    voltage sweep relies on it: the voltage that drew half the lasing
+    threshold (or half the highest current, with no light), under a
+    limit of half that. Held, it reads the limit; not held, the module
+    takes that current, below threshold, and the run stops."""
+    good = [p for p in up if not p["why"]]
+    i_max = max((p["i"] for p in good), default=0.0)
+    threshold = judged.get("threshold_a")
+    target = 0.5 * threshold if threshold and threshold > 2e-3 else 0.5 * i_max
+    volts = _between(good, "i", target, "v")
+    if volts is None or target < 1e-3:
+        report["limit_check"] = {"skipped": "no point to check from"}
+        return
+    limit = 0.5 * target
+    say(f"limit check: {volts:.2f} V (drew {target * 1e3:.1f} mA) under a "
+        f"{limit * 1e3:.1f} mA limit")
+    rig.force_voltage(limit)
+    caps_check = Caps(limit, caps.light_a)
+    for k in range(1, 4):
+        p = rig.step(volts * k / 3, caps_check)
+    rig.off()
+    report["limit_check"] = {"v": volts, "limit_a": limit, "read_a": p.i,
+                             "unlimited_a": target}
+    say(f"limit check: {p.i * 1e3:.2f} mA read: the limit holds")
+
+
 def sweep_limit(judged: dict, caps: Caps, i_max: float) -> float:
     """The current limit for the voltage sweep: where the plain-diode
     curve, straight to its end, would put the light SWEEP_LIGHT_SHARE of
     the way from the light reached to the ceiling. A voltage sweep has
     to pass the current where a driver takes over (laser 3's, past
-    22.5 mA; laser 5's, past 14). A curve that bent or fell is not
-    extrapolated: the highest current reached."""
+    22.5 mA; laser 5's, past 16). After a bend, no more than BENT_SWEEP
+    times the highest current reached; after a fall, that current."""
     limit = i_max
     slope = judged.get("slope_a_per_a")
     peak = judged.get("diode_peak_light_a")
-    straight = judged.get("stopped_by") not in ("curve bending", "light fell")
-    if straight and caps.light_a and slope and slope > 0 and peak is not None:
+    if caps.light_a and slope and slope > 0 and peak is not None:
         room = max(0.0, caps.light_a - peak)
         limit = i_max + SWEEP_LIGHT_SHARE * room / slope
+    if judged.get("stopped_by") == "light fell":
+        limit = i_max
+    elif judged.get("stopped_by") == "curve bending":
+        limit = min(limit, BENT_SWEEP * i_max)
     return min(limit, caps.i_a)
 
 
@@ -1087,6 +1125,9 @@ def main(argv: list[str] | None = None) -> int:
             i_op, v_op, i_max = operating_point(current["up"], rig.dark, rig.lit_a)
             report["operating_point"] = {"a": i_op, "v": v_op, "i_max_a": i_max}
             voltage = None
+            if "voltage" in args.stages or "hold" in args.stages:
+                prove_current_limit(rig, report, report["judged_current"],
+                                    current["up"], caps)
             if "voltage" in args.stages:
                 voltage = stage_voltage(rig, report, args, caps, v_op, i_max,
                                         report["judged_current"])

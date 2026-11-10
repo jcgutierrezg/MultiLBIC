@@ -3,6 +3,25 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.19 - Channel 1's current limit, set after its range
+
+- Laser 5's second pass: its voltage sweep let 18.76 mA through a
+  15.5 mA limit, and the probe's check of every reading stopped it
+  (about 1.6 mW, harmless). The limit was set before channel 1's range,
+  and a range command sets the limit to the range's full scale. No
+  earlier run had reached a voltage-mode limit, so the dry run's "the
+  limits held" never covered it. Each channel is now mode, range, then
+  limits and level; the simulator's range command resets the limit as
+  the real one does.
+- Before the voltage sweep and holds, the probe proves the limit on the
+  instrument: the voltage that drew half the lasing threshold, under a
+  limit of half that. Not held, the module sits below threshold and the
+  run stops.
+- After a curve that bent, the voltage sweep's limit is up to 1.5 x
+  the highest current reached (still under the light extrapolation),
+  not that current: laser 5's mild bend would have kept it below where
+  its driver takes over. After a fall it stays at that current.
+
 ## 0.7.18 - Every lasing module on a plain supply
 
 - Laser 5's first pass stopped for "curve bending" at 14 mA: one dip in

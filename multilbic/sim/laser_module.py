@@ -290,6 +290,15 @@ class FakeModuleSMU(FakeMiniSMU):
     def set_current(self, channel: int, current: float):
         self.level_a[channel] = current
 
+    def set_current_range_by_limit(self, channel: int, max_current: float,
+                                    disable_autorange: bool = True) -> int:
+        """As the real one: the current limit goes to the range's full
+        scale (laser 5's voltage sweep, 2026-11-10)."""
+        index = super().set_current_range_by_limit(channel, max_current,
+                                                   disable_autorange)
+        self.current_limit[channel] = CURRENT_RANGES_A[index]
+        return index
+
     def set_voltage_protection(self, channel: int, voltage_limit: float):
         self.voltage_limit[channel] = voltage_limit
 

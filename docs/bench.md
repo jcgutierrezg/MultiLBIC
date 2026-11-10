@@ -101,8 +101,10 @@ by 15 % or falling, **5.5 V**, or **120 mA**. A module's own regulator
 shows as a knee, the voltage per extra mA jumping (laser 4: 25 ohm,
 then 530), or as the voltage jumping to 5.5 V, and ends the sweep too;
 a driver switching on shows as that jump with the current falling
-(laser 3). Such a module's voltage sweep then goes to 5.5 V: its light
-and current on a plain supply. A facet
+(laser 3). Every module that lases then gets a voltage sweep to 5.5 V,
+its light and current on a plain supply, after a check that channel 1's
+current limit holds on the instrument (half the current a voltage drew,
+below threshold, under a limit of half that). A facet
 can fail before its curve bends: the light ceiling is the guard that
 matters. The one thing the probe can't catch is reverse wiring, so
 steps 1 and 4 are about polarity.

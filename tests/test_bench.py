@@ -263,11 +263,54 @@ def test_laser_module_sweeps_a_bare_diode_on_a_supply(tmp_path):
     voltage = results["voltage"]
     assert voltage["to_v"] == laser_module.MAX_V
     assert voltage["stopped_by"] == "current limit"
-    # It bent, so the limit is the highest current reached, no more.
-    assert voltage["current_limit_a"] == pytest.approx(
-        results["judged_current"]["i_max_a"])
+    # It bent: at most 1.5 x the highest current reached.
+    i_max = results["judged_current"]["i_max_a"]
+    assert i_max < voltage["current_limit_a"] <= 1.5 * i_max + 1e-9
+    # The limit was proven on the instrument first.
+    check = results["limit_check"]
+    assert check["read_a"] == pytest.approx(check["limit_a"], rel=0.05)
     assert results["judged_voltage"]["stopped_by"] == "current limit"
     _assert_within_ceilings(results)
+
+
+def test_the_current_limit_survives_the_range():
+    # A range command resets the limit to the range's full scale: limits
+    # must come after it.
+    import argparse
+
+    from multilbic.clock import ScaledClock
+    from multilbic.sim.laser_module import FakeModuleSMU
+
+    clock = ScaledClock(20)
+    args = argparse.Namespace(sim=True, dummy_load=False, module="laser3", port="")
+    smu = laser_module._open(args, clock)
+    fake = smu.stream._client
+    assert isinstance(fake, FakeModuleSMU)
+    rig = laser_module.ModuleRig(smu, clock, 1, 0.0)
+    rig.start()
+    rig.force_voltage(0.0155)
+    assert fake.current_limit[1] == pytest.approx(0.0155)
+    rig.force_current(5.5)
+    assert fake.voltage_limit[1] == pytest.approx(5.5)
+    rig.off()
+
+
+def test_laser_module_stops_if_the_current_limit_fails(tmp_path, monkeypatch):
+    # The old order (limit, then range) on the simulator: the limit check
+    # finds the limit gone before the voltage sweep relies on it.
+    def force_voltage(self, current_limit_a):
+        self.off()
+        self.laser.set_source_function("voltage")
+        self.laser.set_current_limit(current_limit_a)
+        self._fix_range()
+        self.laser.set_voltage_level(0.0)
+        self.laser.output_on()
+        self.mode = "voltage"
+
+    monkeypatch.setattr(laser_module.ModuleRig, "force_voltage", force_voltage)
+    results = _module(tmp_path, "--module", "laser3", "--i-known", "16m")
+    assert "the limit did not hold" in results["stopped"]
+    assert "voltage" not in results
 
 
 def test_judge_voltage_on_laser_3s_supply_sweep():

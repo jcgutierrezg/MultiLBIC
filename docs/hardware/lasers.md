@@ -139,7 +139,10 @@ module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-modu
   On the board it draws 16 mA for 2.47 mW, twice what that diode curve
   gives at 16 mA: a driver, as laser 3's, above where the test stopped.
   Held 60 s its light dipped up to 6 % at random (mode hops, most
-  likely).
+  likely). A second pass (`20261110T181543Z`) read three dips again and
+  went on to 16 mA (1.16 mW), its light per mA easing from 87 to 74 uA;
+  its voltage sweep then stopped when 18.76 mA passed a 15.5 mA limit
+  the miniSMU had dropped (hardware/smu.md), about 1.6 mW, harmless.
 
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of
