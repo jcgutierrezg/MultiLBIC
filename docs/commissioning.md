@@ -138,7 +138,20 @@ meter's power. The tab says so if before and after are more than 2 %
 apart (the laser drifted while the meter was read: do it again), if the
 response is more than 25 % off the datasheet's (the meter's wavelength
 setting, or its head missing part of the beam), or if a reading reached
-its range's limit. Each calibration's readings go to
+its range's limit.
+
+- **Far below the datasheet** (−99 %, µA where mA is expected): the
+  laser has moved off the photodiode's place in `machine.toml`. Find
+  the photodiode again for that laser, then calibrate (laser 5,
+  2026-11-10, had moved 0.9 mm).
+- **A laser still warming up** (laser 2) drifts past 2 % on every try:
+  give it a longer warm-up in the tab (600 s), the box closed and the
+  room dark. A response measured while it drifts is not worth saving:
+  the datasheet is the better guess, and an overstated response would
+  also let the [laser module test](bench.md#testing-a-laser-module)
+  past 5 mW.
+
+Each calibration's readings go to
 `<stamp>_powercal_laser<N>.json` in the runs folder; **Save** writes the
 response into that laser's table, the meter's and photodiode's readings
 in the line's comment.

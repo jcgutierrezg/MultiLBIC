@@ -495,7 +495,7 @@ def test_maps_shown_as_eqe(viewer, run_folder, tmp_path):
     viewer.redraw()
     assert viewer.unit == ("%", 0.01)
     np.testing.assert_array_equal(viewer.values(), m1.eqe)
-    assert "datasheet" in viewer.caption.cget("text")
+    assert "photodiode response" in viewer.caption.cget("text")
     assert "+10.0%" in viewer.caption.cget("text")
     viewer.show_cursor(0.105, 0.075)
     assert "EQE" in viewer.readout.cget("text")

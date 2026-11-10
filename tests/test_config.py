@@ -297,6 +297,8 @@ def test_a_measured_photodiode_response_per_laser():
     path = Path(__file__).resolve().parents[1] / "multilbic" / "config" \
         / "machine.toml"
     data = tomllib.loads(path.read_text(encoding="utf-8"))
+    data["lasers"][0].pop("pd_response_a_w", None)
+    data["lasers"][0].pop("pd_response_date", None)
     assert parse(data).laser(1).pd_response_a_w is None
     data["lasers"][0]["pd_response_a_w"] = 0.231
     data["lasers"][0]["pd_response_date"] = "2026-11-10"

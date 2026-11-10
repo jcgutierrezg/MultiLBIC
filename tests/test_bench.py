@@ -4,6 +4,7 @@ The point is not the numbers, which describe the simulator, but that a
 probe never reaches the bench with a typo in a stage nobody had run.
 """
 
+import dataclasses
 import json
 
 import pytest
@@ -111,6 +112,25 @@ def test_smu_real_requires_a_load_description():
         smu.main(["--real", "--port", "COM99"])
 
 
+def _responses(monkeypatch, response):
+    """Every laser's power-meter response set to `response` (None for
+    uncalibrated), whatever machine.toml holds today."""
+    real_setup = laser_module.setup
+
+    def setup(args):
+        machine, clock = real_setup(args)
+        lasers = tuple(
+            dataclasses.replace(
+                laser, pd_response_a_w=response,
+                pd_response_date=response and "2026-11-10",
+            )
+            for laser in machine.lasers
+        )
+        return dataclasses.replace(machine, lasers=lasers), clock
+
+    monkeypatch.setattr(laser_module, "setup", setup)
+
+
 def _module(tmp_path, *extra):
     argv = [
         "--sim", "--hold-s", "3", "--no-plot", "--out", str(tmp_path), *extra,
@@ -192,12 +212,28 @@ def test_laser_module_dry_run_on_a_resistor(tmp_path):
     assert any("the limits held" in line for line in results["verdict"])
 
 
-def test_laser_module_light_ceiling_comes_from_the_response(tmp_path):
+def test_laser_module_light_ceiling_from_the_datasheet(tmp_path, monkeypatch):
+    _responses(monkeypatch, None)
     results = _module(tmp_path, "--module", "regulated", "--max-mw", "2")
     ceilings = results["ceilings"]
     assert ceilings["response_from"] == "S1223-01 datasheet"
     expected = laser_module.MARGIN_DATASHEET * 2e-3 * ceilings["pd_response_a_w"]
     assert ceilings["light_pd_a"] == pytest.approx(expected)
+
+
+def test_laser_module_light_ceiling_from_the_power_meter(tmp_path, monkeypatch):
+    _responses(monkeypatch, 0.44)
+    results = _module(tmp_path, "--module", "regulated", "--max-mw", "2")
+    ceilings = results["ceilings"]
+    assert ceilings["response_from"] == "power meter 2026-11-10"
+    expected = laser_module.MARGIN_CALIBRATED * 2e-3 * 0.44
+    assert ceilings["light_pd_a"] == pytest.approx(expected)
+
+
+def test_laser_module_datasheet_overrides_the_power_meter(tmp_path, monkeypatch):
+    _responses(monkeypatch, 0.44)
+    results = _module(tmp_path, "--module", "regulated", "--datasheet-response")
+    assert results["ceilings"]["response_from"] == "S1223-01 datasheet"
 
 
 def test_laser_module_polarity_check(capsys):
@@ -206,7 +242,10 @@ def test_laser_module_polarity_check(capsys):
     assert "+1.000 V" in out and "Channel 1 off." in out
 
 
-def test_laser_module_refuses_unsafe_arguments():
+def test_laser_module_refuses_unsafe_arguments(monkeypatch):
+    _responses(monkeypatch, None)
+    monkeypatch.setattr(
+        "builtins.input", lambda *a: pytest.fail("got as far as asking"))
     real = ["--real", "--port", "COM99"]
     for extra in (
         ["--laser", "3"],                                    # no --i-known

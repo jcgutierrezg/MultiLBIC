@@ -95,6 +95,8 @@ xy_centre_mm = [78.965, 72.094]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 67.5  # commission 2026-11-03
 cell_offset_xy_mm = [-0.021, -0.008]  # lineup 2026-11-05
+pd_response_a_w = 0.2464  # power meter 2026-11-10: 2.87 mW, photodiode -707.1 uA
+pd_response_date = "2026-11-10"
 
 [[lasers]]
 number = 2
@@ -113,6 +115,8 @@ xy_centre_mm = [74.854, 70.383]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 35.1  # commission 2026-11-03
 cell_offset_xy_mm = [0.000, 0.000]  # lineup 2026-11-05
+pd_response_a_w = 0.4375  # power meter 2026-11-10: 2.75 mW, photodiode -1.203 mA
+pd_response_date = "2026-11-10"
 
 [[lasers]]
 number = 4
@@ -127,15 +131,19 @@ xy_centre_mm = [48.921, 43.868]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 99.5  # commission 2026-11-03
 cell_offset_xy_mm = [-0.086, 0.080]  # lineup 2026-11-05
+pd_response_a_w = 0.4559  # power meter 2026-11-10: 3.41 mW, photodiode -1.555 mA
+pd_response_date = "2026-11-10"
 
 [[lasers]]
 number = 5
 wavelength_nm = 785
 servo_angle_deg = 90
-xy_centre_mm = [48.007, 42.217]  # commission 2026-11-03
-measured = true  # commission 2026-11-03
-spot_um = 71.7  # commission 2026-11-03
+xy_centre_mm = [48.900, 42.213]  # commission 2026-11-10
+measured = true  # commission 2026-11-10
+spot_um = 75.0  # commission 2026-11-10
 cell_offset_xy_mm = [-0.014, 0.108]  # lineup 2026-11-05
+pd_response_a_w = 0.5268  # power meter 2026-11-10: 2.47 mW, photodiode -1.301 mA
+pd_response_date = "2026-11-10"
 
 [[lasers]]
 number = 6
@@ -145,6 +153,8 @@ xy_centre_mm = [49.501, 38.264]  # commission 2026-11-03
 measured = true  # commission 2026-11-03
 spot_um = 72.9  # commission 2026-11-03
 cell_offset_xy_mm = [-0.020, 0.059]  # lineup 2026-11-05
+pd_response_a_w = 0.5657  # power meter 2026-11-10: 3.47 mW, photodiode -1.963 mA
+pd_response_date = "2026-11-10"
 
 [geometry]
 # Corner calibration is done under this laser; every other laser's

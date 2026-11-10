@@ -70,11 +70,13 @@ def test_the_response_is_written_into_machine_toml():
     assert laser.pd_response_date == "2026-11-10"
     assert "# power meter 2026-11-10: 2.5 mW" in out
     # Every other laser and every comment as they were.
-    assert parse(tomllib.loads(out)).laser(1).pd_response_a_w is None
+    before, after = parse(tomllib.loads(text)), parse(tomllib.loads(out))
+    for n in (1, 2, 4, 5, 6):
+        assert after.laser(n) == before.laser(n)
     assert out.count("\n#") == text.count("\n#")
     # Again, the keys are replaced, not added.
     again = apply_response(out, 3, 0.47, "2026-12-01")
-    assert again.count("pd_response_a_w =") == 1
+    assert again.count("pd_response_a_w =") == out.count("pd_response_a_w =")
     assert parse(tomllib.loads(again)).laser(3).pd_response_date == \
         "2026-12-01"
     with pytest.raises(CommissionError):

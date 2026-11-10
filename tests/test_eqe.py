@@ -127,7 +127,9 @@ def test_a_drifting_laser_gives_a_steady_eqe(tmp_path, machine):
     run = read_folder(outcome.folder, machine=machine)
     m = run.maps[3]
     assert m.eqe is not None and m.no_eqe is None
-    assert m.response.source == "datasheet"
+    # Laser 3's own response if machine.toml has one, else the datasheet's.
+    calibrated = machine.laser(3).pd_response_a_w is not None
+    assert m.response.source == ("measured" if calibrated else "datasheet")
     assert m.power.drift > 0.1
 
     def level(values, rows):

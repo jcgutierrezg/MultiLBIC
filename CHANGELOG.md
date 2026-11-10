@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.12 - The lasers on the power meter
+
+- `machine.toml`: the photodiode's response to lasers 1, 3, 4, 5 and 6
+  from the Power tab (PM100USB, S120VC, 2026-11-10): 3-6 within 4 % of
+  the datasheet, laser 1 +8 %. Laser 2 drifted 44-77 % within each of
+  three tries and keeps the datasheet's. Laser 5's position from its
+  photodiode found again: it had moved 0.89 mm along X.
+- Docs: the powers in [lasers](docs/hardware/lasers.md), and in
+  [commissioning](docs/commissioning.md#power) what a −99 % or a
+  drifting calibration means.
+- Tests no longer assume no laser is calibrated: the laser module's
+  light ceiling is tested with and without a power-meter response.
+
 ## 0.7.11 - A laser module on the miniSMU
 
 - For the new laser board: `python -m multilbic.bench.laser_module`

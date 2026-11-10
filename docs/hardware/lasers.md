@@ -16,12 +16,15 @@ centre under it.
 | 2 | 519 nm | 90° | 76.058, 72.604 | 42 µm | tens of µA, falling (below) |
 | 3 | 652 nm | 30° | 74.854, 70.383 | 35 µm | −1.22 mA |
 | 4 | 676 nm | 150° | 48.921, 43.868 | 100 µm | −1.56 mA |
-| 5 | 785 nm | 90° | 48.007, 42.217 | 72 µm | −1.32 mA |
+| 5 | 785 nm | 90° | 48.900, 42.213 | 75 µm | −1.30 mA |
 | 6 | 848 nm | 30° | 49.501, 38.264 | 73 µm | −2.01 mA |
 
 Positions and spots are from the commissioning of 2026-11-03
 (`20261103T175926Z_commission`), across the blade at the sample's
 height; powers from the reads after the supply's trimmer that day.
+Laser 5's is from 2026-11-10: it had moved 0.89 mm along X since
+11-03, enough that the Power tab read the photodiode at its old place
+three times before it was found again.
 Laser 3 is the **reference laser** (D28): calibrations are made under
 it. Laser 2 was until 2026-11-05.
 
@@ -32,8 +35,24 @@ it. Laser 2 was until 2026-11-05.
   between 2026-10-30 and 11-03, each its own way, while 4–6, not
   touched, held). After any work inside: commission all six
   ([commissioning](../commissioning.md#when)).
-- **Power**: from the photodiode's typical responsivity, about 1.5 mW
-  for laser 1 and 2.8 mW for laser 3 (2026-10-29). Class *unverified*.
+- **Power**, on a Thorlabs PM100USB with an S120VC at the sample's
+  place (the Power tab, 2026-11-10; `*_powercal_laser<N>.json`):
+
+  | Laser | Meter | Photodiode's response | Against the datasheet |
+  |---|---|---|---|
+  | 1 | 2.87 mW | 0.2464 A/W | +8 % |
+  | 2 | 0.04–0.08 mW | not kept | |
+  | 3 | 2.75 mW | 0.4375 A/W | −1 % |
+  | 4 | 3.41 mW | 0.4559 A/W | −1 % |
+  | 5 | 2.47 mW | 0.5268 A/W | +1 % |
+  | 6 | 3.47 mW | 0.5657 A/W | +4 % |
+
+  The photodiode follows its datasheet within 4 % from red to infrared,
+  so the beam is all on it. Laser 2 rose 44–77 % between the
+  photodiode's two reads in each of three tries (60 s warm-up), so its
+  response (0.38–0.50 A/W, up to +58 %) was not kept: it uses the
+  datasheet until it is measured again with a long warm-up (600 s), the
+  box closed and the room dark. Class *unverified*.
 
 ## Laser board firmware
 
