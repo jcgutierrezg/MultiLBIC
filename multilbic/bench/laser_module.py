@@ -151,6 +151,12 @@ CREEP_STOP = 0.02
 BEND = 0.85
 BEND_SPAN_A = 1e-3
 BEND_FROM = 0.05
+#: Below BEND_STOP_FROM of the ceiling a bend is noted and the sweep goes
+#: on, unless it is severe, the slope under BEND_SEVERE x its best (full
+#: rollover, light going flat, never reaches the ceiling). Laser 5 eased
+#: to 85 % of its best at a quarter of its ceiling (2026-11-10).
+BEND_STOP_FROM = 0.5
+BEND_SEVERE = 0.5
 #: Light falling by more than this share between steps.
 FALL = 0.01
 #: A regulator's knee: the volts per amp over the last step past KNEE x
@@ -220,6 +226,9 @@ class ModuleRig:
         self.pd_v = 0.0
         #: Points whose bend or fall was read again (and didn't hold).
         self.read_again: list[Point] = []
+        #: Gentle bends noted below BEND_STOP_FROM of the ceiling:
+        #: (amps, light, slope over its best).
+        self.bends: list[dict] = []
         #: Channel 1's current limit: how far above what is sent it
         #: clamps, from the limit check, and what was last sent.
         self.limit_excess_a = 0.0
@@ -459,9 +468,15 @@ def current_up(rig: ModuleRig, caps: Caps, args) -> list[Point]:
             p.why = "light fell"
         elif slope is not None and light > BEND_FROM * light_cap:
             best = max(best, slope)
-            if slope < BEND * best:
+            if slope < BEND_SEVERE * best or (
+                    slope < BEND * best and light >= BEND_STOP_FROM * light_cap):
                 p.why = "curve bending"
-        if p.why in ("light fell", "curve bending") and not again:
+            elif slope < BEND * best and again:
+                # Gentle, low, and still there read again: noted.
+                rig.bends.append({"a": p.i, "light_a": light, "of_best": slope / best})
+            elif slope < BEND * best:
+                p.why = "gentle bend"
+        if p.why in ("light fell", "curve bending", "gentle bend") and not again:
             # Once more at the same current, no higher: laser 5's light
             # dipped up to 6 % at random, and one dip read as a bend.
             say(f"  {p.why}? reading it again")
@@ -492,6 +507,7 @@ def stage_current(rig, report, args, caps: Caps) -> dict:
         "down": [asdict(p) for p in down],
         "stopped_by": up[-1].why,
         "read_again": [asdict(p) for p in rig.read_again],
+        "bends": rig.bends,
     }
     report["current"] = result
     if down and down[-1].set == 0:
@@ -920,6 +936,13 @@ def verdict(results: dict, args) -> list[str]:
                 f"Today's {args.v_known:.2f} V gives it about {today * 1e3:.1f} mA "
                 f"of the {c['i_max_a'] * 1e3:.1f} mA reached here."
             )
+    bends = results.get("current", {}).get("bends") or []
+    if bends:
+        least = min(b["of_best"] for b in bends)
+        lines.append(
+            f"Its light per mA eased from {bends[0]['a'] * 1e3:.1f} mA, to "
+            f"{least * 100:.0f} % of its best (noted, below half the ceiling)."
+        )
     if c.get("hysteresis_fraction") is not None:
         lines.append(
             f"Up and down differ by up to {c['hysteresis_fraction'] * 100:.1f} % "
@@ -1116,7 +1139,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--every-s", type=float, default=0.5, help="hold reading interval")
     parser.add_argument("--stages", type=lambda s: [x.strip() for x in s.split(",")],
                         default=list(STAGES))
-    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover", "laser4", "laser3"),
+    parser.add_argument("--module", choices=("regulated", "resistor", "starved", "rollover", "laser4", "laser3",
+                                 "laser5"),
                         default="regulated", help="--sim only: the simulated module")
     parser.add_argument("--yes", action="store_true", help="don't ask before lighting")
     parser.add_argument("--no-plot", action="store_true")

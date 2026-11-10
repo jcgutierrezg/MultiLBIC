@@ -236,6 +236,14 @@ MODULES: dict[str, ModuleModel | DummyLoad | DriverModule] = {
         v_overhead=0.0, i_th_a=0.0165, pd_slope=0.248, v_known=3.26,
         knee_ohm=1500.0,
     ),
+    # Laser 5's diode as measured on 2026-11-10: lasing from 8.7 mA at
+    # about 0.095 A/A, its light per mA easing as the current rises (85 %
+    # of its best by 14.5 mA). Its driver is not modelled.
+    "laser5": ModuleModel(
+        "laser5", vf_20ma=1.70, n_vt=0.03, r_ohm=12.0, i_reg_a=None,
+        v_overhead=0.0, i_th_a=0.0087, pd_slope=0.105, v_known=1.9,
+        roll_a=0.045,
+    ),
     "dummy": DummyLoad(),
 }
 

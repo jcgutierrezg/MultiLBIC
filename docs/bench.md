@@ -97,7 +97,9 @@ nothing about lasers 1 and 2 on their starved supply. Current is forced
 in steps that shrink near the light ceiling, and the sweep stops at the
 first of: **5 mW of light** (80 % of it as the power-meter-calibrated
 photodiode reads, for margin), the light-against-current curve bending
-by 15 % or falling, **5.5 V**, or **120 mA**. A module's own regulator
+by 15 % or falling, **5.5 V**, or **120 mA**. Below half the light
+ceiling a gentle bend is only noted: the sweep stops there only on a
+fall or a slope under half its best. A module's own regulator
 shows as a knee, the voltage per extra mA jumping (laser 4: 25 ohm,
 then 530), or as the voltage jumping to 5.5 V, and ends the sweep too;
 a driver switching on shows as that jump with the current falling

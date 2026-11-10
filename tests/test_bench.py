@@ -151,7 +151,8 @@ def _assert_within_ceilings(results):
 
 
 @pytest.mark.parametrize(
-    "module", ["regulated", "resistor", "starved", "rollover", "laser4", "laser3"])
+    "module", ["regulated", "resistor", "starved", "rollover", "laser4", "laser3",
+               "laser5"])
 def test_laser_module_stays_within_the_ceilings(tmp_path, module):
     results = _module(tmp_path, "--module", module)
     assert "stopped" not in results
@@ -241,6 +242,21 @@ def test_laser_module_finds_a_driver_and_maps_it_on_a_supply(tmp_path, monkeypat
     assert results["hold"]["constant_voltage"]["v"] == 3.26
     text = " ".join(results["verdict"])
     assert "A driver inside" in text and "a fixed voltage" in text
+    _assert_within_ceilings(results)
+
+
+def test_laser_module_notes_a_gentle_bend_and_goes_on(tmp_path, monkeypatch):
+    # Laser 5 eased to 85 % of its best at a quarter of its ceiling and
+    # stopped at 14.5 mA. A gentle bend below half the ceiling is noted.
+    _responses(monkeypatch, 0.5268)
+    results = _module(tmp_path, "--module", "laser5", "--i-known", "16m")
+    current = results["current"]
+    assert current["bends"]
+    assert all(b["light_a"] < 0.5 * results["ceilings"]["light_pd_a"]
+               for b in current["bends"])
+    assert results["judged_current"]["i_max_a"] > 0.018   # past 14.5 mA
+    assert current["stopped_by"] in ("light ceiling", "curve bending")
+    assert any("eased" in line for line in results["verdict"])
     _assert_within_ceilings(results)
 
 

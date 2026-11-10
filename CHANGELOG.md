@@ -3,6 +3,19 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.23 - A gentle bend low down is noted, not a stop
+
+- Laser 5 stopped at 14.5 mA on its light per mA easing to 85 % of its
+  best, at a quarter of its light ceiling: too conservative for
+  characterising it (the operator's call). Below half the ceiling a
+  gentle bend, still there read again, is now noted in the report and
+  the verdict and the sweep goes on. A bend past half the ceiling still
+  stops it, and so does a severe one at any light, the slope under half
+  its best (full rollover: light flat, never reaching the ceiling). A
+  fall still stops it. The 4 mW stop and the 1.5 x cap after a bend
+  stand.
+- The simulator's `laser5`: its diode, easing as measured.
+
 ## 0.7.22 - The limit's offset allowed for; a clamp seen by its voltage
 
 - Laser 5's third pass completed: the limit check measured 1.23 x at
