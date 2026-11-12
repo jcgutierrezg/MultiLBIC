@@ -13,7 +13,7 @@ the ones below say where they come from.
 |---|---|
 | [lasers](hardware/lasers.md) | the revolver, each laser's position, spot and power, the servo, the laser supply, how well the lasers line up |
 | [motion](hardware/motion.md) | Marlin: its configuration, what MultiLBIC changes at connect, speeds, homing, limits |
-| [laser board](hardware/laser-board.md) | the proposed replacement for the Xiao, the LM317 and the servo: a current sink per laser on an ESP32, the revolver on a stepper |
+| [laser board](hardware/laser-board.md) | the proposed replacement for the Xiao, the LM317 and the servo: six current sinks on an ESP32, the revolver on a stepper, a temperature stage on the SKR |
 | [smu](hardware/smu.md) | the miniSMU: ranges, streaming, noise, the channel-2 offset |
 | [photodiode](hardware/photodiode.md) | the reference photodiode on channel 2: the part, its blades, reaching it |
 | [timing](hardware/timing.md) | how well a sample's position is known: stamps, row replies, the sync check |

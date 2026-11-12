@@ -3,6 +3,37 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.26 - Six channels, their current and voltage read back
+
+- hardware/laser-board.md: six channels, not eight (no use for spares).
+  Each reads back its current and its module's voltage, and the rail is
+  read too: 13 analog inputs, which WiFi and Bluetooth never being on
+  frees (the S3 has no DAC, hence the external one). One enable for all
+  six (a clamp on each set point, cut by the lid in hardware) instead of
+  six, so the pins fit.
+- Every pin assigned, clear of the S3's strapping pins (GPIO0, 3, 45,
+  46), its USB (19, 20), UART0 (43, 44), octal PSRAM (35-37), the dev
+  board's RGB LED (38, 48) and GPIO47: 20 of the 22 safe pins used.
+- The temperature from a thermocouple through an MCP9600 module on the
+  DAC's I²C bus, not a one-wire sensor.
+- The revolver's mount decided: a ring as now, about 40 mm radius, the
+  six lasers at 60° in wavelength order with the homing tab in the gap
+  between 6 and 1, split clamps at one height, printed and clamped
+  straight on the NEMA 17's shaft, leads in a slack loop. Held or
+  released after a move is decided once it is built.
+- On a scope (hardware/lasers.md): lasers 1, 3, 4, 5 and 6 give steady
+  light with no ripple, on their own drivers or the plain supply. Laser
+  3's driver is not pulsed or switching; lasers 1 and 2's trouble under
+  a forced voltage was the miniSMU's loop, not pulsing. Left for the
+  prototype: lasers 1 and 2 on the board's own current loop.
+- A temperature stage is for later and needs nothing on this board:
+  the SKR's free heater, fan and sensor pins and Marlin's loops cover
+  it. Noted: Marlin reads thermocouples only through a MAX31855 on SPI
+  (no MCP9600 driver), and `PELTIER_BED` is only in bugfix-2.1.x.
+- The classic ESP32 (NodeMCU-32S) was weighed and set aside: 11 safe
+  analog pins of the 13 needed, an ADC blind below 0.1 V (10 mA), and
+  a reset when the port opens. The S3 stays.
+
 ## 0.7.25 - The revolver needn't be precise
 
 - hardware/laser-board.md: every run locates each laser on the

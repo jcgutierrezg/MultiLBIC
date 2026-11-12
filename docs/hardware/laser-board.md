@@ -17,11 +17,11 @@ choices:
 
 ## In one paragraph
 
-Eight identical channels, one per laser plus two spare, each a
-current sink: a DAC sets the current, an op-amp holds it through a
-MOSFET and a sense resistor, and the ESP32 reads back each channel's
-current and its module's voltage. The SKR's 5 V feeds the lasers; the
-Pi's USB feeds the ESP32. Every laser is run on current, below the
+Six identical channels, one per laser, each a current sink: a DAC
+sets the current, an op-amp holds it through a MOSFET and a sense
+resistor, and the ESP32 reads back each channel's current and its
+module's voltage. The SKR's 5 V feeds the lasers; the Pi's USB feeds
+the ESP32. Every laser is run on current, below the
 point where its own driver or regulator would take over, so its power
 is whatever current the software asks for. The servo goes: the
 revolver turns on a NEMA 17 from the SKR's spare Z driver, homed
@@ -60,11 +60,12 @@ meter). Equal photon flux instead of equal power is still open
 ```
  5 V rail ──┬── keyed 2-pin connector (+) ── laser module ── (−) ──┐
             │                                                      │
-            └── reverse Schottky across the module                 drain
+            └── reverse Schottky across the module                 drain ── ÷2 ──► ESP32 ADC (V)
                                                                    MOSFET (logic level)
- DAC ch n ── enable switch ── ÷5 ── op-amp (+)                     source
-                                    op-amp (−) ── sense 10 Ω ──────┘── GND
- ESP32 ADC ◄── sense voltage (current)   ESP32 ADC ◄── drain voltage (module V = rail − drain)
+ DAC ch n ── clamp (shared enable) ── ÷5 ── op-amp (+)             source
+                                            op-amp (−) ── sense 10 Ω ┘── GND
+                                     sense voltage ──► ESP32 ADC (I)
+ 5 V rail ── ÷2 ──► ESP32 ADC (rail)        module V = rail − drain
 ```
 
 - **Full scale 50 mA**: 10 Ω, 0.1 %, so 0.5 V at 50 mA; the DAC's
@@ -72,21 +73,31 @@ meter). Equal photon flux instead of equal power is still open
 - **Headroom**: laser 2 needs 3.71 V at 41 mA, plus 0.41 V on the sense
   resistor and about 0.1 V on the MOSFET: 4.2 V of the SKR's 5 V. The
   most the sink dissipates is about 0.1 W.
-- **The enable** holds the set point at zero unless the ESP32 drives it
-  (a pull-up from the analog 3.3 V), and each MOSFET's gate has a
-  pull-down: nothing lights at power-up, at a reset, with the ESP32
-  unplugged or unpowered.
+- **One enable for all six**: a small MOSFET on each channel clamps its
+  set point to zero, all driven by one line, pulled to "off" from the
+  analog 3.3 V and cut by the lid interlock in hardware; each sink's
+  gate also has a pull-down. Nothing lights at power-up, at a reset,
+  with the ESP32 unplugged or unpowered, or with the lid open. Which
+  laser is lit is the DAC's business: the others' set points stay at
+  zero (the DAC powers up at zero too), and the readback shows it.
 - **Ramp**: the firmware moves a set point in steps over about 20 ms,
   from zero at every switch-on, never by a jump.
-- **Readback** tells a working channel from an open cable (the sink
-  can't reach its current), a module whose driver has switched on (its
-  voltage jumps), or a shorted one. Logged run by run, it is the laser
-  health record the plan wants, and would have pointed at laser 2's
-  supply weeks ago.
+- **Readback of current and voltage**, every channel, and the rail:
+  the sense voltage straight into an ADC input (0-0.5 V, on the ADC's
+  smallest range), the drain and the rail each through a ÷2 divider
+  (0-2.5 V), so module V = rail − drain. An open cable reads 0 mA and
+  the rail's voltage across it; a module whose driver has switched on
+  jumps in voltage and stops following its set point; a short reads
+  near 0 V; the rail shows the SKR off or sagging. Logged run by run,
+  it is the laser health record the plan wants: it would have shown
+  laser 2 sitting under its threshold. The ESP32's ADC is good to a few
+  percent after its factory calibration: enough for health and faults;
+  the light itself is measured by the photodiode.
 - **Compensation**: a gate resistor and a small feedback capacitor, and
   a footprint for a capacitor across each module (populated only if a
   scope says so): lasers 1 and 2 did not settle under the miniSMU's
-  voltage loop.
+  voltage loop, though they don't pulse on their own
+  ([lasers](lasers.md#on-a-scope-2026-11-12)).
 - **Calibration**: each channel once, two points on the 100 Ω dummy
   against the miniSMU, kept in `machine.toml`.
 
@@ -110,10 +121,11 @@ Two supplies, kept apart:
   sinks have no supply: every line from the ESP32 goes through 1-10 kΩ,
   so nothing back-feeds (the Xiao's 3V3 pin reads 0.3 V that way today,
   [hardware](../hardware.md#usb-at-boot)). With the Pi off and the SKR
-  on, the enables' pull-ups (from the analog 3.3 V) hold every laser
+  on, the enable's pull-up (from the analog 3.3 V) holds every laser
   off.
-- One ground point where the SKR's 5 V comes in; WiFi and Bluetooth
-  off in the firmware.
+- One ground point where the SKR's 5 V comes in. WiFi and Bluetooth are
+  never used: the firmware never starts them, so their radios add no
+  noise and every analog input is free.
 
 If a map ever shows the board: a USB isolator between the ESP32 and the
 Pi breaks a ground loop with the miniSMU.
@@ -129,12 +141,10 @@ and crept while powered. **It goes, for a NEMA 17 like A's and B's**:
   today. Marlin homes and moves it as it does A and B, and the software
   already speaks Marlin; the laser board loses its servo pin and the
   2 s settle.
-- **Homed sensorless against a small tab** on the revolver, into a hard
-  stop, as A and B home. The tab costs a few degrees of the turn: the
-  six lasers sit 60° apart within the rest, **all aimed at roughly one
-  spot**, so every laser is one XY position (a new mount).
+- **Homed sensorless against a small tab** on the revolver, into a
+  rigid hard stop, as A and B home.
 - **Driven directly**, no belt: the load is light. With 16 microsteps,
-  as A and B, 3200 a turn, 0.11° each, about 60 µm at 30 mm from the
+  as A and B, 3200 a turn, 0.11° each, about 80 µm at 40 mm from the
   axis. 60° is no whole number of steps, nor need it be: each laser's
   angle is measured and kept, as the servo's are now.
 - **Marlin's Z as an angle**: 8.89 steps per degree (3200 / 360),
@@ -148,39 +158,124 @@ the photodiode (D29), so the stepper only has to land each beam where
 the locate finds it. What it adds is the full turn, all six lasers at
 one spot, and no creep.
 
+### The mount (decided 2026-11-12)
+
+- **A ring, as now**: the six lasers' beams parallel to the axis, each
+  turned into one working position. Six at 60° instead of two groups
+  of three at 180°, so every laser is one XY position and the 30 mm XY
+  offset between today's groups goes.
+- **Radius about 40 mm**, as now; a little smaller only if the clamps
+  still fit. An angle error moves the spot by radius × angle, which the
+  locate absorbs.
+- **In wavelength order**, lasers 1 to 6 at 60° steps, so a spectral
+  sweep turns one way a step at a time. The tab and its stop sit in the
+  60° gap between laser 6 and laser 1.
+- **Split clamps**, one per laser, in fixed bores at one common height,
+  so all six focus at the sample's plane and handling no longer moves
+  them (it has by up to 1 mm). No tilt adjusters: the line-up takes the
+  small offsets that remain. The focus rings stay reachable.
+- **3D printed, directly on the NEMA 17's 5 mm D-shaft** with a
+  clamping hub; the motor above, the revolver below.
+- **The lasers' leads in a slack loop** over the 300° of travel.
+- **The working position** puts the photodiode and the whole sample
+  area within XY's reach, and the five lasers not in use clear the
+  blades, the clips and the photodiode's post as the ring turns.
+- **Held energised or released after each move**: decided once it is
+  built, by a map with the motor held against one with it released (if
+  the detent holds the revolver). Interference with the miniSMU is not
+  expected.
+
+## A temperature stage: later, and not on this board
+
+A heating and cooling stage under the sample (a Peltier, a CPU AIO on
+its hot side, a type T surface thermocouple) is for later, and **needs
+nothing on the laser board**. The SKR 1.4 Turbo has its heater outputs
+(HB, HE0, HE1), fan outputs and thermistor inputs free, since Marlin
+runs no extruders, and Marlin already closes temperature loops with
+thermal protection. Notes for when it is designed:
+
+- The SKR's inputs read thermistors and RTDs, not thermocouples. Marlin
+  reads a thermocouple through a MAX31855 on SPI (it comes in a type T
+  version), for the hotends and the bed loop; it has no MCP9600 driver
+  and its cooler loop takes analog sensors only (checked 2026-11-12,
+  release 2.1.2.9 and bugfix-2.1.x).
+- Marlin's `PELTIER_BED` (a relay reversing the Peltier on the bed
+  loop) is only in bugfix-2.1.x.
+
 ## Other features
 
 | Feature | Why |
 |---|---|
-| **Box-lid interlock input** (with a jumper to bypass) | lasers 5 and 6 are invisible; an open box cuts every enable in hardware |
-| **A "laser on" output** for a lamp outside the box, and an LED per channel | you see what is lit without opening the box |
+| **Box-lid interlock input** (with a jumper to bypass) | lasers 5 and 6 are invisible; an open box cuts the enable in hardware |
+| **A "laser on" output** for a lamp outside the box, and an LED on the board | you see a laser is lit without opening the box |
 | **Lasers off when the Pi goes away** (USB disconnect, or no command for a set time while lit) | a crashed program doesn't leave a laser on for hours; the ESP32 is powered by the Pi, so a Pi shut down takes it too |
-| **Readback of current and voltage**, logged with every run | laser health, open cables, a driver switching on |
-| **A temperature sensor** near the lasers (one-wire) | lasers 1 and 2 drift; the run file can carry the temperature |
-| **Two spare channels** | a seventh or eighth wavelength without a new board |
-| **Enables on PWM-capable pins** | chopping the lasers to separate slow drift (D8) stays possible later, with no hardware change |
+| **Readback of each laser's current and voltage, and the rail**, logged with every run | laser health, open cables, shorts, a driver switching on, the SKR off |
+| **A thermocouple** near the lasers, through an MCP9600 module on the DAC's I²C bus | lasers 1 and 2 drift; the run file can carry the temperature |
+| **The enable on a PWM-capable pin** | chopping the lit laser to separate slow drift (D8) stays possible later, with no hardware change |
 | **A spare line to the SKR** | the hardware row marker (D33, dropped) or a trigger, should either come back |
 | **A switched auxiliary output** (12 or 5 V) | a box light or fan, off during maps |
-| **Test points** on every sense resistor and drain | bring-up and repairs with a multimeter |
+| **Test points** on every sense resistor, drain and the rail | bring-up and repairs with a multimeter |
 | **Keyed, labelled connectors** | a module can't go on backwards |
 | **`ID?` with the board's revision and serial** | the driver knows which board it has |
 
-Left out on purpose: a display (the Pi has one), on-board storage of
-the set points (`machine.toml` is the one place they live), and WiFi.
+Left out on purpose: the temperature stage (the SKR's, above),
+spare channels, a display (the Pi has one),
+on-board storage of the set points (`machine.toml` is the one place
+they live), and WiFi or Bluetooth: USB to the Pi is the only link.
+
+## The ESP32's pins
+
+The ESP32-S3 has no DAC, and 20 analog inputs on GPIO1-20 (ADC1 on
+1-10, ADC2 on 11-20; ADC2 would clash only with WiFi, never on). Kept
+clear of:
+
+- **the strapping pins, GPIO0, 3, 45 and 46**, read at reset to choose
+  the boot mode, the JTAG source and the flash voltage: a laser board
+  pulling one the wrong way can stop the ESP32 booting;
+- **GPIO19 and 20**, its native USB to the Pi;
+- **GPIO43 and 44**, UART0, wired to the dev board's USB-serial chip and
+  the boot messages;
+- **GPIO35, 36 and 37**, taken by the PSRAM on modules that have octal
+  PSRAM (the N8R8 and N16R8 kinds);
+- **GPIO38 and 48**, the dev board's RGB LED (one or the other, by its
+  revision);
+- **GPIO47** as well, since on modules whose flash runs at 1.8 V it
+  does too.
+
+That leaves 22 safe pins: GPIO1, 2, 4-18, 21 and 39-42 (39-42 are the
+JTAG pins, plain GPIO while JTAG goes over USB, the default).
+
+| Pin | Use | Notes |
+|---|---|---|
+| GPIO1, 2, 4, 5, 6, 7 | current, lasers 1-6 | ADC1; the sense voltage, 0-0.5 V |
+| GPIO10, 11, 12, 13, 14, 15 | drain, lasers 1-6 | ADC1 and ADC2; ÷2 |
+| GPIO17 | the 5 V rail | ADC2; ÷2 |
+| GPIO8, 9 | I²C: the DAC and the MCP9600 (SDA, SCL) | the Arduino defaults on the S3; each part on its own address |
+| GPIO21 | the shared enable | PWM-capable; pulled to "off" |
+| GPIO39 | lid interlock in | also cuts the enable in hardware |
+| GPIO40 | "laser on" lamp out | through a transistor |
+| GPIO42 | auxiliary output | through a MOSFET |
+| GPIO16 | spare line to the SKR | through a resistor |
+| GPIO18, 41 | spare | 18 analog-capable |
+
+20 of the 22 safe pins used. Every line into the board goes through
+1-10 kΩ (back-feeding, above).
 
 ## Parts (indicative)
 
 | Part | Suggestion | Notes |
 |---|---|---|
-| Microcontroller | ESP32-S3 dev board with native USB, on headers | replaceable whole; plenty of ADC pins; appears under `/dev/serial/by-id/` like the Xiao |
-| DAC | 8 channels, 16 bit, I²C, internal reference (e.g. AD5675R) | one part for all channels |
+| Microcontroller | ESP32-S3 dev board with native USB, on headers | replaceable whole; it has no DAC, hence the external one; appears under `/dev/serial/by-id/` like the Xiao |
+| DAC | 8 channels, 16 bit, I²C, internal reference (e.g. AD5675R) | one part for the six channels, two outputs left unconnected |
 | Op-amps | 2 quad, rail-to-rail, zero-drift (e.g. MCP6V34) | low offset: 10 µV is 1 µA on 10 Ω |
-| MOSFETs | logic-level N-channel, SOT-23 | 8, plus 8 small ones for the enables |
-| Sense resistors | 10 Ω, 0.1 %, low drift | 8 |
-| Reverse diodes | small Schottky across each module | 8 |
+| MOSFETs | logic-level N-channel, SOT-23 | 6, plus 6 small ones clamping the set points, on the one enable line |
+| Dividers | 2 × 100 kΩ, 0.1 %, for each drain and the rail | 7; a small capacitor at each ADC pin |
+| Sense resistors | 10 Ω, 0.1 %, low drift | 6 |
+| Reverse diodes | small Schottky across each module | 6 |
 | Laser supply | the SKR's 5 V: a bulk capacitor (100-470 µF) and a polyfuse at the input | 50 mA at most, one laser lit at a time |
 | Analog 3.3 V | low-noise LDO from the SKR's 5 V | |
 | Series resistors | 1-10 kΩ on every ESP32 line into the board | no back-feeding with the SKR off |
+| Temperature | an MCP9600 thermocouple module (I²C) and a type K thermocouple | on the DAC's bus; a 4-pin header for the module |
 | Connectors | JST-XH (or Micro-Fit) 2-pin per laser, keyed | |
 | Revolver | NEMA 17 (as A and B), direct, a tab for homing, on the SKR's Z driver | Marlin's Z set as degrees, 16 microsteps |
 
@@ -191,8 +286,10 @@ choices.
 
 - **Firmware 3.0** on the ESP32 (Arduino, as today), same line protocol:
   `LASER <n>` lights laser n at its set point (ramped), `LASER 0`/`OFF`,
-  `SET <n> <mA>`, `MAX <n> <mA>`, `READ <n>` (current and voltage),
-  `STATE?`, `ID?`, `TEMP?`; the servo commands go.
+  `SET <n> <mA>`, `MAX <n> <mA>`, `READ <n>` (its current and its
+  module's voltage), `RAIL?`, `LID?`, `STATE?`, `ID?`, `TEMP?`; the
+  servo commands go. The firmware lights one laser at a time and turns
+  everything off on a fault the readback shows.
 - **Marlin**: Z as the revolver, in degrees, homed sensorless into the
   tab; selecting a laser becomes `G1 Z<angle>` on the SKR, then
   `LASER <n>` on the board. Each laser's angle goes in `machine.toml`
@@ -213,15 +310,14 @@ choices.
 ## Open
 
 - Equal power or equal photon flux.
-- The revolver's mount: the lasers 60° apart aimed at one spot, the
-  tab, the cables' slack loop.
 - Laser 2: its power with the power meter (calibrated on the board, not
   the datasheet), and whether 1.7 mW is enough or it is replaced.
 - Laser 5's light, measured again with its beam centred on the
   photodiode.
-- A scope on laser 3's photodiode (switching or pulsed driver?) and on
-  lasers 1 and 2's supply on a prototype channel (do they settle under
-  a current sink?).
+- Lasers 1 and 2 on a prototype channel, on a scope (do they settle
+  under the board's current loop?). The modules don't pulse (all steady
+  on a scope, 2026-11-12); it was the miniSMU's voltage loop that
+  oscillated with them.
 
 ## Bring-up
 
@@ -230,7 +326,7 @@ choices.
 2. Each module on its channel, swept as `laser_module` sweeps it, the
    photodiode reading, to confirm the table above and each `max_ma`.
 3. The power meter on each laser at its set point (the Power tab).
-4. The revolver: it homes, and each laser lands where the locate
-   finds it.
+4. The revolver: it homes, each laser lands where the locate finds
+   it, and a map with the motor held against one with it released.
 5. Commission all six, then a six-laser map against one from the old
    board.

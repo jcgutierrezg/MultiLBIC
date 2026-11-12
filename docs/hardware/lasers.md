@@ -138,8 +138,11 @@ voltage steep.
   falling to 16.0 mA by 3.9 V: **2.75 mW at 16.4 mA at the board's
   3.26 V** (the power meter read 2.75), 3.05 mW at 5 V, about 5 % per
   volt. Held at 3.26 V, +0.1 % in 60 s. At 3.0 V it gives the light of
-  about 21 mA through its diode for 16.8 mA drawn: a switching or
-  pulsed driver; if pulsed, its peak power is above the mean.
+  about 21 mA through its diode for 16.8 mA drawn. **Not a pulsed or
+  switching driver**: on a scope its light is steady, with no ripple
+  (2026-11-12, below), so it is a steady driver. More likely, part of a
+  current forced below its switch point flows through the driver, not
+  the diode, which makes the diode look less efficient than it is.
 - **Laser 5** (four passes; `20261111T134350Z` the full one): a diode to
   19.5 mA and 2.00 V, its light per mA easing to 77 % of its best from
   18 mA, then its driver: forced past it, 5.5 V and 16.9 mA, staying so
@@ -172,9 +175,26 @@ voltage steep.
   read up to 0.4 V under the voltage set, and at a hold of 3.27 V
   (laser 1) and 3.67 V (laser 2) they did not lase. Into a 100 ohm
   resistor it reached every voltage to 4 V within 2 mV
-  ([smu](smu.md)), so it is these modules: pulsed current, or
-  oscillating with the instrument's loop. Under a forced current both
-  are smooth.
+  ([smu](smu.md)), so it is these modules with the instrument's
+  voltage loop. They don't pulse: laser 1's light on the board's plain
+  3.26 V supply is steady on a scope (2026-11-12, below), so the
+  miniSMU's loop oscillated with them. Under a forced current both are
+  smooth.
+
+### On a scope (2026-11-12)
+
+Each laser on the photodiode, lit by the old board at 3.26 V (lasers
+3-6 on their own drivers and regulator, laser 1 on the LM317 as a plain
+supply); the photodiode off the miniSMU, a 100 ohm resistor across it,
+the scope across that. Laser 3 read 115 mV, steady. **All five were
+steady on DC with no ripple on AC coupling**, down to µs per division:
+no module pulses or switches. Laser 2 was skipped, below its threshold
+at 3.26 V.
+
+Two catches on the way: unplugging the miniSMU with the window open may
+leave the lasers off, and the scope's earthed ground clip must go on
+the photodiode lead tied to its can (the carriage is grounded) or it
+shorts the photodiode.
 
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of
