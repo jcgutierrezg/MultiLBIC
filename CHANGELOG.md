@@ -3,6 +3,28 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.24 - All six modules, and a laser board proposed
+
+- All six laser modules measured on the miniSMU, written up in
+  hardware/lasers.md: lasers 1 and 2 are plain diodes (laser 2 held just
+  under its 28.4 mA threshold by today's 3.26 V, hence its weak and
+  drifting light); laser 4 has a regulator; lasers 3, 5 and 6 have
+  drivers that take over above a current. Every one is a clean diode
+  under a forced current below that point.
+- Lasers 1 and 2 don't settle under a forced voltage; the miniSMU did,
+  into 100 ohm, to 4 V within 2 mV (hardware/smu.md).
+- hardware/laser-board.md: the proposed board. Eight identical current
+  sinks on an ESP32-S3 with readback, the lasers on the SKR's 5 V
+  with a bulk capacitor and the ESP32 on the Pi's USB, every laser run
+  on current below its switch point (or on its own driver, per laser),
+  the servo replaced by a NEMA 17 on the SKR's free Z driver homed
+  against a tab (direct, 16 microsteps, all six at one spot), an
+  interlock, a laser-on lamp, lasers off when the Pi goes
+  away, a temperature sensor, two spare channels.
+- The module test calls a jump to the voltage limit with the light up
+  10 % a driver (laser 6: the current down 3 %, the light up 38 %), and
+  says when its plain-supply sweep stopped at the light ceiling.
+
 ## 0.7.23 - A gentle bend low down is noted, not a stop
 
 - Laser 5 stopped at 14.5 mA on its light per mA easing to 85 % of its

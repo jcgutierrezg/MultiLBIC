@@ -396,6 +396,21 @@ def test_judge_voltage_on_laser_3s_supply_sweep():
     assert vj["at"]["3.30"]["mw"] == pytest.approx(2.755, rel=0.01)
 
 
+def test_judge_current_on_laser_6s_snap():
+    # Laser 6 (20261111T135440Z): forced to 12 mA, 5.54 V, the current
+    # down only 3 % but the light up 38 %: a driver, not a regulator.
+    def pt(set_ma, v, ma, light_ua, why=""):
+        return {"set": set_ma * 1e-3, "v": v, "i": ma * 1e-3,
+                "pd": -light_ua * 1e-6, "why": why}
+
+    up = [pt(10.0, 1.840, 10.009, 1209.5), pt(10.5, 1.850, 10.510, 1368.4),
+          pt(11.0, 1.860, 11.011, 1527.4), pt(11.5, 1.870, 11.512, 1686.8),
+          pt(12.0, 5.540, 11.170, 2320.3, "voltage limit")]
+    judged = laser_module.judge_current(up, [], 0.0, 0.5657)
+    assert judged["kind"] == "driver"
+    assert judged["mw_after"] == pytest.approx(4.10, rel=0.01)
+
+
 def test_judge_current_on_laser_3s_snap():
     # The last points of laser 3's real sweep (20261110T174053Z).
     def pt(set_ma, v, ma, light_ua, why=""):

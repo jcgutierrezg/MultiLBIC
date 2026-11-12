@@ -127,8 +127,10 @@ What to watch:
 
 ## Later
 
-- **The new laser board** (being designed): each laser's power set on
-  the board, the lasers normalised to each other. Open: whether to equal
+- **The new laser board** (proposed, [laser board](hardware/laser-board.md),
+  from the module tests of 2026-11-10 and -11): a current sink per
+  laser on an ESP32, each laser's power set from the software, the
+  lasers normalised to each other. Open: whether to equal
   photon flux (a current ratio is then an EQE ratio) or optical power,
   and whether the power is set from the software (which could then
   equalise the lasers on the photodiode, and again as they age) or by

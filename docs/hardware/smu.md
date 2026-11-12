@@ -28,6 +28,11 @@ The same **Undalogic miniSMU MS01** that SMUniversal uses (serial
   - with the range first: 2.55 mA for 2.07 mA sent, 2.69 for 2.2, and
     18.06 for 16.85, about 1.05 x the setting plus 0.4 mA.
 
+  - into a 100 ohm resistor (2026-11-11): every voltage from 0 to 4 V
+    reached within 2 mV under 40.7 and 60 mA limits, the current at
+    V/R; 3.267 V held at 33 mA; a 20 mA limit clamped hard at
+    21.18 mA, the voltage pinned at 2.09 V.
+
   Set the range first, then the limit, and allow for the offset. The
   laser module test measures the gain at a few mA each run and sets
   its limits under it (over-correcting at higher currents), and also

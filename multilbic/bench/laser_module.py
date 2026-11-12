@@ -714,11 +714,13 @@ def judge_current(up: list[dict], down: list[dict], dark: float, response: float
         return out
     out["i_max_a"] = max(p["i"] for p in good)
     out["v_at_max"] = good[-1]["v"]
-    switched = (stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3
-                and up[-1]["i"] < SWITCHED * good[-1]["i"])
+    jumped = stop == "voltage limit" and good[-1]["v"] < MAX_V - 0.3
+    brighter = abs(up[-1]["pd"] - dark) > 1.1 * max(abs(p["pd"] - dark) for p in good)
+    switched = jumped and (up[-1]["i"] < SWITCHED * good[-1]["i"] or brighter)
     if switched:
         # Forced past it, the voltage jumped to the limit and the current
-        # fell: a driver inside switched on (laser 3).
+        # fell (laser 3) or the light jumped (laser 6, +38 % for -3 % of
+        # current): a driver inside switched on.
         out["kind"] = "driver"
         out["i_switch_a"] = good[-1]["i"]
         out["v_switch"] = good[-1]["v"]
@@ -906,6 +908,10 @@ def verdict(results: dict, args) -> list[str]:
         elif vj.get("stopped_by") == "current limit":
             text += (f", it reached the sweep's current limit at "
                      f"{vj['top_v']:.2f} V: no driver took over")
+        elif vj.get("stopped_by") == "light ceiling":
+            text += (f", it reached the light ceiling at {vj['top_v']:.2f} V "
+                     f"({vj['peak_a'] * 1e3:.1f} mA) still a diode, before any "
+                     f"driver took over")
         quoted = [
             f"at {q['v']:.2f} V {q['a'] * 1e3:.1f} mA for {q['light_a'] * 1e6:.0f} uA"
             + (f" ({q['mw']:.2f} mW)" if q.get("mw") is not None else "")

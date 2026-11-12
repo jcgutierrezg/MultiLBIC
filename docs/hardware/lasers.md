@@ -100,60 +100,86 @@ fix for lasers 1 and 2 is hardware: a supply above 5 V, or a low-dropout
 constant-current driver for those two.
 
 What each module needs from the new laser board (a regulator inside or
-not, the voltage it needs, light against current) is measured module by
-module on the miniSMU ([testing a laser module](../bench.md#testing-a-laser-module)).
+not, the voltage it needs, light against current) was measured module
+by module on the miniSMU, 2026-11-10 and -11
+([testing a laser module](../bench.md#testing-a-laser-module); reports
+in `bench-results/`). The board that follows from it is proposed in
+[laser board](laser-board.md).
 
-- **Laser 4** (2026-11-10, `20261110T172152Z_laser_module_real`): lases
-  from 16.5 mA at 0.555 mW per mA, straight, up and down within 0.4 %.
-  Below its regulator it is the diode and about 25 ohm: 1.85 V at 1 mA,
-  2.45 V at 22 mA. Its own regulator takes over at about 22.5 mA
-  (2.72 V, then 3.55 V at 22.9 mA) and holds 3.45 mW, what the board
-  gives it today at 3.26 V (23 mA). So it sets its own power from about
-  2.7 V up, and a current held below 22.5 mA dims it. Held 60 s at
-  21.5 mA, the light moved under 1 % at constant voltage or current.
-- **Laser 3** (2026-11-10, `20261110T174053Z_laser_module_real`): a
-  plain diode up to 22.5 mA (2.42 V, about 16 ohm), lasing from 13.1 mA
-  at 0.347 mW per mA, to 3.28 mW. Forced to 23 mA, the voltage jumped to
-  5.5 V and the current fell to 16.6 mA while the light held 3.16 mW,
-  more than 16.6 mA gives it as a diode: a driver inside, switching
-  most likely. Coming down it stayed so until 16 mA (4.16 V, 2.89 mW),
-  then fell back to the diode (15.5 mA, 2.29 V, 0.85 mW). On the board
-  it runs on that driver: 16 mA at 3.26 V, 2.75 mW. At 16 mA it has two
-  states, 0.9 mW at 2.3 V or 2.9 mW at 4.2 V, so it wants a fixed
-  voltage, not a current.
+| Laser | Inside | A clean diode, current forced | On today's board (3.26 V) |
+|---|---|---|---|
+| 1 | nothing: a diode and series resistance | lases from 29.3 mA, 0.275 mW/mA, 3.95 mW at 43.5 mA (3.34 V) | 40 mA, ~3 mW; about 10 mW per volt |
+| 2 | nothing: a diode and series resistance | lases from 28.4 mA, ~0.13 mW/mA*, ~1.7 mW* at 40.7 mA (3.71 V) | ~26 mA: **below threshold** |
+| 3 | a driver | lases from 13.1 mA, 0.347 mW/mA, 3.28 mW at 22.5 mA (2.42 V) | on its driver: 16.4 mA, 2.75 mW |
+| 4 | a regulator | lases from 16.5 mA, 0.555 mW/mA, to 22.5 mA (2.45 V) | on its regulator: 3.45 mW |
+| 5 | a driver | lases from 8.7 mA, 0.14-0.18 mW/mA†, to 19.5 mA (2.00 V) | on its driver: 16 mA, 2.47 mW |
+| 6 | a driver | lases from 6.2 mA, 0.565 mW/mA, 2.98 mW at 11.5 mA (1.87 V) | on its driver: 10 mA, 3.47 mW |
 
-  On a plain supply (`20261110T175436Z_laser_module_real`) it is smooth:
-  a diode to 2.5 V, where its current peaks at 22.8 mA and its light at
-  3.40 mW; then its driver takes over, the current falling to 16.0 mA by
-  3.9 V while the light settles. 2.72 mW at 3.0 V, **2.75 mW at 16.4 mA
-  at the board's 3.26 V** (the power meter read 2.75), 2.87 mW at 4 V,
-  3.05 mW at 5 V, 3.13 mW at 5.5 V: about 5 % per volt around 3.3 V.
-  Held 60 s at 3.26 V the light moved +0.1 %. At 3.0 V it gives the light
-  of about 21 mA through its diode while drawing 16.8 mA, which a
-  switching converter or a pulsed drive explains; if pulsed, its peak
-  power is above the mean the photodiode reads (a scope on the
-  photodiode would tell).
-- **Laser 5** (2026-11-10, `20261110T180425Z_laser_module_real`, a first
-  pass): a diode lasing from 8.7 mA at 0.18 mW per mA, to 0.86 mW at
-  13.5 mA (1.88 V), where a dip in its light stopped the test as a bend.
-  On the board it draws 16 mA for 2.47 mW, twice what that diode curve
-  gives at 16 mA: a driver, as laser 3's, above where the test stopped.
-  Held 60 s its light dipped up to 6 % at random (mode hops, most
-  likely). A second pass (`20261110T181543Z`) read three dips again and
-  went on to 16 mA (1.16 mW), its light per mA easing from 87 to 74 uA;
-  its voltage sweep then stopped when 18.76 mA passed a 15.5 mA limit
-  the miniSMU had dropped (hardware/smu.md), about 1.6 mW, harmless.
-  A third (`20261110T183723Z`) went the same way to 14.5 mA (threshold
-  8.7 mA, 0.176 mW per mA, up and down within 0.3 %); on a plain supply
-  its current clamped at 18.06 mA, 1.94 V and 1.55 mW from 1.95 V up,
-  still a diode: its driver takes over above that, as on the board
-  (16 mA, 2.47 mW at 3.26 V). Like laser 3's, it wants a fixed voltage;
-  its light against voltage is still to measure. Held 60 s at 1.88 V the
-  light moved −1.6 % with dips of 5 %; at 15.3 mA, +0.2 %.
+\* from the datasheet response, ±25 %. † laser 5's light read 40 % under
+the power meter's: its beam was probably part off the photodiode.
+
+**Every module is a clean diode under a forced current below where its
+driver or regulator takes over**, and steady there: held 60 s at a
+constant current, lasers 1, 3, 4 and 6 moved 1 % or less. Pushed past
+that point a driver switches on (the voltage jumps, the current falls
+or the light jumps) and stays on coming down; a regulator turns the
+voltage steep.
+
+- **Laser 4** (`20261110T172152Z`): below its regulator the diode and
+  about 25 ohm, 1.85 V at 1 mA to 2.45 V at 22 mA. The regulator takes
+  over at about 22.5 mA (2.72 V, then 3.55 V at 22.9 mA) and holds
+  3.45 mW, what the board gives it. A current held below 22.5 mA dims
+  it.
+- **Laser 3** (`20261110T174053Z`, `20261110T175436Z`): forced to 23 mA,
+  5.5 V and 16.6 mA with 3.16 mW, more than 16.6 mA gives it as a diode;
+  coming down it stayed so to 16 mA (4.16 V, 2.89 mW), then fell back
+  to the diode (15.5 mA, 0.85 mW). On a plain supply it is a diode to
+  2.5 V (22.8 mA, 3.40 mW), then its driver takes over, the current
+  falling to 16.0 mA by 3.9 V: **2.75 mW at 16.4 mA at the board's
+  3.26 V** (the power meter read 2.75), 3.05 mW at 5 V, about 5 % per
+  volt. Held at 3.26 V, +0.1 % in 60 s. At 3.0 V it gives the light of
+  about 21 mA through its diode for 16.8 mA drawn: a switching or
+  pulsed driver; if pulsed, its peak power is above the mean.
+- **Laser 5** (four passes; `20261111T134350Z` the full one): a diode to
+  19.5 mA and 2.00 V, its light per mA easing to 77 % of its best from
+  18 mA, then its driver: forced past it, 5.5 V and 16.9 mA, staying so
+  down to 16 mA. On a plain supply its current peaks at 19.7 mA at
+  2.10 V and settles to 16.1 mA by 2.75 V, as on the board (16 mA at
+  3.26 V), its light up 8 % from 3.3 to 5.5 V. Its light read 766 uA at
+  3.26 V where the Power tab read 1301 on the board at the same current:
+  the beam part off the photodiode, which its holds' 6-11 % wobble and
+  a slope that changed 23 % between passes agree with. Its shape stands;
+  its milliwatts don't.
+- **Laser 6** (`20261111T135440Z`): the steepest, 0.565 mW per mA from
+  6.2 mA. Forced to 12 mA it switched: 5.54 V, 11.2 mA, and its light
+  up 38 % to 4.10 mW. On a plain supply it reached the light ceiling at
+  1.93 V (13.4 mA) still a diode, so its driver takes over above that,
+  past a light peak above 4 mW. On the board, on its driver, 3.47 mW at
+  3.26 V; 4.10 mW at 5.5 V: do not raise its supply.
+- **Laser 1** (`20261111T161647Z`): no driver. Its threshold, 29.3 mA, is
+  the highest; 3.95 mW at 43.5 mA, where the light ceiling stopped it.
+  At 3.26 V it takes 40.4 mA, about 3.0 mW (the board's 42 mA gave
+  2.87); 3.25 to 3.34 V takes it from 40 to 43.5 mA and about 3.0 to
+  3.95 mW. "Starved" was wrong for it: the board's voltage sets its
+  current, and a little more voltage pushes it hard.
+- **Laser 2** (`20261111T163449Z`, capped at 60 mA): no driver either.
+  It lases from 28.4 mA, and **the board's 3.26 V gives it about
+  25.6 mA, just under its threshold**: hence a fortieth of the others'
+  light, its swings and its minutes of brightening (near threshold a
+  little warming moves the light a lot). At 38.7 mA it held within 4 %
+  over 60 s, wobbling 10 %.
+- **Lasers 1 and 2 don't settle under a forced voltage**: the miniSMU
+  read up to 0.4 V under the voltage set, and at a hold of 3.27 V
+  (laser 1) and 3.67 V (laser 2) they did not lase. Into a 100 ohm
+  resistor it reached every voltage to 4 V within 2 mV
+  ([smu](smu.md)), so it is these modules: pulsed current, or
+  oscillating with the instrument's loop. Under a forced current both
+  are smooth.
 
 - **Laser 2 is weak and getting weaker.** It gives about a fortieth of
   laser 3's light on the photodiode, and on the cell a few percent of
-  the others'. Readings: −47 µA (2026-10-30), −17.5 and −29 µA after the
+  the others': the supply holds it just under its lasing threshold
+  (above). Readings: −47 µA (2026-10-30), −17.5 and −29 µA after the
   trimmer (11-03), 41 µA (11-05), 26 µA (11-06), and on 11-06 it needed
   the full sweeps to locate. It also swings between runs on the same
   day (−11 to −48 µA, 11-04), so its cable or connector is suspect too.
