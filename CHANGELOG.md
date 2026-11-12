@@ -3,6 +3,13 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.25 - The revolver needn't be precise
+
+- hardware/laser-board.md: every run locates each laser on the
+  photodiode (D29), so the revolver's stepper only has to land each
+  beam where the locate finds it; the plan no longer asks the bench for
+  servo-grade repeatability or finer microsteps.
+
 ## 0.7.24 - All six modules, and a laser board proposed
 
 - All six laser modules measured on the miniSMU, written up in

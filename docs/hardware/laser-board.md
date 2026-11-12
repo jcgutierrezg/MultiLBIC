@@ -136,18 +136,17 @@ and crept while powered. **It goes, for a NEMA 17 like A's and B's**:
 - **Driven directly**, no belt: the load is light. With 16 microsteps,
   as A and B, 3200 a turn, 0.11° each, about 60 µm at 30 mm from the
   axis. 60° is no whole number of steps, nor need it be: each laser's
-  angle is measured and kept, as the servo's are now, and a stepper
-  comes back to the same microstep. The TMC2209 goes to 256 microsteps
-  if the bench wants finer.
+  angle is measured and kept, as the servo's are now.
 - **Marlin's Z as an angle**: 8.89 steps per degree (3200 / 360),
   travel from the tab to just short of a full turn; held energised.
 - **The cables must not wind**: the travel stops short of a turn, with a
   slack loop, no slip ring (contacts in series with a laser's current
   add noise).
 
-Whether the stepper lands each laser well enough to stop locating it on
-the photodiode at every run (D29) is for the bench: ten selections
-away and back on a blade edge, as the servo was tested.
+**Precision is not the point**: every run still locates each laser on
+the photodiode (D29), so the stepper only has to land each beam where
+the locate finds it. What it adds is the full turn, all six lasers at
+one spot, and no creep.
 
 ## Other features
 
@@ -231,7 +230,7 @@ choices.
 2. Each module on its channel, swept as `laser_module` sweeps it, the
    photodiode reading, to confirm the table above and each `max_ma`.
 3. The power meter on each laser at its set point (the Power tab).
-4. The revolver: homing repeatability, then ten selections of a laser
-   away and back on a blade edge.
+4. The revolver: it homes, and each laser lands where the locate
+   finds it.
 5. Commission all six, then a six-laser map against one from the old
    board.
