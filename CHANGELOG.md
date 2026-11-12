@@ -16,6 +16,12 @@ From Phase 4 on, the middle number is the phase.
   board's RGB LED (38, 48) and GPIO47: 20 of the 22 safe pins used.
 - The temperature from a thermocouple through an MCP9600 module on the
   DAC's I²C bus, not a one-wire sensor.
+- A draft bill of materials replaces the indicative parts: per channel
+  and shared, hand-solderable, with quantities. 1 MΩ drain dividers, so
+  an unlit laser carries 2.5 µA, not 25 µA; the board sits inside the
+  box, so no LEDs on it, and the dev board's and the MCP9600
+  breakout's power LEDs are removed or covered; the aux output
+  switches 5 V.
 - The revolver's mount decided: a ring as now, about 40 mm radius, the
   six lasers at 60° in wavelength order with the homing tab in the gap
   between 6 and 1, split clamps at one height, printed and clamped

@@ -207,7 +207,7 @@ thermal protection. Notes for when it is designed:
 | Feature | Why |
 |---|---|
 | **Box-lid interlock input** (with a jumper to bypass) | lasers 5 and 6 are invisible; an open box cuts the enable in hardware |
-| **A "laser on" output** for a lamp outside the box, and an LED on the board | you see a laser is lit without opening the box |
+| **A "laser on" output** for a lamp outside the box | you see a laser is lit without opening the box; the board itself, in the box, shows no light |
 | **Lasers off when the Pi goes away** (USB disconnect, or no command for a set time while lit) | a crashed program doesn't leave a laser on for hours; the ESP32 is powered by the Pi, so a Pi shut down takes it too |
 | **Readback of each laser's current and voltage, and the rail**, logged with every run | laser health, open cables, shorts, a driver switching on, the SKR off |
 | **A thermocouple** near the lasers, through an MCP9600 module on the DAC's I²C bus | lasers 1 and 2 drift; the run file can carry the temperature |
@@ -261,26 +261,73 @@ JTAG pins, plain GPIO while JTAG goes over USB, the default).
 20 of the 22 safe pins used. Every line into the board goes through
 1-10 kΩ (back-feeding, above).
 
-## Parts (indicative)
+## Bill of materials (draft)
 
-| Part | Suggestion | Notes |
+Hand-solderable parts (SOIC, TSSOP, SOT-23, 0805), each stocked at RS
+or Farnell and also at LCSC, so the board can be assembled by hand or
+by a PCB house. Part numbers are to be checked for stock before
+ordering; an equivalent is fine where the notes say what matters.
+
+### Per channel (× 6)
+
+| Part | Value / part | Qty | What matters |
+|---|---|---|---|
+| Sink MOSFET | Nexperia PMV30UN2 (or AO3400A), SOT-23 | 6 | fully on at 2.5 V gate (the op-amps run on 3.3 V), a few hundred pF; 0.25 W into a shorted module is within its rating |
+| Sense resistor | 10 Ω, 0.1 %, 25 ppm/K, 0805 thin film (Vishay TNPW0805) | 6 | sets the current: 0.5 V at 50 mA |
+| Set-point divider | 40.2 kΩ and 10 kΩ, 0.1 %, 0805 | 6 + 6 | ÷5, the DAC's 2.5 V to 0.5 V; its exact ratio is calibrated out |
+| Clamp MOSFET | BSS138, SOT-23 | 6 | across the 10 kΩ, on the shared enable; on below 1.5 V |
+| Loop parts | gate 220 Ω, feedback 1 kΩ, 10 nF C0G, gate pull-down 100 kΩ | 6 each | stability with the MOSFET's capacitance |
+| Module capacitor | 100 nF, 0805 | 6 footprints | **not fitted** unless a scope on the prototype asks for it |
+| Reverse diode | BAT54, SOT-23 | 6 | across each module |
+| Drain divider | 1 MΩ + 1 MΩ, 0.1 %, 0805 | 12 | see the note below the tables |
+| Readback filter | 10 kΩ series, 100 nF at the ADC pin | 12 + 12 | current and drain readbacks |
+| Laser connector | JST B2B-XH-A (2-pin) + XHP-2 housing + SXH-001T-P0.6 crimps | 6 | keyed |
+
+### Shared
+
+| Part | Value / part | Qty | What matters |
+|---|---|---|---|
+| Microcontroller | Espressif ESP32-S3-DevKitC-1-N8R8, on 2 × 22-pin female headers | 1 | native USB to the Pi; its 5 V and 3V3 pins left unconnected |
+| DAC | Analog Devices AD5675RBRUZ, TSSOP-20 | 1 | 8 × 16 bit, I²C, 2.5 V internal reference, powers up at zero; two outputs spare |
+| Op-amps | Microchip MCP6V34-E/SL, SOIC-14 | 2 | quad, zero drift, rail to rail, 3.3 V; the two spare amplifiers tied off |
+| Analog 3.3 V | TI LP5907MFX-3.3, SOT-23-5, with 1 µF in and out | 1 | low noise, from the SKR's 5 V |
+| Supply input | Bourns MF-MSMF030-2 polyfuse (0.3 A hold, 1812); 330 µF 10 V low-ESR electrolytic; 10 µF ceramic | 1 each | the SKR's 5 V in |
+| Rail readback | 1 MΩ + 1 MΩ, 0.1 %; 10 kΩ; 100 nF | 1 set | |
+| Decoupling | 100 nF per IC, 10 µF on the 3.3 V | ~6 | |
+| I²C | 4.7 kΩ pull-ups to the analog 3.3 V, 330 Ω in series from the ESP32 | 2 + 2 | small series resistors, so the low level stays low |
+| Enable | 10 kΩ pull-up to the analog 3.3 V ("off"), 1 kΩ from GPIO21 through the lid switch | 1 set | |
+| Other ESP32 lines | 1 kΩ in series (lid, lamp, aux, SKR line) | 4 | no back-feeding with the SKR off |
+| Lamp and aux outputs | AO3400A low side, 100 kΩ gate pull-down, SS14 flyback footprint | 2 | switch the board's 5 V, about 0.5 A each |
+| Temperature | Adafruit MCP9600 breakout (4101) or Pimoroni PIM437, on a female header; type K thermocouple | 1 | I²C at 0x67; the DAC at 0x0C-0x0F |
+| Connectors | JST B2B-XH-A 2-pin: 5 V in, lid, lamp, aux, SKR line; housings and crimps | 5 | |
+| Test points | loops or pads on each sense resistor, drain, the rail, the 3.3 V, GND | ~16 | |
+| PCB | 2 layers, 1.6 mm, ground pour, about 100 × 80 mm | 1 | |
+
+### Off the board
+
+| Part | Qty | Notes |
 |---|---|---|
-| Microcontroller | ESP32-S3 dev board with native USB, on headers | replaceable whole; it has no DAC, hence the external one; appears under `/dev/serial/by-id/` like the Xiao |
-| DAC | 8 channels, 16 bit, I²C, internal reference (e.g. AD5675R) | one part for the six channels, two outputs left unconnected |
-| Op-amps | 2 quad, rail-to-rail, zero-drift (e.g. MCP6V34) | low offset: 10 µV is 1 µA on 10 Ω |
-| MOSFETs | logic-level N-channel, SOT-23 | 6, plus 6 small ones clamping the set points, on the one enable line |
-| Dividers | 2 × 100 kΩ, 0.1 %, for each drain and the rail | 7; a small capacitor at each ADC pin |
-| Sense resistors | 10 Ω, 0.1 %, low drift | 6 |
-| Reverse diodes | small Schottky across each module | 6 |
-| Laser supply | the SKR's 5 V: a bulk capacitor (100-470 µF) and a polyfuse at the input | 50 mA at most, one laser lit at a time |
-| Analog 3.3 V | low-noise LDO from the SKR's 5 V | |
-| Series resistors | 1-10 kΩ on every ESP32 line into the board | no back-feeding with the SKR off |
-| Temperature | an MCP9600 thermocouple module (I²C) and a type K thermocouple | on the DAC's bus; a 4-pin header for the module |
-| Connectors | JST-XH (or Micro-Fit) 2-pin per laser, keyed | |
-| Revolver | NEMA 17 (as A and B), direct, a tab for homing, on the SKR's Z driver | Marlin's Z set as degrees, 16 microsteps |
+| NEMA 17, the same model as A and B | 1 | one spare then fits all three; on the SKR's Z socket |
+| Lid switch: a microswitch (Omron SS-5 class) or a reed and magnet | 1 | closed with the lid shut |
+| Laser-on lamp, 5 V | 1 | outside the box |
+| 100 Ω dummy load, 0.1 % | 1 | calibration and bring-up |
 
-Part numbers are examples to check for stock and footprints, not
-choices.
+### Notes
+
+- **1 MΩ drain dividers, not 100 kΩ**: a drain divider is a path from
+  the rail through the module even with its sink off. With 100 kΩ
+  that is 25 µA through every unlit laser, enough for a faint glow
+  near a cell read in nA; with 1 MΩ it is 2.5 µA. The 100 nF at the ADC
+  pin keeps the high impedance from bothering the ADC, at a few
+  milliseconds of settling, nothing for a health readback.
+- **No light from the board**: it sits inside the box, with the cell
+  read in nA, so it carries no LEDs, and the lamp outside says a laser
+  is lit. The dev board's power LED is always on: removed, or covered
+  with black tape, and likewise any power LED on the MCP9600 breakout.
+  The dev board's RGB LED stays off, as the firmware never drives it.
+- **The aux output switches 5 V only**: the board has no 12 V. A 12 V
+  fan or light would take its own supply, switched by the aux output's
+  MOSFET.
 
 ## Firmware and software
 
