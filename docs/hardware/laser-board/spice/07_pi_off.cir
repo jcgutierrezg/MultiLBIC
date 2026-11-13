@@ -1,0 +1,69 @@
+* Laser board 07: the Pi off, the SKR on, a laser left at 40 mA
+*
+* The ESP32 is unpowered: each of its pins is a diode to its dead 3.3 V
+* rail, which the board's own pull-ups feed a little. The DAC, on the
+* SKR's side, still holds 2 V (40 mA). Two enable circuits side by
+* side:
+*   A  the draft: GPIO21 on the enable line through 1k
+*   B  the schematic: GPIO21 on Q1's gate, Q1 pulling the line low
+* Stepped over the clamps' threshold (BSS138: 0.8 to 1.5 V) and over
+* what loads the dead rail.
+*
+* Read in the log: ia_ma and ib_ma, the current the channel would hold
+* (0 = the clamp wins, 40 = the laser stays lit), and vloff_a, vloff_b,
+* the enable line (3.3 V = firmly off).
+* Expected: B at 3.3 V and 0 mA in every case; A near 1 V, lit or not
+* by the threshold.
+
+.include models.lib
+.options plotwinsize=0
+
+.param VTS=0.75
+.step param VTC list 0.8 1.3 1.5
+.step param RESP list 100 1k 10k
+
+V3 v3 0 3.3
+Vdac dac 0 2
+
+* the dead ESP32: its 3.3 V rail, and the I2C pull-ups feeding it
+Resp espvdd 0 {RESP}
+R3 v3 sda 4.7k
+R5 sda psda 330
+Dsda psda espvdd DESD
+R4 v3 scl 4.7k
+R6 scl pscl 330
+Dscl pscl espvdd DESD
+
+* --- A: the draft
+R7a v3 loff_a 10k
+R8a loff_a pin_a 1k
+Dpa pin_a espvdd DESD
+R101a dac set_a 40.2k
+R102a set_a 0 10k
+Xq101a set_a loff_a 0 CLAMPFET
+
+* --- B: the schematic (lid shut)
+R7b v3 loff_b 10k
+Xq1b loff_b eng_b lid_b CLAMPFET
+R8b pin_b eng_b 1k
+R9b eng_b 0 100k
+Dpb pin_b espvdd DESD
+R12b v3 lid_b 100k
+Rlidb lid_b 0 0.1
+R13b lid_b pin39 1k
+Dp39 pin39 espvdd DESD
+R101b dac set_b 40.2k
+R102b set_b 0 10k
+Xq101b set_b loff_b 0 CLAMPFET
+
+.tran 0 2m 0 10u
+
+.meas tran vesp avg V(espvdd) from=1m to=2m
+.meas tran vloff_a avg V(loff_a) from=1m to=2m
+.meas tran vset_a avg V(set_a) from=1m to=2m
+.meas tran ia_ma param vset_a*100
+.meas tran vloff_b avg V(loff_b) from=1m to=2m
+.meas tran vset_b avg V(set_b) from=1m to=2m
+.meas tran ib_ma param vset_b*100
+
+.end

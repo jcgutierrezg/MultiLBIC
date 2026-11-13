@@ -1,0 +1,47 @@
+* Laser board 08: the SKR's 5 V coming up, and dipping while a laser is lit
+*
+* The enable is held on throughout (the worst case: the Pi already
+* running). 5 V rises from 1 to 6 ms with the DAC at zero; the laser
+* ramps up from 10 to 30 ms; at 40 ms the rail dips to 3.6 V for 5 ms,
+* below what laser 2 needs, and returns.
+* The 3.3 V follows the rail through a plain model of the regulator,
+* and the DAC cannot give more than its supply allows.
+*
+* Plot: V(v5), V(v3), I(Vlas), V(sns)*100, V(oa), V(opt).
+* Good: no current while the rail rises, and no overshoot above the
+* set point when the rail comes back from the dip.
+
+.include models.lib
+.include board.inc
+.options plotwinsize=0
+
+.param ISET=40m VZ=0.8m LCAB=0.5u ACBRK=0 ACBRK2=0 KS=9.9602 C105V=0 RLID=0.1 VTS=0.75 VTC=1.3
+.step param CMOD list 0 1u
+
+V5 v5in 0 PWL(0 0 1m 0 6m 5 40m 5 40.2m 3.6 45m 3.6 45.2m 5 60m 5)
+B3 v3 0 V=min(3.3, max(0, V(v5)-0.12))
+Ven en 0 3.3
+Vdset dset 0 PWL(0 {VZ} 10m {VZ} 30m {ISET*50})
+Rdset dset 0 1meg
+Bdac dac 0 V=min(V(dset), max(0, V(v3)-0.3))
+
+Lcab v5 lasp {LCAB} Rser=0.2
+Cmod lasp drn {CMOD+1f}
+Vlas lasp lasa 0
+Xlas lasa drn opt LASER2
+
+.tran 0 60m 0 2u
+
+.meas tran i_powerup max I(Vlas) from=0 to=9.9m
+.meas tran i_powerup_ua param i_powerup*1e6
+.meas tran i_dip min I(Vlas) from=41m to=45m
+.meas tran i_in_dip_ma param i_dip*1e3
+.meas tran vpk_back max V(sns) from=45m to=60m
+.meas tran over_back_ma param (vpk_back-ISET*KS)*100
+.meas tran i_back max I(Vlas) from=45m to=60m
+.meas tran i_back_ma param i_back*1e3
+.meas tran t_over trig I(Vlas)={ISET*1.1} td=45m rise=1
++ targ I(Vlas)={ISET*1.1} td=45m fall=1
+.meas tran oa_in_dip find V(oa) at=44.9m
+
+.end

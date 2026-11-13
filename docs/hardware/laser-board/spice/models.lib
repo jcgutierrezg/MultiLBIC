@@ -1,0 +1,141 @@
+* Laser board: part models for the LTspice runs (docs/hardware/laser-board/spice)
+*
+* Everything here is an approximation written from datasheet typical
+* values, except the laser modules, which are fitted to the sweeps
+* measured on the machine. To use a maker's model instead, change the
+* inside of the wrapper (OPAMP, SINKFET, CLAMPFET, RDIODE) and nothing
+* else: see README.md.
+*
+* Parameters the netlist that includes this file must define:
+*   VTS  threshold of the sink MOSFET (0.75 typical; 0.45 to 0.95)
+*   VTC  threshold of the BSS138 clamps (1.3 typical; 0.8 to 1.5)
+
+* ------------------------------------------------------------------
+* Op-amp: one amplifier of an MCP6V34, simplified.
+* One pole, 300 kHz gain-bandwidth, 0.15 V/us, 130 dB, output clamped
+* to its rails. Its output impedance is the one in Microchip's own
+* macro model (MCP6V31, rev. E): 50 ohm at low frequency, rising from
+* 350 Hz to 6 kohm above 42 kHz. That model does not converge in
+* LTspice, so this stands in for it. No chopping artefacts, no input
+* capacitance, no output current limit, and its recovery from a rail
+* is only roughly right.
+* Pins as in Microchip's own model: + input, - input, V+, V-, output.
+.subckt MCP6V3X_APX inp inn vdd vss out
+B1 0 x I=79.6u*tanh(V(inp,inn)*1m/79.6u)
+R1 x 0 3.16G
+C1 x 0 530.5p
+Dhi x vdd DCLAMP
+Dlo vss x DCLAMP
+E1 oi 0 x 0 1
+Rz1 oi oz 50.6
+Rz2 oz out 6k
+Lz oz out 22.7m
+.model DCLAMP D(Ron=1 Roff=1T Vfwd=0 epsilon=20m)
+.ends MCP6V3X_APX
+
+.subckt OPAMP inp inn vdd vss out
+X1 inp inn vdd vss out MCP6V3X_APX
+.ends OPAMP
+
+* ------------------------------------------------------------------
+* Sink MOSFET: PMV30UN2 (or AO3400A), as LTspice VDMOS models.
+* The PMV30UN2's gate resistance and capacitances are those of
+* Nexperia's own model (585 pF gate to source; gate to drain from
+* 900 pF near zero volts to about 55 pF at 15 V), which the phase
+* margins depend on. The AO3400A's are datasheet guesses.
+.model PMV30UN2_APX VDMOS(Rg=9.5 Vto={VTS} Rd=12m Rs=9m Rb=20m Kp=14
++ lambda=0.03 Ksubthres=0.1 Cgdmax=900p Cgdmin=55p Cgs=585p Cjo=40p Is=2p)
+.model AO3400A_APX VDMOS(Rg=3 Vto={VTS+0.35} Rd=10m Rs=8m Rb=15m Kp=30
++ lambda=0.03 Ksubthres=0.1 Cgdmax=400p Cgdmin=60p Cgs=600p Cjo=150p Is=3p)
+
+* pins: drain, gate, source
+.subckt SINKFET d g s
+M1 d g s PMV30UN2_APX
+.ends SINKFET
+
+* ------------------------------------------------------------------
+* Clamp MOSFET and Q1: BSS138.
+.model BSS138_APX VDMOS(Rg=10 Vto={VTC} Rd=0.5 Rs=0.3 Rb=1 Kp=0.6
++ lambda=0.02 Ksubthres=0.1 Cgdmax=30p Cgdmin=5p Cgs=25p Cjo=20p Is=1p)
+
+* pins: drain, gate, source
+.subckt CLAMPFET d g s
+M1 d g s BSS138_APX
+.ends CLAMPFET
+
+* ------------------------------------------------------------------
+* Reverse diode across a module: BAT54. pins: anode, cathode
+.model BAT54_APX D(Is=2.5e-7 N=1.05 Rs=2.5 Cjo=10p M=0.35 Vj=0.25
++ BV=30 Ibv=2u Tt=5n)
+.subckt RDIODE a k
+D1 a k BAT54_APX
+.ends RDIODE
+
+* ------------------------------------------------------------------
+* A protection diode of an unpowered ESP32 pin (07_pi_off.cir).
+.model DESD D(Is=1e-14 N=1 Rs=50)
+
+* A switch for the fault runs: closed with more than 0.5 V on its control.
+.model SWF SW(Ron=10m Roff=100meg Vt=0.5 Vh=0)
+
+* ------------------------------------------------------------------
+* The six laser modules, measured (bench-results, 2026-11-10 and -11):
+* a diode and a series resistance fitted to each forced-current sweep
+* from 1 mA to the top of its tested range. Fit error 18 and 22 mV rms
+* for lasers 1 and 2, under 4 mV for the others.
+*
+* VALID ONLY BELOW THE POINT WHERE A MODULE'S OWN DRIVER TAKES OVER
+* (lasers 3 to 6: 22.5, 22.5, 19.5 and 11.5 mA). The drivers are not
+* modelled, nor whatever made lasers 1 and 2 oscillate with the
+* miniSMU's voltage loop.
+*
+* pins: anode (+), cathode (-), opt = light in mW, as a voltage
+* The capacitance across a module is unknown: the runs put it outside
+* the model (Cmod, stepped), so that I(Vlas) is the diode's own current.
+.subckt LASER1 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.275*(I(Vs)*1000-29.3))
+.model DLAS D(Is=4.099e-9 N=5.333 Rs=25.85)
+.ends LASER1
+
+.subckt LASER2 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.130*(I(Vs)*1000-28.4))
+.model DLAS D(Is=8.484e-8 N=7.652 Rs=28.70)
+.ends LASER2
+
+.subckt LASER3 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.347*(I(Vs)*1000-13.1))
+.model DLAS D(Is=3.107e-13 N=3.294 Rs=12.20)
+.ends LASER3
+
+.subckt LASER4 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.555*(I(Vs)*1000-16.5))
+.model DLAS D(Is=2.719e-27 N=1.292 Rs=24.30)
+.ends LASER4
+
+.subckt LASER5 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.140*(I(Vs)*1000-8.7))
+.model DLAS D(Is=9.348e-11 N=3.711 Rs=5.95)
+.ends LASER5
+
+.subckt LASER6 a k opt
+Vs a a1 0
+D1 a1 k DLAS
+Bopt opt 0 V=max(0, 0.565*(I(Vs)*1000-6.2))
+.model DLAS D(Is=4.313e-10 N=3.963 Rs=10.20)
+.ends LASER6
+
+* The 100 ohm dummy load, with the same pins.
+.subckt DUMMY100 a k opt
+R1 a k 100
+Vopt opt 0 0
+.ends DUMMY100

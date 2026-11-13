@@ -1,0 +1,41 @@
+* Laser board 04: how much of the 5 V rail's ripple reaches the laser
+*
+* 1 V of ripple on the SKR's 5 V, lit at ISET.
+*
+* Plot: V(sns)*100 (mA of sink current per volt of ripple) and V(opt)
+* (mW of light per volt of ripple).
+* Good: far below what the same laser would see on a plain supply,
+* which is 1000/(its dynamic resistance) mA per volt: about 30 mA/V
+* for laser 2.
+
+.include models.lib
+.include board.inc
+.options plotwinsize=0
+
+.param ISET=40m LCAB=0.5u ACBRK=0 ACBRK2=0 KS=9.9602 C105V=0 RLID=0.1 VTS=0.75 VTC=1.3
+.step param CMOD list 0 1u 10u
+
+V5 v5in 0 5 ac 1
+V3 v3 0 3.3
+Ven en 0 3.3
+Vdac dac 0 {ISET*50}
+
+Lcab v5 lasp {LCAB} Rser=0.2
+Cmod lasp drn {CMOD+1f}
+Vlas lasp lasa 0
+Xlas lasa drn opt LASER2
+
+.ac dec 20 10 1meg
+
+.meas ac s100 find mag(V(sns)) at=100
+.meas ac ma_per_v_100hz param s100*100
+.meas ac s1k find mag(V(sns)) at=1k
+.meas ac ma_per_v_1khz param s1k*100
+.meas ac s10k find mag(V(sns)) at=10k
+.meas ac ma_per_v_10khz param s10k*100
+.meas ac s100k find mag(V(sns)) at=100k
+.meas ac ma_per_v_100khz param s100k*100
+.meas ac mw_per_v_100hz find mag(V(opt)) at=100
+.meas ac mw_per_v_10khz find mag(V(opt)) at=10k
+
+.end

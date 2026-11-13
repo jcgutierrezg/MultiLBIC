@@ -1,0 +1,61 @@
+* Laser board 05: a cable that opens and comes back, and a shorted module
+*
+* Lit at ISET throughout. The cable opens at 10 ms and reconnects at
+* 20 ms (a loose plug, or a module plugged in live); the module is
+* shorted from 30 to 40 ms.
+*
+* Plot: I(Vlas) (laser current), V(sns)*100, V(oa), V(gate), V(drn).
+* Look at: with the cable open the amplifier goes to its rail and the
+* sink is fully on, so on reconnection the laser takes more than its
+* set point until the loop recovers. i_replug_ma is that peak and
+* t_surge how long it lasts. For lasers 1 and 2, compare the peak with
+* the most they were tested at (43.5 and 40.7 mA). For lasers 3 to 6
+* the model stops being true above their switch points: their own
+* drivers would limit the surge, and this run cannot say how.
+* Shorted, the sink should hold ISET and dissipate about 5 V x ISET
+* (i_short_ma is the spike through the sink as the short lands; the
+* laser is not in that path). i_unshort_ma is what the laser takes as
+* the short lifts.
+
+.include models.lib
+.include board.inc
+.options plotwinsize=0
+
+.param ISET=40m LCAB=0.5u ACBRK=0 ACBRK2=0 KS=9.9602 C105V=0 RLID=0.1 VTS=0.75 VTC=1.3
+.step param CMOD list 0 1u
+
+V5 v5in 0 5
+V3 v3 0 3.3
+Ven en 0 3.3
+Vdac dac 0 {ISET*50}
+
+* the plug (S1), the cable, the laser
+Vplug plug 0 PWL(0 1 10m 1 10.001m 0 20m 0 20.001m 1)
+S1 v5 lasx plug 0 SWF
+Lcab lasx lasp {LCAB} Rser=0.2
+Rdamp lasx lasp 100
+Cmod lasp drn {CMOD+1f}
+Vlas lasp lasa 0
+Xlas lasa drn opt LASER2
+
+* the short across the module
+Vshort short 0 PWL(0 0 30m 0 30.001m 1 40m 1 40.001m 0)
+S2 lasp drn short 0 SWF
+
+.tran 0 50m 0 1u
+
+.meas tran oa_open find V(oa) at=19.9m
+.meas tran i_replug max I(Vlas) from=20m to=25m
+.meas tran i_replug_ma param i_replug*1e3
+.meas tran light_replug_mw max V(opt) from=20m to=25m
+.meas tran light_set_mw find V(opt) at=9.9m
+.meas tran t_surge trig I(Vlas)={ISET*1.1} td=20m rise=1
++ targ I(Vlas)={ISET*1.1} td=20m fall=1
+.meas tran vsns_short max V(sns) from=30m to=40m
+.meas tran i_short_ma param vsns_short*100
+.meas tran vds_short avg V(drn,sns) from=35m to=39m
+.meas tran p_sink_short_w param vds_short*ISET
+.meas tran vsns_unshort max V(sns) from=40m to=50m
+.meas tran i_unshort_ma param vsns_unshort*100
+
+.end

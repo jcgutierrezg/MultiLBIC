@@ -1,0 +1,8 @@
+# LTspice writes these beside each netlist
+*.log
+*.raw
+*.db
+*.net
+*.op.raw
+PMV30UN2.lib
+MCP6V31*.txt

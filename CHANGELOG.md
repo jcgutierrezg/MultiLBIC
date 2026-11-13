@@ -3,6 +3,32 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.28 - The laser board simulated, and its loop parts changed
+
+- hardware/laser-board/spice: eight LTspice runs of one channel and
+  the enable circuit (the ramp and a step, loop gain, the enable, rail
+  ripple, an open and a shorted cable, what an unlit laser carries,
+  the Pi off with a laser lit, the rail rising and dipping), with a
+  runner, a static check of the netlists and a guide to the results.
+  The six lasers are fitted to their bench sweeps of 2026-11-10 and
+  -11. The op-amp's output impedance is Microchip's and the sink's
+  gate capacitances Nexperia's; the rest are approximations.
+- **The loop parts first drawn oscillated** with no capacitance across
+  the module: the MCP6V34's output, about 6 kΩ at 100 kHz, could not
+  drive the gate through 220 Ω nor 1 kΩ and 10 nF of feedback. Now
+  3.9 kΩ, 10 kΩ and 1 nF (Rn03, Rn06, Cn02) in the schematic, its
+  drawing and the bill of materials: about 60° or more of phase margin
+  on both loops, no overshoot. The guide explains phase margin, with a
+  figure from this board.
+- Confirmed: through Q1 the enable holds every laser off with the Pi
+  unpowered, where the draft's direct drive left one lit.
+- Open: after a cable reconnects or the 5 V rail dips and returns,
+  laser 1 takes up to 75 mA and laser 2 up to 60 mA for 0.1 to 0.2 ms.
+  A series resistor per channel would cap it.
+- Microchip's MCP6V31 model does not converge in LTspice 26.1.1.
+  Nexperia's PMV30UN2 model runs, but is licensed: git ignores it and
+  nothing depends on it.
+
 ## 0.7.27 - The laser board's schematic, as a draft
 
 - hardware/laser-board-schematic.md: the laser board drawn as four

@@ -70,7 +70,7 @@
 <rect x="620" y="343" width="40" height="14" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
 <polyline points="660,350 670,350" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="640" y="338" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">R103</text>
-<text x="640" y="371" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">220R</text>
+<text x="640" y="371" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">3.9k</text>
 <polyline points="670,350 750,350" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="700" cy="350" r="3.2" fill="#111111"/>
 <polyline points="700,350 700,360" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -111,7 +111,7 @@
 <rect x="630" y="453" width="40" height="14" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
 <polyline points="670,460 680,460" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="650" y="448" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">R106</text>
-<text x="650" y="481" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">1k</text>
+<text x="650" y="481" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">10k</text>
 <polyline points="620,460 480,460 480,370 500,370" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="480" cy="420" r="3.2" fill="#111111"/>
 <polyline points="480,420 520,420" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -120,7 +120,7 @@
 <polyline points="544,408 544,432" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
 <polyline points="544,420 560,420" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <text x="540" y="403" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">C102</text>
-<text x="540" y="446" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">10n C0G</text>
+<text x="540" y="446" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">1n C0G</text>
 <polyline points="560,420 600,420 600,350" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <polyline points="790,460 860,460" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="835" cy="460" r="4.5" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>

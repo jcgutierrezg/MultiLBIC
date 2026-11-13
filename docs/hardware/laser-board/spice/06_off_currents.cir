@@ -1,0 +1,40 @@
+* Laser board 06: what an unlit laser carries
+*
+* Three states, 20 ms each, stepped over the DAC's zero error VZ:
+*   0-20 ms   disabled, DAC left at ISET: only the clamp holds it off
+*   20-40 ms  disabled, DAC at zero: the drain divider's current alone
+*   40-60 ms  enabled, DAC at zero: the channel of a laser that is not
+*             the one lit, while another is
+*
+* Plot: I(Vlas), V(set), V(sns).
+* Expected: a few to some tens of uA in the first state (the DAC's
+* 2 V across 40.2k into the clamp's on-resistance), about 2 uA in the
+* second, and VZ/5/10 ohm in the third: 16 uA at 0.8 mV, 32 at 1.6 mV.
+
+.include models.lib
+.include board.inc
+.options plotwinsize=0
+
+.param ISET=40m CMOD=0 LCAB=0.5u ACBRK=0 ACBRK2=0 KS=9.9602 C105V=0 RLID=0.1 VTS=0.75 VTC=1.3
+.step param VZ list 0 0.8m 1.6m
+
+V5 v5in 0 5
+V3 v3 0 3.3
+Ven en 0 PWL(0 0 40m 0 40.001m 3.3)
+Vdac dac 0 PWL(0 {ISET*50} 20m {ISET*50} 20.01m {VZ})
+
+Lcab v5 lasp {LCAB} Rser=0.2
+Cmod lasp drn {CMOD+1f}
+Vlas lasp lasa 0
+Xlas lasa drn opt LASER2
+
+.tran 0 60m 0 5u
+
+.meas tran i_a avg I(Vlas) from=15m to=19.9m
+.meas tran clamped_dac_set_ua param i_a*1e6
+.meas tran i_b avg I(Vlas) from=35m to=39.9m
+.meas tran clamped_dac_zero_ua param i_b*1e6
+.meas tran i_c avg I(Vlas) from=55m to=59.9m
+.meas tran enabled_dac_zero_ua param i_c*1e6
+
+.end

@@ -1,0 +1,41 @@
+* Laser board 02: the current loop's gain and phase margin
+*
+* Lit at ISET. There are two loops, one inside the other, and the run
+* opens each in turn (BRK):
+*   BRK=1  at the amplifier's inverting input (Vbrk): everything the
+*          amplifier feeds back to itself, C102 included. Read
+*          t_overall. This is the one that says whether it rings.
+*   BRK=2  at the sense resistor (Vbrk2): the current loop alone,
+*          through the sink. Read t_current.
+* Each line reads (0 dB, PHASE MARGIN) at the crossing frequency; add
+* 360 to a negative phase. Ignore t_current where BRK=1 and t_overall
+* where BRK=2: the loop they measure is closed in that step.
+*
+* Plot: V(fb)/V(inn) for BRK=1, V(sns)/V(sfb) for BRK=2.
+* Good: 45 degrees at the very least, 60 or more wanted.
+
+.include models.lib
+.include board.inc
+.options plotwinsize=0
+
+.param ISET=40m LCAB=0.5u C105V=0 RLID=0.1 VTS=0.75 VTC=1.3
+.param ACBRK={if(BRK==1,1,0)} ACBRK2={if(BRK==2,1,0)}
+.step param CMOD list 0 100n 1u 10u
+.step param BRK list 1 2
+
+V5 v5in 0 5
+V3 v3 0 3.3
+Ven en 0 3.3
+Vdac dac 0 {ISET*50}
+
+Lcab v5 lasp {LCAB} Rser=0.2
+Cmod lasp drn {CMOD+1f}
+Vlas lasp lasa 0
+Xlas lasa drn opt LASER2
+
+.ac dec 40 10 10meg
+
+.meas ac t_overall find V(fb)/V(inn) when mag(V(fb)/V(inn))=1
+.meas ac t_current find V(sns)/V(sfb) when mag(V(sns)/V(sfb))=1
+
+.end

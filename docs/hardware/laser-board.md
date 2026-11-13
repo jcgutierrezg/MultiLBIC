@@ -282,7 +282,7 @@ ordering; an equivalent is fine where the notes say what matters.
 | Set-point divider | 40.2 kΩ and 10 kΩ, 0.1 %, 0805 | 6 + 6 | ÷5, the DAC's 2.5 V to 0.5 V; its exact ratio is calibrated out |
 | Clamp MOSFET | BSS138, SOT-23 | 6 | across the 10 kΩ, on the shared enable; on below 1.5 V |
 | Set-point capacitor | 10 nF C0G, 0805 | 6 | after the divider: filters the DAC's noise at the amplifier's input |
-| Loop parts | gate 220 Ω, feedback 1 kΩ, 10 nF C0G, gate pull-down 100 kΩ | 6 each | stability with the MOSFET's capacitance |
+| Loop parts | gate 3.9 kΩ, feedback 10 kΩ, 1 nF C0G, gate pull-down 100 kΩ | 6 each | stability: the op-amp's output is about 6 kΩ at 100 kHz, so it drives the gate and its feedback lightly ([simulated](laser-board/spice/README.md)) |
 | Module capacitor | 100 nF, 0805 | 6 footprints | **not fitted** unless a scope on the prototype asks for it |
 | Reverse diode | BAT54, SOT-23 | 6 | across each module |
 | Drain divider | 1 MΩ + 1 MΩ, 0.1 %, 0805 | 12 | see the note below the tables |

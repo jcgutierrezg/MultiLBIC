@@ -55,6 +55,9 @@ wrong pads is the classic mistake.
   the 5 V after the polyfuse (0.3 A hold), so a shorted lamp cable
   trips it and cannot pull down the SKR's 5 V. A 5 V indicator takes
   20 mA. For a fan on aux, F1 becomes the 0.5 A one (MF-MSMF050-2).
+- **The loop parts are 3.9 kΩ, 10 kΩ and 1 nF** (Rn03, Rn06, Cn02),
+  not the draft's 220 Ω, 1 kΩ and 10 nF: simulated, the draft's
+  oscillated ([below](#simulated-first)).
 - **DAC decoupling** as its datasheet asks: 10 µF and 100 nF at VDD,
   100 nF at VLOGIC. C10 (100 nF on VREFOUT) is a footprint: the
   datasheet gives no value for it, so it is confirmed there before it
@@ -104,12 +107,12 @@ channel 6's.
 | Rn02 | 10 kΩ 0.1 % | `SETn` and GND |
 | Cn01 | 10 nF C0G | `SETn` and GND |
 | Qn01 | BSS138 | drain `SETn`, source GND, gate `LASER_OFF` |
-| Rn03 | 220 Ω | op-amp output and Qn02's gate |
+| Rn03 | 3.9 kΩ | op-amp output and Qn02's gate |
 | Rn04 | 100 kΩ | Qn02's gate and GND |
 | Qn02 | PMV30UN2 (or AO3400A) | drain `DRNn`, source `SNSn` |
 | Rn05 | 10 Ω 0.1 % 25 ppm/K | `SNSn` and GND |
-| Rn06 | 1 kΩ | `SNSn` and op-amp − |
-| Cn02 | 10 nF C0G | op-amp output and op-amp − |
+| Rn06 | 10 kΩ | `SNSn` and op-amp − |
+| Cn02 | 1 nF C0G | op-amp output and op-amp − |
 | Rn07 | 10 kΩ | `SNSn` and `ADC_In` |
 | Cn03 | 100 nF | `ADC_In` and GND |
 | Rn08, Rn09 | 1 MΩ 0.1 % | `DRNn` to `ADC_Vn`, `ADC_Vn` to GND |
@@ -260,6 +263,27 @@ GND.
 - Test points reachable with the DevKit plugged in; TP3 and TP4 as
   wire loops for a scope's ground clip.
 - Every part on the top side, 0805 and larger, for hand soldering.
+
+## Simulated first
+
+[SPICE runs](laser-board/spice/README.md) in LTspice (2026-11-13): one
+channel and the enable circuit, with the six lasers fitted to their
+measured sweeps and the other parts approximated. What they found:
+
+- **With the draft's loop parts (220 Ω, 1 kΩ, 10 nF) a channel
+  oscillated when its module had no capacitance of its own**, and was
+  marginal otherwise: the MCP6V34's output impedance (about 6 kΩ where
+  it matters) cannot drive the sink's gate through 220 Ω, nor 1 kΩ and
+  10 nF of feedback. Changed 2026-11-13 to Rn03 3.9 kΩ, Rn06 10 kΩ,
+  Cn02 1 nF: 62° or more of phase margin on both loops whatever the
+  module's capacitance, with no overshoot on the ramp, a step or the
+  enable.
+- After a cable reconnects or the 5 V rail dips and returns, a laser
+  takes up to 75 mA (laser 1) or 60 mA (laser 2) for 0.1 to 0.2 ms.
+  Open: whether that matters to the diodes, and a series resistor per
+  channel if it does.
+- The enable through Q1 holds every laser off with the Pi unpowered;
+  the draft's direct drive did not.
 
 ## Before ordering the board
 
