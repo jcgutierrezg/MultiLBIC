@@ -139,6 +139,23 @@ What to watch:
   also end laser 2's starved supply. The power before and after each
   map stays: equal on paper isn't equal through warm-up and ageing.
 
+- **A buzzer for "run finished" and errors** (decided 2026-11-13): a
+  12 V active buzzer (its own oscillator; a PUI AI-3135-TF-LW100-R,
+  15 mA, in the laser board's
+  [BoM](hardware/laser-board.md#off-the-board)) on the SKR's
+  FAN0 socket, sounded with `M106 S255` and `M107`, the beeps timed by
+  the software. No reflash and nothing on the laser board. To check
+  first: `M106 S255` puts 12 V on FAN0 with `EXTRUDERS 0` (a
+  multimeter). `M42` is not an option as built (`DIRECT_PIN_CONTROL`
+  is off), nor `M300` (no beeper pin without a display). It cannot
+  sound for an error where the SKR itself is gone; the screen shows
+  those.
+- **Exhaust fans for the box** (decided 2026-11-13): a few small 12 V
+  fans to take the hot air out, always on, wired to the 12 V input and
+  on no SKR output, which leaves FAN0 to the buzzer. To mind when they
+  are fitted: their openings must not let room light reach the cell (a
+  baffle), and a map with them unplugged against one with them running
+  shows whether their vibration or noise reaches a reading.
 - **Tiling** samples larger than AB's range with XY.
 - **The viewer's exports**: figures and gridded maps as CSV or TIFF.
 - **Laser health**: each run's power readings logged run after run.

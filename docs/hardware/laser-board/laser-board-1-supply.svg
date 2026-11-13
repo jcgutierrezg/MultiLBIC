@@ -1,0 +1,301 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="860" viewBox="0 0 1240 860">
+<rect x="0" y="0" width="1240" height="860" fill="#ffffff"/>
+<rect x="8" y="8" width="1224" height="844" fill="none" stroke="#111111" stroke-width="1"/>
+<text x="24" y="36" font-family="Arial, Helvetica, sans-serif" font-size="18" text-anchor="start" fill="#111111" font-weight="bold">Laser board, sheet 1 of 4: supply, enable and lid</text>
+<text x="24" y="56" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#555555">Draft for drawing in Fusion. Blue names are nets: the same name on any sheet is the same net.</text>
+<rect x="60" y="130" width="90" height="120" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="150,150 170,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="159" y="146" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">1</text>
+<text x="144" y="154" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">+5 V</text>
+<polyline points="150,190 170,190" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="159" y="186" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">2</text>
+<text x="144" y="194" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">unused</text>
+<polyline points="150,230 170,230" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="159" y="226" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">3</text>
+<text x="144" y="234" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">GND</text>
+<text x="60" y="110" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">J10</text>
+<text x="60" y="124" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">5 V in, from the SKR (3-pin)</text>
+<polyline points="166,186 174,194" fill="none" stroke="#111111" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="166,194 174,186" fill="none" stroke="#111111" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="170,230 190,230 190,240" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="180,240 200,240" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="184,244 196,244" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="188,248 192,248" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="170,150 230,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="200" y="142" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="11" text-anchor="middle" fill="#0b5cad">+5V_IN</text>
+<polyline points="230,150 240,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="240" y="143" width="40" height="14" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="240,150 280,150" fill="none" stroke="#111111" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="280,150 290,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="260" y="138" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">F1</text>
+<text x="260" y="171" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">polyfuse 0.3 A</text>
+<polyline points="290,150 860,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="400,150 400,138" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="391,138 409,138" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="400" y="133" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="middle" fill="#0b5cad" font-weight="bold">+5V_L</text>
+<circle cx="400" cy="150" r="3.2" fill="#111111"/>
+<circle cx="340" cy="150" r="3.2" fill="#111111"/>
+<circle cx="460" cy="150" r="3.2" fill="#111111"/>
+<circle cx="600" cy="150" r="3.2" fill="#111111"/>
+<circle cx="800" cy="150" r="3.2" fill="#111111"/>
+<circle cx="840" cy="150" r="3.2" fill="#111111"/>
+<polyline points="340,150 340,176" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="328,176 352,176" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="328,184 352,184" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="340,184 340,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="324" y="172" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111">+</text>
+<text x="357" y="178" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">C1</text>
+<text x="357" y="192" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">330µ 10 V</text>
+<polyline points="330,210 350,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="334,214 346,214" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="338,218 342,218" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="460,150 460,176" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="448,176 472,176" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="448,184 472,184" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="460,184 460,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="477" y="178" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">C2</text>
+<text x="477" y="192" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">10µ</text>
+<polyline points="450,210 470,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="454,214 466,214" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="458,218 462,218" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="530" cy="150" r="4.5" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<text x="530" y="141" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="middle" fill="#555555">TP1</text>
+<polyline points="600,150 600,160" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="593" y="160" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="600,200 600,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="588" y="177" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="end" fill="#111111" font-weight="bold">R1</text>
+<text x="588" y="191" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">1M 0.1%</text>
+<circle cx="600" cy="210" r="3.2" fill="#111111"/>
+<polyline points="600,210 600,220" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="593" y="220" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="600,260 600,270" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="588" y="237" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="end" fill="#111111" font-weight="bold">R2</text>
+<text x="588" y="251" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">1M 0.1%</text>
+<polyline points="590,270 610,270" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="594,274 606,274" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="598,278 602,278" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="600,210 700,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="650" cy="210" r="3.2" fill="#111111"/>
+<polyline points="650,210 650,236" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="638,236 662,236" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="638,244 662,244" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="650,244 650,270" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="667" y="238" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">C6</text>
+<text x="667" y="252" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">100n</text>
+<polyline points="640,270 660,270" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="644,274 656,274" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="648,278 652,278" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="700,210 708,210" fill="none" stroke="#0b5cad" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="712" y="214" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="start" fill="#0b5cad" font-weight="bold">ADC_RAIL</text>
+<text x="712" y="230" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="start" fill="#555555">GPIO17</text>
+<polyline points="800,150 800,176" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="788,176 812,176" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="788,184 812,184" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="800,184 800,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="783" y="178" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="end" fill="#111111" font-weight="bold">C3</text>
+<text x="783" y="192" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">1µ</text>
+<polyline points="790,210 810,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="794,214 806,214" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="798,218 802,218" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="880" y="132" width="120" height="60" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<text x="880" y="112" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111" font-weight="bold">U1</text>
+<text x="880" y="126" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">LP5907MFX-3.3 (SOT-23-5)</text>
+<polyline points="860,150 880,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="876" y="146" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">1</text>
+<text x="886" y="154" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">IN</text>
+<polyline points="860,174 880,174" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="876" y="170" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">3</text>
+<text x="886" y="178" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">EN</text>
+<polyline points="1000,150 1020,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1004" y="146" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">5</text>
+<text x="994" y="154" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">OUT</text>
+<polyline points="1000,174 1020,174" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1004" y="170" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">4</text>
+<text x="994" y="178" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">NC</text>
+<polyline points="1016,170 1024,178" fill="none" stroke="#111111" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1016,178 1024,170" fill="none" stroke="#111111" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="860,174 840,174 840,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="940,192 940,215" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="944" y="207" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">2</text>
+<text x="940" y="187" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">GND</text>
+<polyline points="930,215 950,215" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="934,219 946,219" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="938,223 942,223" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1020,150 1180,150" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="1060" cy="150" r="3.2" fill="#111111"/>
+<circle cx="1120" cy="150" r="3.2" fill="#111111"/>
+<polyline points="1060,150 1060,176" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1048,176 1072,176" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1048,184 1072,184" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1060,184 1060,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1077" y="178" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">C4</text>
+<text x="1077" y="192" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">1µ</text>
+<polyline points="1050,210 1070,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1054,214 1066,214" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1058,218 1062,218" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1120,150 1120,176" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1108,176 1132,176" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1108,184 1132,184" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1120,184 1120,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1137" y="178" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">C5</text>
+<text x="1137" y="192" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">10µ</text>
+<polyline points="1110,210 1130,210" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1114,214 1126,214" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1118,218 1122,218" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1090,150 1090,138" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1081,138 1099,138" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1090" y="133" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="middle" fill="#0b5cad" font-weight="bold">+3V3_A</text>
+<circle cx="1090" cy="150" r="3.2" fill="#111111"/>
+<circle cx="1180" cy="150" r="4.5" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<text x="1180" y="141" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="middle" fill="#555555">TP2</text>
+<text x="60" y="330" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111" font-weight="bold">Enable (one line for all six channels) and lid interlock</text>
+<polyline points="420,380 420,368" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="411,368 429,368" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="420" y="363" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="middle" fill="#0b5cad" font-weight="bold">+3V3_A</text>
+<polyline points="420,380 420,390" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="413" y="390" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="420,430 420,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="432" y="407" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">R7</text>
+<text x="432" y="421" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">10k</text>
+<circle cx="420" cy="440" r="3.2" fill="#111111"/>
+<polyline points="420,440 540,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="480" cy="440" r="4.5" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<text x="480" y="431" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="middle" fill="#555555">TP5</text>
+<polyline points="540,440 548,440" fill="none" stroke="#0b5cad" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="552" y="444" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="start" fill="#0b5cad" font-weight="bold">LASER_OFF</text>
+<text x="552" y="460" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="start" fill="#555555">high = every set point clamped to zero</text>
+<text x="552" y="474" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="start" fill="#555555">to the gates of Q101 ... Q601</text>
+<polyline points="420,440 420,460" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="380,490 402,490" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="402,477 402,503" fill="none" stroke="#111111" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="408,474 408,506" fill="none" stroke="#111111" stroke-width="2.0" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="408,480 420,480 420,460" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="408,500 420,500 420,520" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="419,500 412,496 412,504" fill="#111111"/>
+<text x="386" y="486" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">1</text>
+<text x="424" y="470" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">3</text>
+<text x="424" y="518" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">2</text>
+<text x="394" y="504" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">G</text>
+<text x="410" y="470" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">D</text>
+<text x="410" y="518" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">S</text>
+<text x="434" y="488" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">Q1</text>
+<text x="434" y="502" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">BSS138</text>
+<polyline points="380,490 330,490" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="340" cy="490" r="3.2" fill="#111111"/>
+<polyline points="340,490 340,500" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="333" y="500" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="340,540 340,550" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="352" y="517" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">R9</text>
+<text x="352" y="531" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">100k</text>
+<polyline points="330,550 350,550" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="334,554 346,554" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="338,558 342,558" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="270,490 280,490" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="280" y="483" width="40" height="14" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="320,490 330,490" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="300" y="478" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">R8</text>
+<text x="300" y="511" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">1k</text>
+<polyline points="270,490 262,490" fill="none" stroke="#0b5cad" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="258" y="494" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="end" fill="#0b5cad" font-weight="bold">EN</text>
+<text x="258" y="510" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="end" fill="#555555">GPIO21</text>
+<text x="258" y="524" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="end" fill="#555555">high = lasers enabled</text>
+<polyline points="420,520 420,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="420" cy="620" r="3.2" fill="#111111"/>
+<polyline points="300,620 640,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="470" y="612" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="11" text-anchor="middle" fill="#0b5cad">LID</text>
+<polyline points="540,560 540,548" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="531,548 549,548" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="540" y="543" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="middle" fill="#0b5cad" font-weight="bold">+3V3_A</text>
+<polyline points="540,560 540,570" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="533" y="570" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="540,610 540,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="552" y="587" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">R12</text>
+<text x="552" y="601" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">100k</text>
+<circle cx="540" cy="620" r="3.2" fill="#111111"/>
+<polyline points="240,620 250,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="250" y="613" width="40" height="14" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="290,620 300,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="270" y="608" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="middle" fill="#111111" font-weight="bold">R13</text>
+<text x="270" y="641" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="middle" fill="#111111">1k</text>
+<polyline points="240,620 232,620" fill="none" stroke="#0b5cad" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="228" y="624" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="end" fill="#0b5cad" font-weight="bold">LID_SNS</text>
+<text x="228" y="640" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="end" fill="#555555">GPIO39</text>
+<text x="228" y="654" font-family="Arial, Helvetica, sans-serif" font-size="10" text-anchor="end" fill="#555555">low = lid shut</text>
+<rect x="660" y="600" width="110" height="80" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="640,620 660,620" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="652" y="616" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">1</text>
+<text x="666" y="624" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">LID</text>
+<polyline points="640,660 660,660" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="652" y="656" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">2</text>
+<text x="666" y="664" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">GND</text>
+<text x="660" y="580" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">J11</text>
+<text x="660" y="594" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">lid switch, closed = lid shut</text>
+<polyline points="640,660 620,660 620,670" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="610,670 630,670" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="614,674 626,674" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="618,678 622,678" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="600" cy="620" r="3.2" fill="#111111"/>
+<polyline points="600,620 600,770 640,770" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="660" y="750" width="110" height="80" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="640,770 660,770" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="652" y="766" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">1</text>
+<text x="666" y="774" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">LID</text>
+<polyline points="640,810 660,810" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="652" y="806" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="middle" fill="#555555">2</text>
+<text x="666" y="814" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">GND</text>
+<text x="660" y="730" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">JP1</text>
+<text x="660" y="744" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#111111">bypass: 2-pin header, jumper = no interlock</text>
+<polyline points="640,810 620,810 620,818" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="610,818 630,818" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="614,822 626,822" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="618,826 622,826" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="880" y="330" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111" font-weight="bold">Spare amplifiers, tied off</text>
+<polyline points="900,380 900,368" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="891,368 909,368" fill="none" stroke="#111111" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="900" y="363" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="12" text-anchor="middle" fill="#0b5cad" font-weight="bold">+3V3_A</text>
+<polyline points="900,380 900,390" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="893" y="390" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="900,430 900,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="888" y="407" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="end" fill="#111111" font-weight="bold">R10</text>
+<text x="888" y="421" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">100k</text>
+<circle cx="900" cy="440" r="3.2" fill="#111111"/>
+<polyline points="900,440 900,450" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<rect x="893" y="450" width="14" height="40" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="900,490 900,500" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="888" y="467" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="end" fill="#111111" font-weight="bold">R11</text>
+<text x="888" y="481" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="end" fill="#111111">100k</text>
+<polyline points="890,500 910,500" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="894,504 906,504" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="898,508 902,508" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="900,440 950,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="950" cy="440" r="3.2" fill="#111111"/>
+<text x="925" y="432" font-family="Consolas, 'DejaVu Sans Mono', monospace" font-size="11" text-anchor="middle" fill="#0b5cad">VMID</text>
+<polygon points="1010,382 1010,458 1070,420" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="1000,400 1010,400" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1000,440 1010,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1070,420 1080,420" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1015" y="405" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111">+</text>
+<text x="1015" y="445" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111">−</text>
+<text x="1007" y="396" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">12</text>
+<text x="1007" y="436" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">13</text>
+<text x="1073" y="415" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">14</text>
+<text x="1044" y="388" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">U2D</text>
+<polyline points="950,440 950,400 1000,400" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1080,420 1100,420 1100,476 980,476 980,440 1000,440" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polygon points="1010,542 1010,618 1070,580" fill="#ffffff" stroke="#111111" stroke-width="1.6"/>
+<polyline points="1000,560 1010,560" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1000,600 1010,600" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1070,580 1080,580" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1015" y="565" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111">+</text>
+<text x="1015" y="605" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="start" fill="#111111">−</text>
+<text x="1007" y="556" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">12</text>
+<text x="1007" y="596" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="end" fill="#555555">13</text>
+<text x="1073" y="575" font-family="Arial, Helvetica, sans-serif" font-size="9" text-anchor="start" fill="#555555">14</text>
+<text x="1044" y="548" font-family="Arial, Helvetica, sans-serif" font-size="12" text-anchor="start" fill="#111111" font-weight="bold">U3D</text>
+<polyline points="950,440 950,560 1000,560" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<polyline points="1080,580 1100,580 1100,636 980,636 980,600 1000,600" fill="none" stroke="#111111" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="60" y="740" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#555555">TP3, TP4: ground loops for a scope or meter clip.</text>
+<text x="60" y="756" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#555555">R8 + Q1: the ESP32 can only pull LASER_OFF low through Q1 and the</text>
+<text x="60" y="772" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#555555">closed lid switch. Unpowered or in reset, Q1 is off and R7 holds</text>
+<text x="60" y="788" font-family="Arial, Helvetica, sans-serif" font-size="11" text-anchor="start" fill="#555555">every laser off.</text>
+</svg>

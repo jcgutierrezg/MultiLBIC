@@ -213,12 +213,14 @@ thermal protection. Notes for when it is designed:
 | **A thermocouple** near the lasers, through an MCP9600 module on the DAC's I²C bus | lasers 1 and 2 drift; the run file can carry the temperature |
 | **The enable on a PWM-capable pin** | chopping the lit laser to separate slow drift (D8) stays possible later, with no hardware change |
 | **A spare line to the SKR** | the hardware row marker (D33, dropped) or a trigger, should either come back |
-| **A switched auxiliary output** (12 or 5 V) | a box light or fan, off during maps |
+| **A switched auxiliary output** (5 V) | a box light or fan, off during maps |
 | **Test points** on every sense resistor, drain and the rail | bring-up and repairs with a multimeter |
-| **Keyed, labelled connectors** | a module can't go on backwards |
+| **Keyed, labelled connectors**, 3-pin where 5 V is on them | a module can't go on backwards, nor take 5 V from the lamp or aux socket |
 | **`ID?` with the board's revision and serial** | the driver knows which board it has |
 
 Left out on purpose: the temperature stage (the SKR's, above),
+a buzzer for "run finished" and errors (a 12 V one on the SKR's fan
+output, [plan](../plan.md#later)),
 spare channels, a display (the Pi has one),
 on-board storage of the set points (`machine.toml` is the one place
 they live), and WiFi or Bluetooth: USB to the Pi is the only link.
@@ -251,7 +253,7 @@ JTAG pins, plain GPIO while JTAG goes over USB, the default).
 | GPIO10, 11, 12, 13, 14, 15 | drain, lasers 1-6 | ADC1 and ADC2; ÷2 |
 | GPIO17 | the 5 V rail | ADC2; ÷2 |
 | GPIO8, 9 | I²C: the DAC and the MCP9600 (SDA, SCL) | the Arduino defaults on the S3; each part on its own address |
-| GPIO21 | the shared enable | PWM-capable; pulled to "off" |
+| GPIO21 | the shared enable, high = enabled | PWM-capable; through a MOSFET, so "off" with the ESP32 unpowered or in reset |
 | GPIO39 | lid interlock in | also cuts the enable in hardware |
 | GPIO40 | "laser on" lamp out | through a transistor |
 | GPIO42 | auxiliary output | through a MOSFET |
@@ -262,6 +264,9 @@ JTAG pins, plain GPIO while JTAG goes over USB, the default).
 1-10 kΩ (back-feeding, above).
 
 ## Bill of materials (draft)
+
+The [schematic](laser-board-schematic.md) gives the nets, designators
+and pin numbers, and a layout guide; this list follows it.
 
 Hand-solderable parts (SOIC, TSSOP, SOT-23, 0805), each stocked at RS
 or Farnell and also at LCSC, so the board can be assembled by hand or
@@ -276,11 +281,12 @@ ordering; an equivalent is fine where the notes say what matters.
 | Sense resistor | 10 Ω, 0.1 %, 25 ppm/K, 0805 thin film (Vishay TNPW0805) | 6 | sets the current: 0.5 V at 50 mA |
 | Set-point divider | 40.2 kΩ and 10 kΩ, 0.1 %, 0805 | 6 + 6 | ÷5, the DAC's 2.5 V to 0.5 V; its exact ratio is calibrated out |
 | Clamp MOSFET | BSS138, SOT-23 | 6 | across the 10 kΩ, on the shared enable; on below 1.5 V |
+| Set-point capacitor | 10 nF C0G, 0805 | 6 | after the divider: filters the DAC's noise at the amplifier's input |
 | Loop parts | gate 220 Ω, feedback 1 kΩ, 10 nF C0G, gate pull-down 100 kΩ | 6 each | stability with the MOSFET's capacitance |
 | Module capacitor | 100 nF, 0805 | 6 footprints | **not fitted** unless a scope on the prototype asks for it |
 | Reverse diode | BAT54, SOT-23 | 6 | across each module |
 | Drain divider | 1 MΩ + 1 MΩ, 0.1 %, 0805 | 12 | see the note below the tables |
-| Readback filter | 10 kΩ series, 100 nF at the ADC pin | 12 + 12 | current and drain readbacks |
+| Readback filter | 10 kΩ in series on the current readback; 100 nF at each ADC pin | 6 + 12 | the drain readback's 1 MΩ is its series resistor |
 | Laser connector | JST B2B-XH-A (2-pin) + XHP-2 housing + SXH-001T-P0.6 crimps | 6 | keyed |
 
 ### Shared
@@ -289,17 +295,17 @@ ordering; an equivalent is fine where the notes say what matters.
 |---|---|---|---|
 | Microcontroller | Espressif ESP32-S3-DevKitC-1-N8R8, on 2 × 22-pin female headers | 1 | native USB to the Pi; its 5 V and 3V3 pins left unconnected |
 | DAC | Analog Devices AD5675RBRUZ, TSSOP-20 | 1 | 8 × 16 bit, I²C, 2.5 V internal reference, powers up at zero; two outputs spare |
-| Op-amps | Microchip MCP6V34-E/SL, SOIC-14 | 2 | quad, zero drift, rail to rail, 3.3 V; the two spare amplifiers tied off |
+| Op-amps | Microchip MCP6V34-E/SL, SOIC-14 | 2 | quad, zero drift, rail to rail, 3.3 V; the two spare amplifiers tied off as followers at half the supply (2 × 100 kΩ) |
 | Analog 3.3 V | TI LP5907MFX-3.3, SOT-23-5, with 1 µF in and out | 1 | low noise, from the SKR's 5 V |
 | Supply input | Bourns MF-MSMF030-2 polyfuse (0.3 A hold, 1812); 330 µF 10 V low-ESR electrolytic; 10 µF ceramic | 1 each | the SKR's 5 V in |
-| Rail readback | 1 MΩ + 1 MΩ, 0.1 %; 10 kΩ; 100 nF | 1 set | |
-| Decoupling | 100 nF per IC, 10 µF on the 3.3 V | ~6 | |
+| Rail readback | 1 MΩ + 1 MΩ, 0.1 %; 100 nF | 1 set | |
+| Decoupling | 100 nF per IC, 10 µF on the 3.3 V and at the DAC | ~8 | |
 | I²C | 4.7 kΩ pull-ups to the analog 3.3 V, 330 Ω in series from the ESP32 | 2 + 2 | small series resistors, so the low level stays low |
-| Enable | 10 kΩ pull-up to the analog 3.3 V ("off"), 1 kΩ from GPIO21 through the lid switch | 1 set | |
+| Enable | 10 kΩ pull-up to the analog 3.3 V ("off"); a BSS138 pulls it low through the lid switch, its gate from GPIO21 through 1 kΩ, with 100 kΩ to ground; 100 kΩ pull-up on the lid line | 1 set | the ESP32 unpowered cannot hold the line half-way ([schematic](laser-board-schematic.md)) |
 | Other ESP32 lines | 1 kΩ in series (lid, lamp, aux, SKR line) | 4 | no back-feeding with the SKR off |
-| Lamp and aux outputs | AO3400A low side, 100 kΩ gate pull-down, SS14 flyback footprint | 2 | switch the board's 5 V, about 0.5 A each |
+| Lamp and aux outputs | AO3400A low side, 100 kΩ gate pull-down, SS14 flyback footprint | 2 | switch the board's 5 V after the polyfuse, about 0.2 A together |
 | Temperature | Adafruit MCP9600 breakout (4101) or Pimoroni PIM437, on a female header; type K thermocouple | 1 | I²C at 0x67; the DAC at 0x0C-0x0F |
-| Connectors | JST B2B-XH-A 2-pin: 5 V in, lid, lamp, aux, SKR line; housings and crimps | 5 | |
+| Connectors | JST B3B-XH-A 3-pin, the middle pin unused: 5 V in, lamp, aux. JST B2B-XH-A 2-pin: lid, SKR line. Housings and crimps | 3 + 2 | a laser's 2-pin plug in a 5 V socket meets one live pin at most |
 | Test points | loops or pads on each sense resistor, drain, the rail, the 3.3 V, GND | ~16 | |
 | PCB | 2 layers, 1.6 mm, ground pour, about 100 × 80 mm | 1 | |
 
@@ -311,6 +317,7 @@ ordering; an equivalent is fine where the notes say what matters.
 | Lid switch: a microswitch (Omron SS-5 class) or a reed and magnet | 1 | closed with the lid shut |
 | Laser-on lamp, 5 V | 1 | outside the box |
 | 100 Ω dummy load, 0.1 % | 1 | calibration and bring-up |
+| Buzzer, 12 V: PUI Audio AI-3135-TF-LW100-R, with a JST XHP-2 housing and crimps | 1 | not this board's: on the SKR's FAN0 socket, for "run finished" and errors ([plan](../plan.md#later)). A piezo with its own drive circuit, 3-20 V, 15 mA at most, flange mount, on leads. Polarised: its + lead to the socket's + (colours from its datasheet). Loud (105 dB as rated); tape over its opening quietens it |
 
 ### Notes
 
@@ -327,7 +334,8 @@ ordering; an equivalent is fine where the notes say what matters.
   The dev board's RGB LED stays off, as the firmware never drives it.
 - **The aux output switches 5 V only**: the board has no 12 V. A 12 V
   fan or light would take its own supply, switched by the aux output's
-  MOSFET.
+  MOSFET. Lamp and aux share the polyfuse with the lasers, so about
+  0.2 A between them; a 5 V fan wants the 0.5 A polyfuse.
 
 ## Firmware and software
 

@@ -3,6 +3,33 @@
 Newest first. Versions follow MAJOR.SESSION.PUSH, as in SMUniversal.
 From Phase 4 on, the middle number is the phase.
 
+## 0.7.27 - The laser board's schematic, as a draft
+
+- hardware/laser-board-schematic.md: the laser board drawn as four
+  sheets (supply, enable and lid; a channel; the DAC and its bus; the
+  ESP32 and outputs), to redraw in Fusion, with every net, designator
+  and pin number and a layout guide. The sheets are SVG, drawn by
+  `hardware/laser-board/sheets.py`. The DAC's pins checked against its
+  datasheet, the DevKit's against Espressif's guide.
+- Drawing it changed the bill of materials. The enable goes through a
+  MOSFET: driven directly, an unpowered ESP32 held the line near 1 V,
+  where the clamps are not surely on, so a laser lit when the Pi lost
+  power could stay lit. GPIO21 is now high for "enabled". The lid
+  switch sits between that MOSFET and ground and the ESP32 reads the
+  same line.
+- Also: 10 nF at each set point; no 10 kΩ in the drain and rail
+  readbacks; the spare amplifiers tied off at half the supply; the
+  DAC's decoupling; lamp and aux about 0.2 A together, behind the
+  polyfuse, not 0.5 A each.
+- The 5 V input, lamp and aux sockets are 3-pin with the middle pin
+  unused, so a laser's 2-pin plug in one meets a single live pin at
+  most.
+- Noted: the DAC's zero leaves up to 30 µA in each unlit laser while
+  another is lit.
+- plan.md: a 12 V buzzer on the SKR's FAN0 socket for "run finished"
+  and errors (`M106`/`M107`; in the laser board's BoM), and exhaust
+  fans for the box, always on, from the 12 V input.
+
 ## 0.7.26 - Six channels, their current and voltage read back
 
 - hardware/laser-board.md: six channels, not eight (no use for spares).
